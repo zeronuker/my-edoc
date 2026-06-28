@@ -7,7 +7,10 @@ import { resolve } from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   resolve: {
-    alias: { '@brand/BrandBanner': resolve(__dirname, 'brand-kit/component/BrandBanner.jsx') },
+    alias: {
+      '@brand/BrandBanner': resolve(__dirname, 'brand-kit/component/BrandBanner.jsx'),
+      '@brand/SplashScreen': resolve(__dirname, 'brand-kit/component/SplashScreen.jsx'),
+    },
   },
   plugins: [
     react(),

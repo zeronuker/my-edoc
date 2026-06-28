@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   pickFolder,
   scanDirectory,
@@ -13,9 +13,12 @@ import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer
 import Toolbar from "./Toolbar.jsx";
 import UpdatePrompt from "./UpdatePrompt.jsx";
 import BrandBanner from "@brand/BrandBanner";
+import SplashScreen from "@brand/SplashScreen";
 import "./App.css";
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const onSplashFinish = useCallback(() => setShowSplash(false), []);
   const [folders, setFolders] = useState([]); // [{ dirHandle, tree }], tree is null while pending permission
   const [selectedHandle, setSelectedHandle] = useState(null);
   const [pdf, setPdf] = useState(null);
@@ -157,6 +160,7 @@ function App() {
 
   return (
     <div className="app">
+      {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt />
       <div className="topbar">
         <button
