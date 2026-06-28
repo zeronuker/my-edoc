@@ -119,7 +119,7 @@ export default function PdfViewer({ pdf, viewMode, onReady }) {
     });
     linkService.setViewer(pdfViewer);
     pdfViewerRef.current = pdfViewer;
-    onReady?.({ pdfViewer, eventBus, findController });
+    onReady?.({ pdfViewer, eventBus, findController, linkService });
     // ponytail: construct exactly once per mount; onReady is only ever
     // called right here, so it deliberately isn't in the dep array.
     // eslint-disable-next-line react-hooks/exhaustive-deps

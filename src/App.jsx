@@ -85,6 +85,7 @@ function App() {
   useEffect(() => {
     if (!viewerApi || !pdf) return;
     viewerApi.pdfViewer.setDocument(pdf);
+    viewerApi.linkService.setDocument(pdf);
     setNumPages(pdf.numPages);
   }, [viewerApi, pdf]);
 
@@ -180,7 +181,7 @@ function App() {
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
-            Add folder…
+            Add folder
           </button>
           {pendingFolders.length > 1 && (
             <button
