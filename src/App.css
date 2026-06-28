@@ -1,0 +1,112 @@
+* {
+  box-sizing: border-box;
+}
+
+body,
+html,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+  font-family: system-ui, sans-serif;
+}
+
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid #ddd;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.page-nav input {
+  width: 50px;
+}
+
+.viewer {
+  flex: 1;
+  overflow: auto;
+  background: #525659;
+  display: flex;
+  justify-content: center;
+}
+
+.viewer-continuous {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.viewer-two-up {
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.viewer-single {
+  align-items: flex-start;
+  padding: 8px 0;
+}
+
+.error-banner {
+  background: #fdecea;
+  color: #611a15;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f5c6cb;
+}
+
+.viewer-empty {
+  margin: auto;
+  color: #fff;
+}
+
+.page-canvas {
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+  background: white;
+}
+
+.tree-folder-label {
+  cursor: pointer;
+  user-select: none;
+}
+
+.tree-children {
+  padding-left: 14px;
+}
+
+.tree-file {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.tree-file:hover {
+  background: #eee;
+}
+
+.tree-file.selected {
+  background: #cfe3ff;
+}

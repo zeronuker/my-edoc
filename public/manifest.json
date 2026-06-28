@@ -1,0 +1,15 @@
+{
+  "name": "edoc",
+  "short_name": "edoc",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#525659",
+  "theme_color": "#525659",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
