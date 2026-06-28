@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { pickFolder, scanDirectory } from "./fileSystem.js";
+import {
+  pickFolder,
+  scanDirectory,
+  supportsDirectoryPicker,
+  pickFolderLegacy,
+  buildTreeFromFileList,
+} from "./fileSystem.js";
 import { loadDocument } from "./edoc.js";
 import { dbGet, dbSet } from "./db.js";
 import TreeView from "./TreeView.jsx";
@@ -84,12 +90,26 @@ function App() {
   }, [viewerApi, viewMode]);
 
   function persistFolders(next) {
-    dbSet("rootDirHandles", next.map((f) => f.dirHandle));
+    // Legacy (Safari/iOS) handles carry functions IndexedDB can't
+    // structured-clone — only real FileSystemHandle objects persist.
+    const persistable = next.filter((f) => !f.dirHandle.__legacy);
+    dbSet("rootDirHandles", persistable.map((f) => f.dirHandle));
   }
 
   async function handleAddFolder() {
-    const dirHandle = await pickFolder();
-    const tree = await scanDirectory(dirHandle);
+    let dirHandle, tree;
+    if (supportsDirectoryPicker()) {
+      dirHandle = await pickFolder();
+      tree = await scanDirectory(dirHandle);
+    } else {
+      const fileList = await pickFolderLegacy();
+      tree = buildTreeFromFileList(fileList);
+      if (!tree) {
+        setError("No PDF files found in that folder.");
+        return;
+      }
+      dirHandle = tree.handle;
+    }
     setFolders((prev) => {
       const next = [...prev, { dirHandle, tree }];
       persistFolders(next);
@@ -122,7 +142,7 @@ function App() {
       );
       const doc = await Promise.race([loadDocument(file), timeout]);
       setPdf(doc);
-      await dbSet("lastFileHandle", fileHandle);
+      if (!fileHandle.__legacy) await dbSet("lastFileHandle", fileHandle);
     } catch (err) {
       console.error(err);
       setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
