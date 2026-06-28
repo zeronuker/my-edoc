@@ -8,9 +8,7 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>,
 )
 
-// Only register in production: in dev the service worker's cache-first
-// strategy serves stale modules over Vite's HMR updates, masking every
-// code change behind a manual unregister.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'))
-}
+// Service worker registration + update detection now lives in
+// UpdatePrompt.jsx via vite-plugin-pwa's useRegisterSW hook, which is
+// dev-mode-aware out of the box (no stale-cache-over-HMR issue to guard
+// against by hand like the old sw.js needed).

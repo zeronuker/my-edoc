@@ -11,6 +11,7 @@ import { dbGet, dbSet } from "./db.js";
 import TreeView from "./TreeView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
+import UpdatePrompt from "./UpdatePrompt.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import "./App.css";
 
@@ -156,6 +157,7 @@ function App() {
 
   return (
     <div className="app">
+      <UpdatePrompt />
       <div className="topbar">
         <button
           className="sidebar-toggle"

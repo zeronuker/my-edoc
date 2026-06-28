@@ -277,3 +277,75 @@ html,
 .tree-file.selected .tree-icon {
   color: var(--cb-mint);
 }
+
+.update-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 9998;
+}
+
+.update-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  width: min(320px, calc(100vw - 48px));
+  background: var(--cb-surface-1);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  padding: 24px 22px 20px;
+  font-family: var(--cb-font-body);
+}
+
+.update-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.update-dialog-icon {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--cb-mint);
+}
+
+.update-dialog-title {
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--cb-mint);
+  margin-bottom: 2px;
+}
+
+.update-dialog-subtitle {
+  font-family: var(--cb-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--cb-ink-dim);
+}
+
+.update-dialog-body {
+  font-size: 13px;
+  color: var(--cb-ink-2);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.update-dialog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.update-dialog-actions .cb-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.update-dialog-now {
+  flex: 2;
+}
