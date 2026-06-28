@@ -1,4 +1,6 @@
-export default function Toolbar({ viewMode, setViewMode, scale, currentPage, numPages, pdfViewer }) {
+import SearchBar from "./SearchBar.jsx";
+
+export default function Toolbar({ viewMode, setViewMode, scale, currentPage, numPages, pdfViewer, eventBus }) {
   return (
     <div className="toolbar">
       <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
@@ -36,6 +38,8 @@ export default function Toolbar({ viewMode, setViewMode, scale, currentPage, num
         <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-width")}>Fit width</button>
         <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-fit")}>Fit page</button>
       </span>
+
+      <SearchBar eventBus={eventBus} />
     </div>
   );
 }

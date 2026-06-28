@@ -27,10 +27,20 @@ function FileIcon() {
   );
 }
 
-function Node({ node, onSelectFile, selectedHandle }) {
+// True if this node's own name matches, or (for a folder) any descendant
+// does. query is already lowercased.
+function nodeMatches(node, query) {
+  if (!query) return true;
+  if (node.name.toLowerCase().includes(query)) return true;
+  if (node.kind === "directory") return node.children.some((c) => nodeMatches(c, query));
+  return false;
+}
+
+function Node({ node, onSelectFile, selectedHandle, query, actions }) {
   const [open, setOpen] = useState(false);
 
   if (node.kind === "file") {
+    if (!nodeMatches(node, query)) return null;
     const isSelected = node.handle === selectedHandle;
     return (
       <div
@@ -45,21 +55,27 @@ function Node({ node, onSelectFile, selectedHandle }) {
     );
   }
 
+  if (!nodeMatches(node, query)) return null;
+  const isOpen = query ? true : open;
+  const children = query ? node.children.filter((c) => nodeMatches(c, query)) : node.children;
+
   return (
     <div className="tree-folder">
       <div className="tree-folder-label" onClick={() => setOpen(!open)} title={node.name}>
-        <span className="tree-chevron">{open ? "▾" : "▸"}</span>
+        <span className="tree-chevron">{isOpen ? "▾" : "▸"}</span>
         <FolderIcon />
         <span className="tree-label">{node.name}</span>
+        {actions}
       </div>
-      {open && (
+      {isOpen && (
         <div className="tree-children">
-          {node.children.map((child) => (
+          {children.map((child) => (
             <Node
               key={child.name + child.kind}
               node={child}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
+              query={query}
             />
           ))}
         </div>
@@ -68,11 +84,44 @@ function Node({ node, onSelectFile, selectedHandle }) {
   );
 }
 
-export default function TreeView({ root, onSelectFile, selectedHandle }) {
-  if (!root) return null;
+export default function TreeView({ folders, onSelectFile, selectedHandle, onRemoveFolder }) {
+  const [search, setSearch] = useState("");
+  if (!folders.length) return null;
+  const query = search.trim().toLowerCase();
+
   return (
     <div className="tree-view">
-      <Node node={root} onSelectFile={onSelectFile} selectedHandle={selectedHandle} />
+      <input
+        type="text"
+        className="tree-search"
+        placeholder="Search files…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      {folders.map(
+        ({ dirHandle, tree }) =>
+          tree && (
+            <Node
+              key={dirHandle.name}
+              node={tree}
+              onSelectFile={onSelectFile}
+              selectedHandle={selectedHandle}
+              query={query}
+              actions={
+                <button
+                  className="tree-remove"
+                  title={`Remove "${dirHandle.name}"`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFolder(dirHandle);
+                  }}
+                >
+                  ×
+                </button>
+              }
+            />
+          )
+      )}
     </div>
   );
 }

@@ -9,22 +9,21 @@ import BrandBanner from "@brand/BrandBanner";
 import "./App.css";
 
 function App() {
-  const [root, setRoot] = useState(null);
+  const [folders, setFolders] = useState([]); // [{ dirHandle, tree }], tree is null while pending permission
   const [selectedHandle, setSelectedHandle] = useState(null);
   const [pdf, setPdf] = useState(null);
   const [viewMode, setViewMode] = useState("single");
   const [scale, setScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
-  const [pendingDirHandle, setPendingDirHandle] = useState(null);
   const [error, setError] = useState(null);
   const [viewerApi, setViewerApi] = useState(null);
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
 
-  // Restore last session: directory handle needs a user gesture to
-  // re-request permission in most browsers, so we surface a "Reconnect"
-  // button instead of silently failing.
+  // Restore last session: directory handles need a user gesture to
+  // re-request permission in most browsers, so folders without it show
+  // a per-folder "Reconnect" button instead of silently failing.
   useEffect(() => {
     (async () => {
       const savedState = await dbGet("viewState");
@@ -32,13 +31,17 @@ function App() {
         setViewMode(savedState.viewMode);
         setScale(savedState.scale);
       }
-      const dirHandle = await dbGet("rootDirHandle");
-      if (!dirHandle) return;
-      const granted = (await dirHandle.queryPermission({ mode: "read" })) === "granted";
-      if (granted) {
-        openFolder(dirHandle);
-      } else {
-        setPendingDirHandle(dirHandle);
+      const dirHandles = (await dbGet("rootDirHandles")) || [];
+      const loaded = [];
+      for (const dirHandle of dirHandles) {
+        const granted = (await dirHandle.queryPermission({ mode: "read" })) === "granted";
+        loaded.push({ dirHandle, tree: granted ? await scanDirectory(dirHandle) : null });
+      }
+      setFolders(loaded);
+
+      const lastFileHandle = await dbGet("lastFileHandle");
+      if (lastFileHandle && (await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
+        selectFile(lastFileHandle);
       }
     })();
   }, []);
@@ -80,26 +83,33 @@ function App() {
     viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
   }, [viewerApi, viewMode]);
 
-  async function openFolder(dirHandle) {
-    const tree = await scanDirectory(dirHandle);
-    setRoot(tree);
-    setPendingDirHandle(null);
-    await dbSet("rootDirHandle", dirHandle);
-
-    const lastFileHandle = await dbGet("lastFileHandle");
-    if (lastFileHandle && (await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
-      selectFile(lastFileHandle);
-    }
+  function persistFolders(next) {
+    dbSet("rootDirHandles", next.map((f) => f.dirHandle));
   }
 
-  async function handlePickFolder() {
+  async function handleAddFolder() {
     const dirHandle = await pickFolder();
-    openFolder(dirHandle);
+    const tree = await scanDirectory(dirHandle);
+    setFolders((prev) => {
+      const next = [...prev, { dirHandle, tree }];
+      persistFolders(next);
+      return next;
+    });
   }
 
-  async function handleReconnect() {
-    const granted = (await pendingDirHandle.requestPermission({ mode: "read" })) === "granted";
-    if (granted) openFolder(pendingDirHandle);
+  async function handleReconnect(dirHandle) {
+    const granted = (await dirHandle.requestPermission({ mode: "read" })) === "granted";
+    if (!granted) return;
+    const tree = await scanDirectory(dirHandle);
+    setFolders((prev) => prev.map((f) => (f.dirHandle === dirHandle ? { ...f, tree } : f)));
+  }
+
+  function handleRemoveFolder(dirHandle) {
+    setFolders((prev) => {
+      const next = prev.filter((f) => f.dirHandle !== dirHandle);
+      persistFolders(next);
+      return next;
+    });
   }
 
   async function selectFile(fileHandle) {
@@ -120,20 +130,27 @@ function App() {
     }
   }
 
+  const pendingFolders = folders.filter((f) => !f.tree);
+
   return (
     <div className="app">
       <BrandBanner subtitle="DOCUMENT VIEWER" />
       <div className="app-row">
         <aside className="sidebar">
-          <button className="cb-btn cb-btn--primary" onClick={handlePickFolder}>
-            Open folder…
+          <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
+            Add folder…
           </button>
-          {pendingDirHandle && (
-            <button className="cb-btn" onClick={handleReconnect}>
-              Reconnect to last folder
+          {pendingFolders.map(({ dirHandle }) => (
+            <button key={dirHandle.name} className="cb-btn" onClick={() => handleReconnect(dirHandle)}>
+              Reconnect "{dirHandle.name}"
             </button>
-          )}
-          <TreeView root={root} onSelectFile={selectFile} selectedHandle={selectedHandle} />
+          ))}
+          <TreeView
+            folders={folders.filter((f) => f.tree)}
+            onSelectFile={selectFile}
+            selectedHandle={selectedHandle}
+            onRemoveFolder={handleRemoveFolder}
+          />
         </aside>
         <main className="main">
           <Toolbar
@@ -143,6 +160,7 @@ function App() {
             currentPage={currentPage}
             numPages={numPages}
             pdfViewer={viewerApi?.pdfViewer}
+            eventBus={viewerApi?.eventBus}
           />
           {error && <div className="error-banner">{error}</div>}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} />

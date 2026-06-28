@@ -76,6 +76,24 @@ html,
   width: 50px;
 }
 
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.search-bar input {
+  width: 160px;
+  padding: 2px 6px;
+}
+
+.match-count {
+  color: var(--cb-ink-dim);
+  min-width: 36px;
+  text-align: center;
+}
+
 /* pdf.js's PDFViewer requires its `container` element to be absolutely
    positioned (it throws otherwise). .viewer-area is the flex-sized box
    within .main; .pdf-viewer-container fills it exactly via absolute
@@ -115,6 +133,18 @@ html,
 .tree-view {
   font-size: 13px;
   font-family: var(--cb-font-body);
+}
+
+.tree-search {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: inherit;
+  background: var(--cb-surface-2);
+  color: var(--cb-ink);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
 }
 
 .tree-folder-label,
@@ -161,6 +191,21 @@ html,
 .tree-folder-label:hover,
 .tree-file:hover {
   background: var(--cb-surface-3);
+}
+
+.tree-remove {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--cb-ink-dim);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tree-remove:hover {
+  color: var(--cb-mint);
 }
 
 .tree-file.selected {
