@@ -129,6 +129,10 @@ function App() {
     setFolders((prev) => prev.map((f) => (f.dirHandle === dirHandle ? { ...f, tree } : f)));
   }
 
+  async function handleReconnectAll(dirHandles) {
+    for (const dirHandle of dirHandles) await handleReconnect(dirHandle);
+  }
+
   function handleRemoveFolder(dirHandle) {
     setFolders((prev) => {
       const next = prev.filter((f) => f.dirHandle !== dirHandle);
@@ -178,6 +182,14 @@ function App() {
           <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
             Add folder…
           </button>
+          {pendingFolders.length > 1 && (
+            <button
+              className="cb-btn"
+              onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
+            >
+              Reconnect all
+            </button>
+          )}
           {pendingFolders.map(({ dirHandle }) => (
             <button key={dirHandle.name} className="cb-btn" onClick={() => handleReconnect(dirHandle)}>
               Reconnect "{dirHandle.name}"
