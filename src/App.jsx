@@ -183,7 +183,7 @@ function App() {
           <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
             Add folder
           </button>
-          {pendingFolders.length > 1 && (
+          {pendingFolders.length > 0 && (
             <button
               className="cb-btn"
               onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
@@ -191,11 +191,6 @@ function App() {
               Reconnect all
             </button>
           )}
-          {pendingFolders.map(({ dirHandle }) => (
-            <button key={dirHandle.name} className="cb-btn" onClick={() => handleReconnect(dirHandle)}>
-              Reconnect "{dirHandle.name}"
-            </button>
-          ))}
           <TreeView
             folders={folders.filter((f) => f.tree)}
             onSelectFile={selectFile}
