@@ -133,8 +133,22 @@ html,
   border-radius: var(--cb-radius-sm);
 }
 
+.page-nav,
+.zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .page-nav input {
   width: 50px;
+}
+
+@media (max-width: 720px) {
+  .page-nav,
+  .zoom {
+    gap: 10px;
+  }
 }
 
 .search-bar {
