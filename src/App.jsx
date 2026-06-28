@@ -5,6 +5,7 @@ import { dbGet, dbSet } from "./db.js";
 import TreeView from "./TreeView.jsx";
 import Viewer from "./Viewer.jsx";
 import Toolbar from "./Toolbar.jsx";
+import BrandBanner from "@brand/BrandBanner";
 import "./App.css";
 
 function App() {
@@ -86,27 +87,34 @@ function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
-        <button onClick={handlePickFolder}>Open folder…</button>
-        {pendingDirHandle && (
-          <button onClick={handleReconnect}>Reconnect to last folder</button>
-        )}
-        <TreeView root={root} onSelectFile={selectFile} selectedHandle={selectedHandle} />
-      </aside>
-      <main className="main">
-        <Toolbar
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          scale={scale}
-          setScale={setScale}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          numPages={pdf?.numPages}
-          step={viewMode === "two-up" ? 2 : 1}
-        />
-        {error && <div className="error-banner">{error}</div>}
-        <Viewer pdf={pdf} viewMode={viewMode} scale={scale} currentPage={currentPage} />
-      </main>
+      <BrandBanner subtitle="DOCUMENT VIEWER" />
+      <div className="app-row">
+        <aside className="sidebar">
+          <button className="cb-btn cb-btn--primary" onClick={handlePickFolder}>
+            Open folder…
+          </button>
+          {pendingDirHandle && (
+            <button className="cb-btn" onClick={handleReconnect}>
+              Reconnect to last folder
+            </button>
+          )}
+          <TreeView root={root} onSelectFile={selectFile} selectedHandle={selectedHandle} />
+        </aside>
+        <main className="main">
+          <Toolbar
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            scale={scale}
+            setScale={setScale}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            numPages={pdf?.numPages}
+            step={viewMode === "two-up" ? 2 : 1}
+          />
+          {error && <div className="error-banner">{error}</div>}
+          <Viewer pdf={pdf} viewMode={viewMode} scale={scale} currentPage={currentPage} />
+        </main>
+      </div>
     </div>
   );
 }

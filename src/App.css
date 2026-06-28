@@ -7,19 +7,36 @@ html,
 #root {
   margin: 0;
   height: 100%;
+  background: var(--cb-surface-0);
+  color: var(--cb-ink);
 }
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
-  font-family: system-ui, sans-serif;
+  font-family: var(--cb-font-body);
+}
+
+.app-row {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.cb-banner {
+  background: var(--cb-surface-1);
+  border-bottom: 1px solid var(--cb-line);
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .sidebar {
   width: 280px;
   flex-shrink: 0;
   overflow-y: auto;
-  border-right: 1px solid #ddd;
+  background: var(--cb-surface-1);
+  border-right: 1px solid var(--cb-line);
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -38,7 +55,20 @@ html,
   gap: 12px;
   align-items: center;
   padding: 8px;
-  border-bottom: 1px solid #ddd;
+  background: var(--cb-surface-1);
+  border-bottom: 1px solid var(--cb-line);
+  color: var(--cb-ink-2);
+  font-family: var(--cb-font-mono);
+  font-size: 12px;
+}
+
+.toolbar select,
+.toolbar input {
+  font-family: inherit;
+  background: var(--cb-surface-2);
+  color: var(--cb-ink);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
 }
 
 .page-nav input {
@@ -48,7 +78,7 @@ html,
 .viewer {
   flex: 1;
   overflow: auto;
-  background: #525659;
+  background: var(--cb-surface-2);
   display: flex;
   justify-content: center;
 }
@@ -80,7 +110,8 @@ html,
 
 .viewer-empty {
   margin: auto;
-  color: #fff;
+  color: var(--cb-ink-dim);
+  font-family: var(--cb-font-mono);
 }
 
 .page-canvas {
@@ -91,6 +122,7 @@ html,
 .tree-folder-label {
   cursor: pointer;
   user-select: none;
+  color: var(--cb-ink-2);
 }
 
 .tree-children {
@@ -100,13 +132,15 @@ html,
 .tree-file {
   cursor: pointer;
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: var(--cb-radius-sm);
+  color: var(--cb-ink);
 }
 
 .tree-file:hover {
-  background: #eee;
+  background: var(--cb-surface-3);
 }
 
 .tree-file.selected {
-  background: #cfe3ff;
+  background: var(--cb-surface-3);
+  color: var(--cb-mint);
 }
