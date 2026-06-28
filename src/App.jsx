@@ -24,6 +24,7 @@ function App() {
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState(null);
   const [viewerApi, setViewerApi] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
 
@@ -135,6 +136,7 @@ function App() {
   async function selectFile(fileHandle) {
     setSelectedHandle(fileHandle);
     setError(null);
+    setSidebarOpen(false); // no-op on wide screens, closes the drawer on narrow ones
     try {
       const file = await fileHandle.getFile();
       const timeout = new Promise((_, reject) =>
@@ -154,9 +156,19 @@ function App() {
 
   return (
     <div className="app">
-      <BrandBanner subtitle="DOCUMENT VIEWER" />
+      <div className="topbar">
+        <button
+          className="sidebar-toggle"
+          onClick={() => setSidebarOpen((v) => !v)}
+          aria-label="Toggle folders"
+        >
+          ☰
+        </button>
+        <BrandBanner subtitle="DOCUMENT VIEWER" />
+      </div>
       <div className="app-row">
-        <aside className="sidebar">
+        {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+        <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
             Add folder…
           </button>
