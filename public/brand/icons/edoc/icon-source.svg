@@ -14,9 +14,9 @@
     <polyline points="50,334 50,86 86,50 426,50 462,86 462,426 426,462 178,462" fill="none" stroke="#3FE0C5" stroke-width="10" stroke-linejoin="miter"/>
     <polyline points="66,330 66,102 102,66 410,66 446,102 446,410 410,446 190,446" fill="none" stroke="#3FE0C5" stroke-width="6" stroke-linejoin="miter"/>
     <g font-family="Tourney" font-weight="500" text-anchor="middle" fill="#ffffff">
-      <text x="256" y="215" font-size="62"><tspan fill="#3FE0C5" font-size="80">S</tspan>trato</text>
+      <text x="256" y="215" font-size="74"><tspan fill="#3FE0C5" font-size="94">S</tspan>trato</text>
       <line x1="133" y1="271" x2="379" y2="271" stroke="#3FE0C5" stroke-width="8" stroke-linecap="square"/>
-      <text x="256" y="368" font-size="62"><tspan fill="#3FE0C5" font-size="80">N</tspan>imbus</text>
+      <text x="256" y="368" font-size="74"><tspan fill="#3FE0C5" font-size="94">N</tspan>imbus</text>
     </g>
   </g>
 </svg>
