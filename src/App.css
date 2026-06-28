@@ -85,6 +85,11 @@ html,
 
 .viewer-continuous {
   flex-direction: column;
+  /* .viewer sets justify-content:center for the row-flex single/two-up
+     case (horizontal centering); flex-direction:column flips that axis
+     to vertical, which centers overflowing content instead of letting
+     it start at the top — pushes page 1 above scrollTop:0. Override. */
+  justify-content: flex-start;
   align-items: center;
   gap: 8px;
   padding: 8px 0;
