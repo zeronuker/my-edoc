@@ -48,6 +48,7 @@ html,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
 }
 
 .toolbar {
@@ -75,39 +76,22 @@ html,
   width: 50px;
 }
 
-.viewer {
+/* pdf.js's PDFViewer requires its `container` element to be absolutely
+   positioned (it throws otherwise). .viewer-area is the flex-sized box
+   within .main; .pdf-viewer-container fills it exactly via absolute
+   positioning, satisfying that requirement without fighting flex layout. */
+.viewer-area {
   flex: 1;
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pdf-viewer-container {
+  position: absolute;
+  inset: 0;
   overflow: auto;
   background: var(--cb-surface-2);
-  display: flex;
-  justify-content: center;
-}
-
-.viewer-continuous {
-  flex-direction: column;
-  /* .viewer sets justify-content:center for the row-flex single/two-up
-     case (horizontal centering); flex-direction:column flips that axis
-     to vertical, which centers overflowing content instead of letting
-     it start at the top — pushes page 1 above scrollTop:0. Override. */
-  justify-content: flex-start;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-}
-
-.page-slot {
-  flex-shrink: 0;
-}
-
-.viewer-two-up {
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 0;
-}
-
-.viewer-single {
-  align-items: flex-start;
-  padding: 8px 0;
 }
 
 .error-banner {
@@ -118,14 +102,14 @@ html,
 }
 
 .viewer-empty {
-  margin: auto;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cb-surface-2);
   color: var(--cb-ink-dim);
   font-family: var(--cb-font-mono);
-}
-
-.page-canvas {
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
-  background: white;
 }
 
 .tree-view {

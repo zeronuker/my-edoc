@@ -1,13 +1,4 @@
-export default function Toolbar({
-  viewMode,
-  setViewMode,
-  scale,
-  setScale,
-  currentPage,
-  setCurrentPage,
-  numPages,
-  step,
-}) {
+export default function Toolbar({ viewMode, setViewMode, scale, currentPage, numPages, pdfViewer }) {
   return (
     <div className="toolbar">
       <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
@@ -18,10 +9,7 @@ export default function Toolbar({
 
       {viewMode !== "continuous" && (
         <span className="page-nav">
-          <button
-            disabled={currentPage <= 1}
-            onClick={() => setCurrentPage(Math.max(1, currentPage - step))}
-          >
+          <button disabled={currentPage <= 1} onClick={() => pdfViewer?.previousPage()}>
             ‹
           </button>
           <input
@@ -29,22 +17,24 @@ export default function Toolbar({
             min={1}
             max={numPages}
             value={currentPage}
-            onChange={(e) => setCurrentPage(Number(e.target.value) || 1)}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
+            }}
           />
           <span>/ {numPages || "-"}</span>
-          <button
-            disabled={!numPages || currentPage + step - 1 >= numPages}
-            onClick={() => setCurrentPage(Math.min(numPages, currentPage + step))}
-          >
+          <button disabled={!numPages || currentPage >= numPages} onClick={() => pdfViewer?.nextPage()}>
             ›
           </button>
         </span>
       )}
 
       <span className="zoom">
-        <button onClick={() => setScale(Math.max(0.25, scale - 0.25))}>-</button>
+        <button onClick={() => pdfViewer?.decreaseScale()}>-</button>
         <span>{Math.round(scale * 100)}%</span>
-        <button onClick={() => setScale(scale + 0.25)}>+</button>
+        <button onClick={() => pdfViewer?.increaseScale()}>+</button>
+        <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-width")}>Fit width</button>
+        <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-fit")}>Fit page</button>
       </span>
     </div>
   );
