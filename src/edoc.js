@@ -26,12 +26,26 @@ export async function loadDocument(fileOrArrayBuffer) {
   return pdfjsLib.getDocument({ data }).promise;
 }
 
-export async function renderPageToCanvas(pdf, pageNumber, canvas, scale = 1) {
+// React StrictMode mounts each effect twice (mount, cleanup, mount again)
+// on the SAME canvas DOM node, racing two independent async chains that
+// both end up calling page.render() on it. Cancelling from the effect's
+// own closure isn't enough — by the time a stale call's cleanup runs, the
+// other call may already be past the point of no return. Tracking the
+// in-flight task on the canvas element itself is the one synchronization
+// point both calls share, so whichever calls render() second can always
+// cancel whatever's already running there first.
+export async function startPageRender(pdf, pageNumber, canvas, scale = 1) {
   const page = await pdf.getPage(pageNumber);
   const viewport = page.getViewport({ scale });
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   const context = canvas.getContext("2d");
-  await page.render({ canvasContext: context, viewport }).promise;
-  return viewport;
+
+  canvas.__renderTask?.cancel();
+  const task = page.render({ canvasContext: context, viewport });
+  canvas.__renderTask = task;
+  task.promise.finally(() => {
+    if (canvas.__renderTask === task) canvas.__renderTask = null;
+  });
+  return task;
 }

@@ -1,16 +1,27 @@
 import { useEffect, useRef } from "react";
-import { renderPageToCanvas } from "./edoc.js";
+import { startPageRender } from "./edoc.js";
 
 export default function PageCanvas({ pdf, pageNumber, scale }) {
   const canvasRef = useRef(null);
 
   useEffect(() => {
-    let cancelled = false;
-    renderPageToCanvas(pdf, pageNumber, canvasRef.current, scale).catch((err) => {
-      if (!cancelled) console.error(err);
+    let active = true;
+    let renderTask;
+
+    startPageRender(pdf, pageNumber, canvasRef.current, scale).then((task) => {
+      if (!active) {
+        task.cancel();
+        return;
+      }
+      renderTask = task;
+      renderTask.promise.catch((err) => {
+        if (err?.name !== "RenderingCancelledException") console.error(err);
+      });
     });
+
     return () => {
-      cancelled = true;
+      active = false;
+      renderTask?.cancel();
     };
   }, [pdf, pageNumber, scale]);
 
