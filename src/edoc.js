@@ -17,6 +17,16 @@ async function getWorkerSrc() {
   return workerSrcPromise;
 }
 
+// ponytail: assumes every page is the same size (true for the vast
+// majority of PDFs) so the whole document only needs one getPage() call
+// to size placeholders for virtualized continuous scrolling. Upgrade to
+// per-page sizing if mixed-page-size documents become a real complaint.
+export async function getPageSize(pdf, scale = 1) {
+  const page = await pdf.getPage(1);
+  const viewport = page.getViewport({ scale });
+  return { width: viewport.width, height: viewport.height };
+}
+
 export async function loadDocument(fileOrArrayBuffer) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = await getWorkerSrc();
   const data =
