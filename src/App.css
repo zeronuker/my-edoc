@@ -184,14 +184,15 @@ html,
   position: absolute;
   inset: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   background: var(--cb-surface-2);
 }
 
 .error-banner {
-  background: #fdecea;
-  color: #611a15;
+  background: var(--cb-surface-1, #141a2e);
+  color: var(--cb-danger, #ff6b6b);
   padding: 8px 12px;
-  border-bottom: 1px solid #f5c6cb;
+  border-bottom: 1px solid var(--cb-line, #232b45);
 }
 
 .viewer-empty {

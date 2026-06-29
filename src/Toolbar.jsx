@@ -11,7 +11,11 @@ export default function Toolbar({ viewMode, setViewMode, scale, currentPage, num
 
       {viewMode !== "continuous" && (
         <span className="page-nav">
-          <button disabled={currentPage <= 1} onClick={() => pdfViewer?.previousPage()}>
+          <button
+            aria-label="Previous page"
+            disabled={currentPage <= 1}
+            onClick={() => pdfViewer?.previousPage()}
+          >
             ‹
           </button>
           <input
@@ -19,22 +23,27 @@ export default function Toolbar({ viewMode, setViewMode, scale, currentPage, num
             min={1}
             max={numPages}
             value={currentPage}
+            aria-label="Current page"
             onChange={(e) => {
               const n = Number(e.target.value);
               if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
             }}
           />
           <span>/ {numPages || "-"}</span>
-          <button disabled={!numPages || currentPage >= numPages} onClick={() => pdfViewer?.nextPage()}>
+          <button
+            aria-label="Next page"
+            disabled={!numPages || currentPage >= numPages}
+            onClick={() => pdfViewer?.nextPage()}
+          >
             ›
           </button>
         </span>
       )}
 
       <span className="zoom">
-        <button onClick={() => pdfViewer?.decreaseScale()}>-</button>
+        <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>-</button>
         <span>{Math.round(scale * 100)}%</span>
-        <button onClick={() => pdfViewer?.increaseScale()}>+</button>
+        <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>+</button>
         <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-width")}>Fit width</button>
         <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-fit")}>Fit page</button>
       </span>

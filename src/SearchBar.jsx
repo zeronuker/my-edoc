@@ -53,11 +53,15 @@ export default function SearchBar({ eventBus }) {
       />
       {query && (
         <>
-          <button onClick={() => dispatchFind("again", { findPrevious: true })}>‹</button>
+          <button aria-label="Previous match" onClick={() => dispatchFind("again", { findPrevious: true })}>
+            ‹
+          </button>
           <span className="match-count">
             {matchInfo ? `${matchInfo.current}/${matchInfo.total}` : "0/0"}
           </span>
-          <button onClick={() => dispatchFind("again", { findPrevious: false })}>›</button>
+          <button aria-label="Next match" onClick={() => dispatchFind("again", { findPrevious: false })}>
+            ›
+          </button>
         </>
       )}
     </span>
