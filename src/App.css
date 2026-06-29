@@ -240,6 +240,27 @@ html,
   font-family: var(--cb-font-mono);
 }
 
+.viewer-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--cb-line-2);
+  border-top-color: var(--cb-ink-dim);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .sidebar-tabs {
   display: flex;
   gap: 4px;

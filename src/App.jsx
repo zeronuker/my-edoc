@@ -426,7 +426,16 @@ function App() {
           {error && <div className="error-banner">{error}</div>}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} />
           {(loading || !pdf) && (
-            <div className="viewer-empty">{loading ? "Loading…" : "Select a PDF to view"}</div>
+            <div className="viewer-empty">
+              {loading ? (
+                <span className="viewer-loading">
+                  <span className="spinner" />
+                  Loading {selectedHandle?.name}…
+                </span>
+              ) : (
+                "Select a PDF to view"
+              )}
+            </div>
           )}
         </main>
       </div>
