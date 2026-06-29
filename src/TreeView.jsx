@@ -111,6 +111,7 @@ export default function TreeView({ folders, onSelectFile, selectedHandle, onRemo
                 <button
                   className="tree-remove"
                   title={`Remove "${dirHandle.name}"`}
+                  aria-label={`Remove "${dirHandle.name}"`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onRemoveFolder(dirHandle);

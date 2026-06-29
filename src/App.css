@@ -70,7 +70,7 @@ html,
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 880px) {
   .sidebar-toggle {
     display: inline-flex;
   }
@@ -157,10 +157,31 @@ html,
   width: 50px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 880px) {
   .page-nav,
   .zoom {
     gap: 10px;
+  }
+}
+
+/* Touch target sizing: bump tap targets to a comfortable size on
+   touch-primary devices (phones, tablets) without affecting mouse/desktop,
+   where the smaller default sizing is fine. */
+@media (pointer: coarse) {
+  .sidebar-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .toolbar button,
+  .toolbar select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .tree-remove {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 
@@ -197,14 +218,15 @@ html,
   position: absolute;
   inset: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   background: var(--cb-surface-2);
 }
 
 .error-banner {
-  background: #fdecea;
-  color: #611a15;
+  background: var(--cb-surface-1, #141a2e);
+  color: var(--cb-danger, #ff6b6b);
   padding: 8px 12px;
-  border-bottom: 1px solid #f5c6cb;
+  border-bottom: 1px solid var(--cb-line, #232b45);
 }
 
 .viewer-empty {
@@ -218,9 +240,52 @@ html,
   font-family: var(--cb-font-mono);
 }
 
-.tree-view {
+.sidebar-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.sidebar-tab {
+  flex: 1;
+  padding: 4px 0;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  color: var(--cb-ink-2);
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sidebar-tab.active {
+  background: var(--cb-surface-3);
+  color: var(--cb-mint);
+  border-color: var(--cb-mint);
+}
+
+.tree-view,
+.outline-view {
   font-size: 13px;
   font-family: var(--cb-font-body);
+}
+
+.outline-label {
+  cursor: pointer;
+  user-select: none;
+  padding: 3px 4px;
+  border-radius: var(--cb-radius-sm);
+  color: var(--cb-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outline-label:hover {
+  background: var(--cb-surface-3);
+}
+
+.outline-children {
+  padding-left: 14px;
 }
 
 .tree-search {

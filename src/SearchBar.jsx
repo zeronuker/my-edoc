@@ -46,18 +46,29 @@ export default function SearchBar({ eventBus }) {
   return (
     <span className="search-bar">
       <input
+        id="doc-search-input"
         type="text"
         placeholder="Search in document…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setQuery("");
+            e.target.blur();
+          }
+        }}
       />
       {query && (
         <>
-          <button onClick={() => dispatchFind("again", { findPrevious: true })}>‹</button>
+          <button aria-label="Previous match" onClick={() => dispatchFind("again", { findPrevious: true })}>
+            ‹
+          </button>
           <span className="match-count">
             {matchInfo ? `${matchInfo.current}/${matchInfo.total}` : "0/0"}
           </span>
-          <button onClick={() => dispatchFind("again", { findPrevious: false })}>›</button>
+          <button aria-label="Next match" onClick={() => dispatchFind("again", { findPrevious: false })}>
+            ›
+          </button>
         </>
       )}
     </span>

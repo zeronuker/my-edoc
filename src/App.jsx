@@ -5,10 +5,12 @@ import {
   supportsDirectoryPicker,
   pickFolderLegacy,
   buildTreeFromFileList,
+  wrapDroppedFile,
 } from "./fileSystem.js";
 import { loadDocument } from "./edoc.js";
 import { dbGet, dbSet } from "./db.js";
 import TreeView from "./TreeView.jsx";
+import OutlineView from "./OutlineView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import UpdatePrompt from "./UpdatePrompt.jsx";
@@ -35,14 +37,18 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [viewerApi, setViewerApi] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [outline, setOutline] = useState(null);
+  const [sidebarTab, setSidebarTab] = useState("folders");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
-  const restorePageRef = useRef(null);
   const seedFitPageRef = useRef(false);
+  const pendingRestoreRef = useRef(null);
+  const restoringRef = useRef(false);
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
   const initializedRef = useRef(false);
@@ -77,8 +83,6 @@ function App() {
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
         if (lastFileHandle && (await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
-          const lastPosition = await dbGet("lastPosition");
-          restorePageRef.current = lastPosition?.page ?? null;
           selectFile(lastFileHandle);
         }
       }
@@ -94,11 +98,6 @@ function App() {
     if (!initializedRef.current) return;
     dbSet("settings", settings);
   }, [settings]);
-
-  useEffect(() => {
-    if (!pdf) return;
-    dbSet("lastPosition", { page: currentPage });
-  }, [pdf, currentPage]);
 
   useEffect(() => {
     if (settings.theme === "system") delete document.documentElement.dataset.theme;
@@ -133,6 +132,19 @@ function App() {
     setSettings((prev) => ({ ...prev, ...partial }));
   }
 
+  // Per-file page/zoom memory, keyed by filename. restoringRef guards the
+  // window between picking a new file and pdfjs firing pagesinit for it —
+  // without it, this effect would fire with the previous file's still-current
+  // page/scale and clobber the new file's saved position before restore runs.
+  useEffect(() => {
+    if (!selectedHandle || restoringRef.current) return;
+    (async () => {
+      const all = (await dbGet("filePositions")) || {};
+      all[selectedHandle.name] = { page: currentPage, scale };
+      await dbSet("filePositions", all);
+    })();
+  }, [selectedHandle, currentPage, scale]);
+
   // Drive the pdf.js viewer from React state/events instead of rendering
   // pages ourselves — see PdfViewer.jsx.
   useEffect(() => {
@@ -141,16 +153,18 @@ function App() {
     const onPageChanging = (e) => setCurrentPage(e.pageNumber);
     const onScaleChanging = (e) => setScale(e.scale);
     const onPagesInit = () => {
-      if (seedFitPageRef.current) {
+      const pending = pendingRestoreRef.current;
+      if (pending?.scale) {
+        viewerApi.pdfViewer.currentScaleValue = pending.scale;
+      } else if (seedFitPageRef.current) {
         viewerApi.pdfViewer.currentScaleValue = "page-fit";
-        seedFitPageRef.current = false;
       } else {
         viewerApi.pdfViewer.currentScaleValue = scaleRef.current;
       }
-      if (restorePageRef.current) {
-        viewerApi.pdfViewer.currentPageNumber = restorePageRef.current;
-        restorePageRef.current = null;
-      }
+      seedFitPageRef.current = false;
+      if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
+      pendingRestoreRef.current = null;
+      restoringRef.current = false;
     };
     eventBus.on("pagechanging", onPageChanging);
     eventBus.on("scalechanging", onScaleChanging);
@@ -164,11 +178,39 @@ function App() {
   }, [viewerApi]);
 
   useEffect(() => {
-    if (!viewerApi || !pdf) return;
+    if (!viewerApi) return;
+    if (!pdf) {
+      setOutline(null);
+      return;
+    }
     viewerApi.pdfViewer.setDocument(pdf);
     viewerApi.linkService.setDocument(pdf);
     setNumPages(pdf.numPages);
+    pdf.getOutline().then((items) => setOutline(items?.length ? items : null));
   }, [viewerApi, pdf]);
+
+  // Keyboard shortcuts: arrows/PageUp/PageDown for paging, +/- for zoom,
+  // Ctrl/Cmd+F to focus search. Skipped while typing in a field (except
+  // Ctrl/Cmd+F, which has no risk of colliding with normal typing).
+  useEffect(() => {
+    function onKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        document.getElementById("doc-search-input")?.focus();
+        return;
+      }
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (!viewerApi) return;
+      const { pdfViewer } = viewerApi;
+      if (e.key === "ArrowLeft" || e.key === "PageUp") pdfViewer.previousPage();
+      else if (e.key === "ArrowRight" || e.key === "PageDown") pdfViewer.nextPage();
+      else if (e.key === "+" || e.key === "=") pdfViewer.increaseScale();
+      else if (e.key === "-" || e.key === "_") pdfViewer.decreaseScale();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewerApi]);
 
   useEffect(() => {
     if (!viewerApi) return;
@@ -223,29 +265,69 @@ function App() {
     });
   }
 
+  function handleDragOver(e) {
+    e.preventDefault();
+  }
+
+  // Drag-and-drop: folders only work via getAsFileSystemHandle (Chromium);
+  // other browsers can still drop individual PDF files, which is the more
+  // common case anyway.
+  async function handleDrop(e) {
+    e.preventDefault();
+    const items = [...e.dataTransfer.items].filter((i) => i.kind === "file");
+    for (const item of items) {
+      if (item.getAsFileSystemHandle) {
+        const handle = await item.getAsFileSystemHandle();
+        if (handle.kind === "directory") {
+          const tree = await scanDirectory(handle);
+          setFolders((prev) => {
+            const next = [...prev, { dirHandle: handle, tree }];
+            persistFolders(next);
+            return next;
+          });
+        } else if (handle.name.toLowerCase().endsWith(".pdf")) {
+          selectFile(handle);
+        }
+      } else {
+        const file = item.getAsFile();
+        if (file?.name.toLowerCase().endsWith(".pdf")) {
+          selectFile(wrapDroppedFile(file));
+        }
+      }
+    }
+  }
+
   async function selectFile(fileHandle) {
     setSelectedHandle(fileHandle);
     setError(null);
     setSidebarOpen(false); // no-op on wide screens, closes the drawer on narrow ones
+    setLoading(true);
+    restoringRef.current = true;
     try {
       const file = await fileHandle.getFile();
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Timed out loading PDF")), 15000)
       );
       const doc = await Promise.race([loadDocument(file), timeout]);
+      const positions = (await dbGet("filePositions")) || {};
+      pendingRestoreRef.current = positions[fileHandle.name] || null;
       setPdf(doc);
       if (!fileHandle.__legacy) await dbSet("lastFileHandle", fileHandle);
     } catch (err) {
       console.error(err);
       setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
       setPdf(null);
+      restoringRef.current = false;
+    } finally {
+      setLoading(false);
     }
   }
 
   const pendingFolders = folders.filter((f) => !f.tree);
+  const activeTab = outline ? sidebarTab : "folders";
 
   return (
-    <div className="app">
+    <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt />
       {settingsOpen && (
@@ -275,23 +357,49 @@ function App() {
       <div className="app-row">
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
-          <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
-            Add folder
-          </button>
-          {pendingFolders.length > 0 && (
-            <button
-              className="cb-btn"
-              onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
-            >
-              Reconnect all
-            </button>
+          {outline && (
+            <div className="sidebar-tabs">
+              <button
+                className={`sidebar-tab${activeTab === "folders" ? " active" : ""}`}
+                onClick={() => setSidebarTab("folders")}
+              >
+                Folders
+              </button>
+              <button
+                className={`sidebar-tab${activeTab === "outline" ? " active" : ""}`}
+                onClick={() => setSidebarTab("outline")}
+              >
+                Outline
+              </button>
+            </div>
           )}
-          <TreeView
-            folders={folders.filter((f) => f.tree)}
-            onSelectFile={selectFile}
-            selectedHandle={selectedHandle}
-            onRemoveFolder={handleRemoveFolder}
-          />
+          {activeTab === "outline" ? (
+            <OutlineView
+              items={outline}
+              linkService={viewerApi?.linkService}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          ) : (
+            <>
+              <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
+                Add folder
+              </button>
+              {pendingFolders.length > 0 && (
+                <button
+                  className="cb-btn"
+                  onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
+                >
+                  Reconnect all
+                </button>
+              )}
+              <TreeView
+                folders={folders.filter((f) => f.tree)}
+                onSelectFile={selectFile}
+                selectedHandle={selectedHandle}
+                onRemoveFolder={handleRemoveFolder}
+              />
+            </>
+          )}
         </aside>
         <main className="main">
           <Toolbar
@@ -305,7 +413,9 @@ function App() {
           />
           {error && <div className="error-banner">{error}</div>}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} />
-          {!pdf && <div className="viewer-empty">Select a PDF to view</div>}
+          {(loading || !pdf) && (
+            <div className="viewer-empty">{loading ? "Loading…" : "Select a PDF to view"}</div>
+          )}
         </main>
       </div>
     </div>
