@@ -5,6 +5,7 @@ import {
   supportsDirectoryPicker,
   pickFolderLegacy,
   buildTreeFromFileList,
+  wrapDroppedFile,
 } from "./fileSystem.js";
 import { loadDocument } from "./edoc.js";
 import { dbGet, dbSet } from "./db.js";
@@ -35,6 +36,8 @@ function App() {
   const [sidebarTab, setSidebarTab] = useState("folders");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
+  const pendingRestoreRef = useRef(null);
+  const restoringRef = useRef(false);
 
   // Restore last session: directory handles need a user gesture to
   // re-request permission in most browsers, so folders without it show
@@ -65,6 +68,19 @@ function App() {
     dbSet("viewState", { viewMode, scale });
   }, [viewMode, scale]);
 
+  // Per-file page/zoom memory, keyed by filename. restoringRef guards the
+  // window between picking a new file and pdfjs firing pagesinit for it —
+  // without it, this effect would fire with the previous file's still-current
+  // page/scale and clobber the new file's saved position before restore runs.
+  useEffect(() => {
+    if (!selectedHandle || restoringRef.current) return;
+    (async () => {
+      const all = (await dbGet("filePositions")) || {};
+      all[selectedHandle.name] = { page: currentPage, scale };
+      await dbSet("filePositions", all);
+    })();
+  }, [selectedHandle, currentPage, scale]);
+
   // Drive the pdf.js viewer from React state/events instead of rendering
   // pages ourselves — see PdfViewer.jsx.
   useEffect(() => {
@@ -73,7 +89,11 @@ function App() {
     const onPageChanging = (e) => setCurrentPage(e.pageNumber);
     const onScaleChanging = (e) => setScale(e.scale);
     const onPagesInit = () => {
-      viewerApi.pdfViewer.currentScaleValue = scaleRef.current;
+      const pending = pendingRestoreRef.current;
+      viewerApi.pdfViewer.currentScaleValue = pending?.scale ?? scaleRef.current;
+      if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
+      pendingRestoreRef.current = null;
+      restoringRef.current = false;
     };
     eventBus.on("pagechanging", onPageChanging);
     eventBus.on("scalechanging", onScaleChanging);
@@ -174,23 +194,59 @@ function App() {
     });
   }
 
+  function handleDragOver(e) {
+    e.preventDefault();
+  }
+
+  // Drag-and-drop: folders only work via getAsFileSystemHandle (Chromium);
+  // other browsers can still drop individual PDF files, which is the more
+  // common case anyway.
+  async function handleDrop(e) {
+    e.preventDefault();
+    const items = [...e.dataTransfer.items].filter((i) => i.kind === "file");
+    for (const item of items) {
+      if (item.getAsFileSystemHandle) {
+        const handle = await item.getAsFileSystemHandle();
+        if (handle.kind === "directory") {
+          const tree = await scanDirectory(handle);
+          setFolders((prev) => {
+            const next = [...prev, { dirHandle: handle, tree }];
+            persistFolders(next);
+            return next;
+          });
+        } else if (handle.name.toLowerCase().endsWith(".pdf")) {
+          selectFile(handle);
+        }
+      } else {
+        const file = item.getAsFile();
+        if (file?.name.toLowerCase().endsWith(".pdf")) {
+          selectFile(wrapDroppedFile(file));
+        }
+      }
+    }
+  }
+
   async function selectFile(fileHandle) {
     setSelectedHandle(fileHandle);
     setError(null);
     setSidebarOpen(false); // no-op on wide screens, closes the drawer on narrow ones
     setLoading(true);
+    restoringRef.current = true;
     try {
       const file = await fileHandle.getFile();
       const timeout = new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Timed out loading PDF")), 15000)
       );
       const doc = await Promise.race([loadDocument(file), timeout]);
+      const positions = (await dbGet("filePositions")) || {};
+      pendingRestoreRef.current = positions[fileHandle.name] || null;
       setPdf(doc);
       if (!fileHandle.__legacy) await dbSet("lastFileHandle", fileHandle);
     } catch (err) {
       console.error(err);
       setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
       setPdf(null);
+      restoringRef.current = false;
     } finally {
       setLoading(false);
     }
@@ -200,7 +256,7 @@ function App() {
   const activeTab = outline ? sidebarTab : "folders";
 
   return (
-    <div className="app">
+    <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt />
       <div className="topbar">

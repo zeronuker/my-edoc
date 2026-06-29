@@ -35,6 +35,13 @@ function permissiveHandle(name, extra = {}) {
   return { name, __legacy: true, queryPermission: async () => "granted", ...extra };
 }
 
+// Wraps a single dropped File (from drag-and-drop) in the same permissive
+// handle shape used by the legacy folder picker, so selectFile() can treat
+// it identically regardless of how it was opened.
+export function wrapDroppedFile(file) {
+  return permissiveHandle(file.name, { getFile: async () => file });
+}
+
 // Safari/iOS has no File System Access API (no showDirectoryPicker), so
 // folders there go through the older <input webkitdirectory> mechanism
 // instead: a one-time flat file list with relative paths, which we
