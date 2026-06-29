@@ -27,19 +27,6 @@ export default function Settings({ settings, onChange, onClose }) {
         </div>
 
         <div className="settings-row">
-          <label htmlFor="settings-default-view">Default view mode</label>
-          <select
-            id="settings-default-view"
-            value={settings.defaultViewMode}
-            onChange={(e) => onChange({ defaultViewMode: e.target.value })}
-          >
-            <option value="single">Single page</option>
-            <option value="continuous">Continuous</option>
-            <option value="two-up">Two-page</option>
-          </select>
-        </div>
-
-        <div className="settings-row">
           <label htmlFor="settings-resume">Resume last position</label>
           <input
             id="settings-resume"

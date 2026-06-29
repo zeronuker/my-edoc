@@ -21,7 +21,6 @@ import "./App.css";
 
 const DEFAULT_SETTINGS = {
   theme: "system",
-  defaultViewMode: "two-up",
   resumePosition: true,
   keepAwake: false,
 };
@@ -32,7 +31,10 @@ function App() {
   const [folders, setFolders] = useState([]); // [{ dirHandle, tree }], tree is null while pending permission
   const [selectedHandle, setSelectedHandle] = useState(null);
   const [pdf, setPdf] = useState(null);
-  const [viewMode, setViewMode] = useState("single");
+  // Two-page + fit-page is forced on every file open (see selectFile/
+  // onPagesInit below) — this initial value only matters before any
+  // file has been opened yet.
+  const [viewMode, setViewMode] = useState("two-up");
   const [scale, setScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
@@ -44,9 +46,6 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outline, setOutline] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("folders");
-  const scaleRef = useRef(scale);
-  scaleRef.current = scale;
-  const seedFitPageRef = useRef(false);
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
   // Persist-on-change effects below would otherwise fire once on mount
@@ -60,16 +59,7 @@ function App() {
     (async () => {
       const savedSettings = await dbGet("settings");
       const resolvedSettings = { ...DEFAULT_SETTINGS, ...savedSettings };
-
-      const savedState = await dbGet("viewState");
       setSettings(resolvedSettings);
-      if (savedState) {
-        setViewMode(savedState.viewMode);
-        setScale(savedState.scale);
-      } else {
-        setViewMode(resolvedSettings.defaultViewMode);
-        seedFitPageRef.current = true;
-      }
       initializedRef.current = true;
 
       const dirHandles = (await dbGet("rootDirHandles")) || [];
@@ -88,11 +78,6 @@ function App() {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    if (!initializedRef.current) return;
-    dbSet("viewState", { viewMode, scale });
-  }, [viewMode, scale]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
@@ -153,15 +138,10 @@ function App() {
     const onPageChanging = (e) => setCurrentPage(e.pageNumber);
     const onScaleChanging = (e) => setScale(e.scale);
     const onPagesInit = () => {
+      // Fit-page always wins on open — per-file zoom memory below still
+      // gets written, but isn't read back here. Page position is.
+      viewerApi.pdfViewer.currentScaleValue = "page-fit";
       const pending = pendingRestoreRef.current;
-      if (pending?.scale) {
-        viewerApi.pdfViewer.currentScaleValue = pending.scale;
-      } else if (seedFitPageRef.current) {
-        viewerApi.pdfViewer.currentScaleValue = "page-fit";
-      } else {
-        viewerApi.pdfViewer.currentScaleValue = scaleRef.current;
-      }
-      seedFitPageRef.current = false;
       if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
       pendingRestoreRef.current = null;
       restoringRef.current = false;
@@ -302,6 +282,9 @@ function App() {
     setError(null);
     setSidebarOpen(false); // no-op on wide screens, closes the drawer on narrow ones
     setLoading(true);
+    // Two-page + fit-page is the default on every open; manually switching
+    // view mode only sticks for the file currently open.
+    setViewMode("two-up");
     restoringRef.current = true;
     try {
       const file = await fileHandle.getFile();
