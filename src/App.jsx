@@ -97,12 +97,23 @@ function App() {
   }, []);
 
   // iOS gets 100dvh wrong on first paint in a standalone PWA (too tall,
-  // leaving blank space below the app until something forces a recompute
-  // — confirmed by manually scrolling fixing it). A no-op scroll does the
-  // same recompute automatically so users don't have to find that out.
+  // leaving blank space below the app) and a programmatic scrollTo doesn't
+  // force a recompute the way a real touch-scroll does. visualViewport's
+  // own resize/scroll events DO fire once the viewport settles, so drive
+  // the height from that instead of CSS vh/dvh — see --app-vh in App.css.
   useEffect(() => {
-    window.scrollTo(0, 1);
-    window.scrollTo(0, 0);
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const setHeight = () => {
+      document.documentElement.style.setProperty("--app-vh", `${vv.height}px`);
+    };
+    setHeight();
+    vv.addEventListener("resize", setHeight);
+    vv.addEventListener("scroll", setHeight);
+    return () => {
+      vv.removeEventListener("resize", setHeight);
+      vv.removeEventListener("scroll", setHeight);
+    };
   }, []);
 
   // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
