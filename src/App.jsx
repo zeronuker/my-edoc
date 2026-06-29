@@ -96,6 +96,15 @@ function App() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  // iOS gets 100dvh wrong on first paint in a standalone PWA (too tall,
+  // leaving blank space below the app until something forces a recompute
+  // — confirmed by manually scrolling fixing it). A no-op scroll does the
+  // same recompute automatically so users don't have to find that out.
+  useEffect(() => {
+    window.scrollTo(0, 1);
+    window.scrollTo(0, 0);
+  }, []);
+
   // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
   // width-based default live, the same way opening a file does.
   useEffect(() => {

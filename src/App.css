@@ -14,11 +14,13 @@ html,
 .app {
   display: flex;
   flex-direction: column;
-  /* iOS miscalculates 100dvh on first paint in a standalone PWA (too
-     tall, leaving blank space below until a scroll forces a recompute).
-     Pinning to the viewport edges instead sidesteps that entirely. */
-  position: fixed;
-  inset: 0;
+  height: 100vh;
+  /* 100dvh accounts for mobile browser chrome showing/hiding; browsers
+     without dvh support drop this line entirely and keep 100vh above.
+     iOS miscalculates this on first paint in a standalone PWA (too tall,
+     leaving blank space below until something forces a recompute) — see
+     the scroll nudge in App.jsx that works around it on mount. */
+  height: 100dvh;
   font-family: var(--cb-font-body);
   /* No bottom-anchored UI in this app, so no need to reserve space for
      the home-indicator gesture area — doing so just left a blank strip. */
