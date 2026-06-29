@@ -6,40 +6,28 @@ export default function DebugOverlay() {
 
   useEffect(() => {
     const read = () => {
-      const app = document.querySelector(".app");
-      const html = document.documentElement;
-      const body = document.body;
-      const root = document.getElementById("root");
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      // Sample a few points along the bottom strip to identify what's there.
+      const points = [10, w * 0.5, w - 10].map((x) => {
+        const el = document.elementFromPoint(x, h - 5);
+        if (!el) return "none";
+        const r = el.getBoundingClientRect();
+        const bg = getComputedStyle(el).backgroundColor;
+        return `${el.tagName}.${el.className || "(none)"} bg=${bg} rect=${Math.round(r.top)}-${Math.round(r.bottom)}`;
+      });
       setStats({
-        innerHeight: window.innerHeight,
-        vvHeight: window.visualViewport?.height,
+        innerWidth: w,
+        innerHeight: h,
         scrollY: window.scrollY,
-        htmlClientHeight: html.clientHeight,
-        htmlOffsetHeight: html.offsetHeight,
-        htmlComputedHeight: getComputedStyle(html).height,
-        bodyClientHeight: body.clientHeight,
-        bodyOffsetHeight: body.offsetHeight,
-        bodyComputedHeight: getComputedStyle(body).height,
-        rootClientHeight: root?.clientHeight,
-        rootOffsetHeight: root?.offsetHeight,
-        rootComputedHeight: root && getComputedStyle(root).height,
-        appComputedHeight: app && getComputedStyle(app).height,
-        appRectHeight: app && app.getBoundingClientRect().height,
+        bottomLeft: points[0],
+        bottomCenter: points[1],
+        bottomRight: points[2],
       });
     };
     read();
     const id = setInterval(read, 300);
-    window.addEventListener("scroll", read);
-    window.addEventListener("resize", read);
-    window.visualViewport?.addEventListener("resize", read);
-    window.visualViewport?.addEventListener("scroll", read);
-    return () => {
-      clearInterval(id);
-      window.removeEventListener("scroll", read);
-      window.removeEventListener("resize", read);
-      window.visualViewport?.removeEventListener("resize", read);
-      window.visualViewport?.removeEventListener("scroll", read);
-    };
+    return () => clearInterval(id);
   }, []);
 
   return (
@@ -51,12 +39,13 @@ export default function DebugOverlay() {
         zIndex: 99999,
         background: "rgba(255,0,0,0.85)",
         color: "#fff",
-        fontSize: "10px",
+        fontSize: "9px",
         fontFamily: "monospace",
         padding: "4px 6px",
         lineHeight: 1.4,
         pointerEvents: "none",
-        whiteSpace: "pre",
+        whiteSpace: "pre-wrap",
+        maxWidth: "100vw",
       }}
     >
       {Object.entries(stats)
