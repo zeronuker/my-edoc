@@ -59,7 +59,7 @@ html,
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 880px) {
   .sidebar-toggle {
     display: inline-flex;
     align-items: center;
@@ -144,10 +144,31 @@ html,
   width: 50px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 880px) {
   .page-nav,
   .zoom {
     gap: 10px;
+  }
+}
+
+/* Touch target sizing: bump tap targets to a comfortable size on
+   touch-primary devices (phones, tablets) without affecting mouse/desktop,
+   where the smaller default sizing is fine. */
+@media (pointer: coarse) {
+  .sidebar-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .toolbar button,
+  .toolbar select {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .tree-remove {
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 
