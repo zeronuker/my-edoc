@@ -14,6 +14,7 @@ import OutlineView from "./OutlineView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import UpdatePrompt from "./UpdatePrompt.jsx";
+import DebugOverlay from "./DebugOverlay.jsx";
 import Settings from "./Settings.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
@@ -340,6 +341,7 @@ function App() {
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt />
+      <DebugOverlay />
       {settingsOpen && (
         <Settings
           settings={settings}
