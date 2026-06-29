@@ -383,33 +383,35 @@ function App() {
               </button>
             </div>
           )}
-          {activeTab === "outline" ? (
+          {activeTab === "outline" && (
             <OutlineView
               items={outline}
               linkService={viewerApi?.linkService}
               onNavigate={() => setSidebarOpen(false)}
             />
-          ) : (
-            <>
-              <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
-                Add folder
-              </button>
-              {pendingFolders.length > 0 && (
-                <button
-                  className="cb-btn"
-                  onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
-                >
-                  Reconnect all
-                </button>
-              )}
-              <TreeView
-                folders={folders.filter((f) => f.tree)}
-                onSelectFile={selectFile}
-                selectedHandle={selectedHandle}
-                onRemoveFolder={handleRemoveFolder}
-              />
-            </>
           )}
+          {/* Kept mounted (just hidden) instead of unmounted on tab switch —
+              TreeView's expanded-folder state is local to each Node, and
+              unmounting it collapses the whole tree back to the root. */}
+          <div hidden={activeTab !== "folders"}>
+            <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
+              Add folder
+            </button>
+            {pendingFolders.length > 0 && (
+              <button
+                className="cb-btn"
+                onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
+              >
+                Reconnect all
+              </button>
+            )}
+            <TreeView
+              folders={folders.filter((f) => f.tree)}
+              onSelectFile={selectFile}
+              selectedHandle={selectedHandle}
+              onRemoveFolder={handleRemoveFolder}
+            />
+          </div>
         </aside>
         <main className="main">
           <Toolbar
