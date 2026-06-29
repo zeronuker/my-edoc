@@ -157,6 +157,13 @@ function App() {
     const onPageChanging = (e) => setCurrentPage(e.pageNumber);
     const onScaleChanging = (e) => setScale(e.scale);
     const onPagesInit = () => {
+      // pdf.js resets scrollMode/spreadMode to its own defaults (continuous,
+      // no spread) on every setDocument call, regardless of what they were
+      // set to before — reassert ours here so a same-viewMode reopen (e.g.
+      // two files on the same wide/narrow screen) doesn't silently fall back
+      // to continuous. The effect below only catches *changes* to viewMode.
+      viewerApi.pdfViewer.scrollMode = SCROLL_MODE_BY_VIEW[viewMode];
+      viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
       // Fit-page always wins on open — per-file zoom memory below still
       // gets written, but isn't read back here. Page position is.
       viewerApi.pdfViewer.currentScaleValue = "page-fit";
@@ -174,7 +181,7 @@ function App() {
       eventBus.off("pagesinit", onPagesInit);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerApi]);
+  }, [viewerApi, viewMode]);
 
   useEffect(() => {
     if (!viewerApi) return;
