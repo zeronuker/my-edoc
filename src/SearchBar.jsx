@@ -46,10 +46,17 @@ export default function SearchBar({ eventBus }) {
   return (
     <span className="search-bar">
       <input
+        id="doc-search-input"
         type="text"
         placeholder="Search in document…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setQuery("");
+            e.target.blur();
+          }
+        }}
       />
       {query && (
         <>

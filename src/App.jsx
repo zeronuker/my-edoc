@@ -9,6 +9,7 @@ import {
 import { loadDocument } from "./edoc.js";
 import { dbGet, dbSet } from "./db.js";
 import TreeView from "./TreeView.jsx";
+import OutlineView from "./OutlineView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import UpdatePrompt from "./UpdatePrompt.jsx";
@@ -27,8 +28,11 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [viewerApi, setViewerApi] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [outline, setOutline] = useState(null);
+  const [sidebarTab, setSidebarTab] = useState("folders");
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
 
@@ -83,11 +87,39 @@ function App() {
   }, [viewerApi]);
 
   useEffect(() => {
-    if (!viewerApi || !pdf) return;
+    if (!viewerApi) return;
+    if (!pdf) {
+      setOutline(null);
+      return;
+    }
     viewerApi.pdfViewer.setDocument(pdf);
     viewerApi.linkService.setDocument(pdf);
     setNumPages(pdf.numPages);
+    pdf.getOutline().then((items) => setOutline(items?.length ? items : null));
   }, [viewerApi, pdf]);
+
+  // Keyboard shortcuts: arrows/PageUp/PageDown for paging, +/- for zoom,
+  // Ctrl/Cmd+F to focus search. Skipped while typing in a field (except
+  // Ctrl/Cmd+F, which has no risk of colliding with normal typing).
+  useEffect(() => {
+    function onKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        document.getElementById("doc-search-input")?.focus();
+        return;
+      }
+      const tag = e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (!viewerApi) return;
+      const { pdfViewer } = viewerApi;
+      if (e.key === "ArrowLeft" || e.key === "PageUp") pdfViewer.previousPage();
+      else if (e.key === "ArrowRight" || e.key === "PageDown") pdfViewer.nextPage();
+      else if (e.key === "+" || e.key === "=") pdfViewer.increaseScale();
+      else if (e.key === "-" || e.key === "_") pdfViewer.decreaseScale();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [viewerApi]);
 
   useEffect(() => {
     if (!viewerApi) return;
@@ -146,6 +178,7 @@ function App() {
     setSelectedHandle(fileHandle);
     setError(null);
     setSidebarOpen(false); // no-op on wide screens, closes the drawer on narrow ones
+    setLoading(true);
     try {
       const file = await fileHandle.getFile();
       const timeout = new Promise((_, reject) =>
@@ -158,10 +191,13 @@ function App() {
       console.error(err);
       setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
       setPdf(null);
+    } finally {
+      setLoading(false);
     }
   }
 
   const pendingFolders = folders.filter((f) => !f.tree);
+  const activeTab = outline ? sidebarTab : "folders";
 
   return (
     <div className="app">
@@ -180,23 +216,49 @@ function App() {
       <div className="app-row">
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
-          <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
-            Add folder
-          </button>
-          {pendingFolders.length > 0 && (
-            <button
-              className="cb-btn"
-              onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
-            >
-              Reconnect all
-            </button>
+          {outline && (
+            <div className="sidebar-tabs">
+              <button
+                className={`sidebar-tab${activeTab === "folders" ? " active" : ""}`}
+                onClick={() => setSidebarTab("folders")}
+              >
+                Folders
+              </button>
+              <button
+                className={`sidebar-tab${activeTab === "outline" ? " active" : ""}`}
+                onClick={() => setSidebarTab("outline")}
+              >
+                Outline
+              </button>
+            </div>
           )}
-          <TreeView
-            folders={folders.filter((f) => f.tree)}
-            onSelectFile={selectFile}
-            selectedHandle={selectedHandle}
-            onRemoveFolder={handleRemoveFolder}
-          />
+          {activeTab === "outline" ? (
+            <OutlineView
+              items={outline}
+              linkService={viewerApi?.linkService}
+              onNavigate={() => setSidebarOpen(false)}
+            />
+          ) : (
+            <>
+              <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
+                Add folder
+              </button>
+              {pendingFolders.length > 0 && (
+                <button
+                  className="cb-btn"
+                  onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
+                >
+                  Reconnect all
+                </button>
+              )}
+              <TreeView
+                folders={folders.filter((f) => f.tree)}
+                onSelectFile={selectFile}
+                selectedHandle={selectedHandle}
+                onRemoveFolder={handleRemoveFolder}
+              />
+            </>
+          )}
         </aside>
         <main className="main">
           <Toolbar
@@ -210,7 +272,9 @@ function App() {
           />
           {error && <div className="error-banner">{error}</div>}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} />
-          {!pdf && <div className="viewer-empty">Select a PDF to view</div>}
+          {(loading || !pdf) && (
+            <div className="viewer-empty">{loading ? "Loading…" : "Select a PDF to view"}</div>
+          )}
         </main>
       </div>
     </div>
