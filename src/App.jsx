@@ -12,9 +12,17 @@ import TreeView from "./TreeView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import UpdatePrompt from "./UpdatePrompt.jsx";
+import Settings from "./Settings.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
 import "./App.css";
+
+const DEFAULT_SETTINGS = {
+  theme: "system",
+  defaultViewMode: "two-up",
+  resumePosition: true,
+  keepAwake: false,
+};
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -29,19 +37,35 @@ function App() {
   const [error, setError] = useState(null);
   const [viewerApi, setViewerApi] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const scaleRef = useRef(scale);
   scaleRef.current = scale;
+  const restorePageRef = useRef(null);
+  const seedFitPageRef = useRef(false);
+  // Persist-on-change effects below would otherwise fire once on mount
+  // with default state, racing ahead of (and clobbering) the load below.
+  const initializedRef = useRef(false);
 
   // Restore last session: directory handles need a user gesture to
   // re-request permission in most browsers, so folders without it show
   // a per-folder "Reconnect" button instead of silently failing.
   useEffect(() => {
     (async () => {
+      const savedSettings = await dbGet("settings");
+      const resolvedSettings = { ...DEFAULT_SETTINGS, ...savedSettings };
+
       const savedState = await dbGet("viewState");
+      setSettings(resolvedSettings);
       if (savedState) {
         setViewMode(savedState.viewMode);
         setScale(savedState.scale);
+      } else {
+        setViewMode(resolvedSettings.defaultViewMode);
+        seedFitPageRef.current = true;
       }
+      initializedRef.current = true;
+
       const dirHandles = (await dbGet("rootDirHandles")) || [];
       const loaded = [];
       for (const dirHandle of dirHandles) {
@@ -50,16 +74,64 @@ function App() {
       }
       setFolders(loaded);
 
-      const lastFileHandle = await dbGet("lastFileHandle");
-      if (lastFileHandle && (await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
-        selectFile(lastFileHandle);
+      if (resolvedSettings.resumePosition) {
+        const lastFileHandle = await dbGet("lastFileHandle");
+        if (lastFileHandle && (await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
+          const lastPosition = await dbGet("lastPosition");
+          restorePageRef.current = lastPosition?.page ?? null;
+          selectFile(lastFileHandle);
+        }
       }
     })();
   }, []);
 
   useEffect(() => {
+    if (!initializedRef.current) return;
     dbSet("viewState", { viewMode, scale });
   }, [viewMode, scale]);
+
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    dbSet("settings", settings);
+  }, [settings]);
+
+  useEffect(() => {
+    if (!pdf) return;
+    dbSet("lastPosition", { page: currentPage });
+  }, [pdf, currentPage]);
+
+  useEffect(() => {
+    if (settings.theme === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = settings.theme;
+  }, [settings.theme]);
+
+  // Wake Lock only holds while the tab is visible — the browser releases
+  // it automatically on hide, so re-acquire on visibilitychange instead
+  // of trying to fight that.
+  useEffect(() => {
+    if (!settings.keepAwake || !pdf) return;
+    let lock = null;
+    const acquire = async () => {
+      try {
+        lock = await navigator.wakeLock?.request("screen");
+      } catch {
+        // ignore — e.g. permission denied or unsupported
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") acquire();
+    };
+    acquire();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      lock?.release();
+    };
+  }, [settings.keepAwake, pdf]);
+
+  function updateSettings(partial) {
+    setSettings((prev) => ({ ...prev, ...partial }));
+  }
 
   // Drive the pdf.js viewer from React state/events instead of rendering
   // pages ourselves — see PdfViewer.jsx.
@@ -69,7 +141,16 @@ function App() {
     const onPageChanging = (e) => setCurrentPage(e.pageNumber);
     const onScaleChanging = (e) => setScale(e.scale);
     const onPagesInit = () => {
-      viewerApi.pdfViewer.currentScaleValue = scaleRef.current;
+      if (seedFitPageRef.current) {
+        viewerApi.pdfViewer.currentScaleValue = "page-fit";
+        seedFitPageRef.current = false;
+      } else {
+        viewerApi.pdfViewer.currentScaleValue = scaleRef.current;
+      }
+      if (restorePageRef.current) {
+        viewerApi.pdfViewer.currentPageNumber = restorePageRef.current;
+        restorePageRef.current = null;
+      }
     };
     eventBus.on("pagechanging", onPageChanging);
     eventBus.on("scalechanging", onScaleChanging);
@@ -167,15 +248,29 @@ function App() {
     <div className="app">
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt />
+      {settingsOpen && (
+        <Settings
+          settings={settings}
+          onChange={updateSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
       <div className="topbar">
         <button
-          className="sidebar-toggle"
+          className="icon-btn sidebar-toggle"
           onClick={() => setSidebarOpen((v) => !v)}
           aria-label="Toggle folders"
         >
           ☰
         </button>
         <BrandBanner subtitle="DOCUMENT VIEWER" />
+        <button
+          className="icon-btn settings-toggle"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Settings"
+        >
+          ⚙
+        </button>
       </div>
       <div className="app-row">
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}

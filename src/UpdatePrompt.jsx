@@ -42,8 +42,8 @@ export default function UpdatePrompt() {
 
   return (
     <>
-      <div className="update-backdrop" />
-      <div className="update-dialog">
+      <div className="modal-backdrop" />
+      <div className="modal-dialog">
         <div className="update-dialog-header">
           <span className="update-dialog-icon">⬆</span>
           <div>

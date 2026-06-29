@@ -41,8 +41,7 @@ html,
   padding-bottom: 6px;
 }
 
-.sidebar-toggle {
-  display: none;
+.icon-btn {
   flex-shrink: 0;
   margin-left: 8px;
   width: 32px;
@@ -53,6 +52,18 @@ html,
   color: var(--cb-ink);
   font-size: 16px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-toggle {
+  display: none;
+}
+
+.settings-toggle {
+  margin-left: auto;
+  margin-right: 12px;
 }
 
 .sidebar-backdrop {
@@ -62,8 +73,10 @@ html,
 @media (max-width: 720px) {
   .sidebar-toggle {
     display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  }
+
+  .settings-toggle {
+    margin-right: 8px;
   }
 
   .sidebar-backdrop {
@@ -292,7 +305,7 @@ html,
   color: var(--cb-mint);
 }
 
-.update-backdrop {
+.modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
@@ -300,7 +313,7 @@ html,
   z-index: 9998;
 }
 
-.update-dialog {
+.modal-dialog {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -362,4 +375,38 @@ html,
 
 .update-dialog-now {
   flex: 2;
+}
+
+.settings-dialog {
+  width: min(360px, calc(100vw - 48px));
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cb-line);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-row label {
+  font-size: 13px;
+  color: var(--cb-ink-2);
+}
+
+.settings-row select {
+  font-family: inherit;
+  background: var(--cb-surface-2);
+  color: var(--cb-ink);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+}
+
+.settings-actions {
+  margin-top: 16px;
 }
