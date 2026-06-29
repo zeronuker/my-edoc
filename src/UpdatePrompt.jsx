@@ -6,7 +6,7 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 // LATER, no silent auto-reload. Polls for updates every 60s via
 // registration.update() so the prompt appears without needing a
 // manual page reload first.
-export default function UpdatePrompt() {
+export default function UpdatePrompt({ ready }) {
   const intervalRef = useRef(null);
   const visibilityHandlerRef = useRef(null);
 
@@ -38,7 +38,7 @@ export default function UpdatePrompt() {
     };
   }, []);
 
-  if (!needRefresh) return null;
+  if (!needRefresh || !ready) return null;
 
   return (
     <>

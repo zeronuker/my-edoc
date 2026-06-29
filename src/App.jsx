@@ -339,7 +339,7 @@ function App() {
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
-      <UpdatePrompt />
+      <UpdatePrompt ready={!showSplash} />
       {settingsOpen && (
         <Settings
           settings={settings}
