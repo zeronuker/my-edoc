@@ -25,16 +25,20 @@ const DEFAULT_SETTINGS = {
   keepAwake: false,
 };
 
+// Keep in sync with the mobile-layout breakpoint in App.css.
+const NARROW_QUERY = "(max-width: 880px)";
+
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const onSplashFinish = useCallback(() => setShowSplash(false), []);
   const [folders, setFolders] = useState([]); // [{ dirHandle, tree }], tree is null while pending permission
   const [selectedHandle, setSelectedHandle] = useState(null);
   const [pdf, setPdf] = useState(null);
-  // Two-page + fit-page is forced on every file open (see selectFile/
-  // onPagesInit below) — this initial value only matters before any
-  // file has been opened yet.
+  // Two-page (or single-page on narrow screens) + fit-page is forced on
+  // every file open (see selectFile/onPagesInit below) — this initial
+  // value only matters before any file has been opened yet.
   const [viewMode, setViewMode] = useState("two-up");
+  const [isNarrow, setIsNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
   const [scale, setScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
@@ -77,12 +81,27 @@ function App() {
         }
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!initializedRef.current) return;
     dbSet("settings", settings);
   }, [settings]);
+
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_QUERY);
+    const onChange = (e) => setIsNarrow(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
+  // width-based default live, the same way opening a file does.
+  useEffect(() => {
+    if (!pdf) return;
+    setViewMode(isNarrow ? "single" : "two-up");
+  }, [isNarrow, pdf]);
 
   useEffect(() => {
     if (settings.theme === "system") delete document.documentElement.dataset.theme;
@@ -282,9 +301,10 @@ function App() {
     setError(null);
     setSidebarOpen(false); // no-op on wide screens, closes the drawer on narrow ones
     setLoading(true);
-    // Two-page + fit-page is the default on every open; manually switching
-    // view mode only sticks for the file currently open.
-    setViewMode("two-up");
+    // Two-page (or single-page on narrow screens) + fit-page is the
+    // default on every open; manually switching view mode only sticks
+    // for the file currently open.
+    setViewMode(isNarrow ? "single" : "two-up");
     restoringRef.current = true;
     try {
       const file = await fileHandle.getFile();
