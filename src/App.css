@@ -14,14 +14,12 @@ html,
 .app {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  /* 100dvh accounts for mobile browser chrome showing/hiding; browsers
-     without dvh support drop this line entirely and keep 100vh above. */
-  height: 100dvh;
-  /* iOS miscalculates the above on first paint in a standalone PWA (too
-     tall, leaving blank space below). --app-vh is set from the live
-     visualViewport API in App.jsx and overrides it once available/correct. */
-  height: var(--app-vh, 100dvh);
+  /* vh/dvh and visualViewport.height are wrong on first paint in an iOS
+     standalone PWA (report the full screen, including the ~32px home
+     indicator area, until something forces a recompute). The html/body/
+     #root height:100% chain above is rooted in clientHeight, which is
+     correct from the very first frame — so inherit that instead. */
+  height: 100%;
   font-family: var(--cb-font-body);
   /* No bottom-anchored UI in this app, so no need to reserve space for
      the home-indicator gesture area — doing so just left a blank strip. */
