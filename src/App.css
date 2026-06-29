@@ -19,8 +19,9 @@ html,
      without dvh support drop this line entirely and keep 100vh above. */
   height: 100dvh;
   font-family: var(--cb-font-body);
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  /* No bottom-anchored UI in this app, so no need to reserve space for
+     the home-indicator gesture area — doing so just left a blank strip. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
 
 .app-row {
