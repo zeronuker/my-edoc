@@ -23,15 +23,13 @@ export async function scanDirectory(dirHandle, name = dirHandle.name) {
 
 // ponytail: no live filesystem connection here, so there's nothing to
 // re-grant permission to — queryPermission always reports "granted".
-// File bytes (not just a reference) get persisted to IndexedDB, so this
-// is actually fine across reloads; the real limitation is no detection
-// of files added/removed on disk after picking, since it's a one-time
-// snapshot rather than a live handle.
+// The real limitation is no detection of files added/removed on disk
+// after picking, since it's a one-time snapshot rather than a live handle.
 function permissiveHandle(name, extra = {}) {
-  // __legacy marks this for App.jsx: it has function properties
-  // (getFile/queryPermission), which IndexedDB can't structured-clone,
-  // so these never get persisted across reloads — only real
-  // FileSystemHandle objects from the Chromium path do.
+  // __legacy marks this for App.jsx: it carries function properties
+  // (getFile/queryPermission), which IndexedDB can't structured-clone
+  // directly — see serializeLegacyFolder/reviveLegacyFolder below for
+  // how these get persisted across reloads instead.
   return { name, __legacy: true, queryPermission: async () => "granted", ...extra };
 }
 
@@ -91,7 +89,7 @@ export function buildTreeFromFileList(fileList) {
     parent.children.push({
       name: file.name,
       kind: "file",
-      handle: permissiveHandle(file.name, { getFile: async () => file }),
+      handle: permissiveHandle(file.name, { getFile: async () => file, file }),
     });
   }
 
@@ -99,4 +97,31 @@ export function buildTreeFromFileList(fileList) {
     dir.children.sort((a, b) => a.name.localeCompare(b.name));
   }
   return root;
+}
+
+// Legacy folder trees hold their files as plain File blobs (structured-
+// cloneable) plus functions (not cloneable) hung off each handle. Strip the
+// functions down to a plain object graph so it can be written to IndexedDB...
+export function serializeLegacyFolder(tree) {
+  function walk(node) {
+    if (node.kind === "file") {
+      return { name: node.name, kind: "file", file: node.handle.file };
+    }
+    return { name: node.name, kind: "directory", children: node.children.map(walk) };
+  }
+  return walk(tree);
+}
+
+// ...and rebuild the same shape buildTreeFromFileList produces (functions
+// re-attached) when loading a saved session back out of IndexedDB.
+export function reviveLegacyFolder(serialized) {
+  function walk(node) {
+    if (node.kind === "file") {
+      return { name: node.name, kind: "file", handle: permissiveHandle(node.name, { getFile: async () => node.file, file: node.file }) };
+    }
+    return { name: node.name, kind: "directory", children: node.children.map(walk) };
+  }
+  const tree = walk(serialized);
+  tree.handle = permissiveHandle(serialized.name);
+  return tree;
 }

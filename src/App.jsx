@@ -6,6 +6,8 @@ import {
   pickFolderLegacy,
   buildTreeFromFileList,
   wrapDroppedFile,
+  serializeLegacyFolder,
+  reviveLegacyFolder,
 } from "./fileSystem.js";
 import { loadDocument } from "./edoc.js";
 import { dbGet, dbSet } from "./db.js";
@@ -72,6 +74,16 @@ function App() {
         const granted = (await dirHandle.queryPermission({ mode: "read" })) === "granted";
         loaded.push({ dirHandle, tree: granted ? await scanDirectory(dirHandle) : null });
       }
+
+      // Legacy (Safari/iOS, no File System Access API) folders have no
+      // permission to re-check — the picked files themselves were saved,
+      // so they're ready to browse immediately, no reconnect needed.
+      const legacyTrees = (await dbGet("legacyFolders")) || [];
+      for (const serialized of legacyTrees) {
+        const tree = reviveLegacyFolder(serialized);
+        loaded.push({ dirHandle: tree.handle, tree });
+      }
+
       setFolders(loaded);
 
       if (resolvedSettings.resumePosition) {
@@ -225,10 +237,14 @@ function App() {
   }, [viewerApi, viewMode]);
 
   function persistFolders(next) {
-    // Legacy (Safari/iOS) handles carry functions IndexedDB can't
-    // structured-clone — only real FileSystemHandle objects persist.
-    const persistable = next.filter((f) => !f.dirHandle.__legacy);
-    dbSet("rootDirHandles", persistable.map((f) => f.dirHandle));
+    // Real FileSystemHandle objects (Chromium) structured-clone as-is;
+    // legacy (Safari/iOS) folders need their functions stripped first —
+    // see serializeLegacyFolder.
+    const real = next.filter((f) => !f.dirHandle.__legacy);
+    dbSet("rootDirHandles", real.map((f) => f.dirHandle));
+
+    const legacy = next.filter((f) => f.dirHandle.__legacy);
+    dbSet("legacyFolders", legacy.map((f) => serializeLegacyFolder(f.tree)));
   }
 
   async function handleAddFolder() {
