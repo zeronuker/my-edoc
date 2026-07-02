@@ -8,7 +8,14 @@
     <link rel="apple-touch-icon" sizes="152x152" href="/brand/icons/edoc/apple-touch-icon-152.png" />
     <link rel="apple-touch-icon" sizes="167x167" href="/brand/icons/edoc/apple-touch-icon-167.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/brand/icons/edoc/apple-touch-icon-180.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- maximum-scale/user-scalable=no stop the browser's native page
+         pinch-zoom, which otherwise fights the app's own pinch-to-zoom
+         handling of the PDF (PdfViewer.jsx's attachTouchGestures) and zooms
+         the whole UI instead of just the document. iOS Safari actually
+         ignores user-scalable=no (since iOS 10) and relies on touch-action
+         instead — see the "pan-x pan-y" rules in App.css, which do the real
+         work there; this meta tag mainly covers Android/other browsers. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0a1020" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

@@ -24,6 +24,10 @@ html,
   /* No bottom-anchored UI in this app, so no need to reserve space for
      the home-indicator gesture area — doing so just left a blank strip. */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  /* Belt-and-suspenders alongside the viewport meta's user-scalable=no:
+     stops native pinch-zoom if it ever starts outside the PDF area (e.g.
+     over the topbar/sidebar/toolbar), which has its own touch-action too. */
+  touch-action: pan-x pan-y;
 }
 
 .app-row {
@@ -255,12 +259,13 @@ html,
   inset: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  /* Without this, the browser's native pinch-to-zoom fires alongside the
-     custom pointer-based pinch handler in PdfViewer.jsx, zooming the whole
-     page instead of (or as well as) the document — this hands pinch/
-     double-tap zoom entirely to that JS handler while still letting touch
-     panning/scrolling through natively. */
-  touch-action: manipulation;
+  /* pan-x pan-y (not "manipulation" — that's shorthand for "pan-x pan-y
+     pinch-zoom" and would leave native pinch-zoom on) disables the
+     browser's native pinch-to-zoom, which otherwise fires alongside the
+     custom pointer-based pinch handler in PdfViewer.jsx and zooms the
+     whole page instead of (or as well as) the document. Panning/
+     scrolling still passes through natively. */
+  touch-action: pan-x pan-y;
   background: var(--cb-surface-2);
 }
 
