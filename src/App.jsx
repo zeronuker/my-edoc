@@ -11,6 +11,7 @@ import {
   reviveLegacyManifest,
   reviveInlineLegacyFolder,
   treeByteSize,
+  flattenTreeFiles,
 } from "./fileSystem.js";
 import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
@@ -22,6 +23,7 @@ import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer
 import Toolbar from "./Toolbar.jsx";
 import UpdatePrompt from "./UpdatePrompt.jsx";
 import Settings from "./Settings.jsx";
+import CopyProgressModal from "./CopyProgressModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
 import "./App.css";
@@ -71,9 +73,11 @@ function App() {
   const [sidebarTab, setSidebarTab] = useState("folders");
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
   const [refreshingKeys, setRefreshingKeys] = useState(() => new Set());
-  const [addingFolder, setAddingFolder] = useState(false);
+  const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
+  const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
+  const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
   const initializedRef = useRef(false);
@@ -330,6 +334,30 @@ function App() {
     setStorageEstimate(await getStorageEstimate());
   }
 
+  // Drives the CopyProgressModal for a legacy tree's OPFS write: shows the
+  // full file list immediately, checks each one off as writeLegacyFiles
+  // reports it done, and wires the modal's Cancel button to an
+  // AbortController so a cancel mid-copy stops promptly instead of
+  // finishing regardless. Always clears copyProgress when done, whether
+  // that's success, a real failure, or a cancel (an AbortError, which
+  // callers below catch and handle by cleaning up the partial OPFS copy).
+  async function copyFolderFiles(folderId, tree, title, folderName) {
+    const files = flattenTreeFiles(tree);
+    const controller = new AbortController();
+    copyControllerRef.current = controller;
+    setCopyProgress({ title, folderName, files, doneSet: new Set() });
+    try {
+      await writeLegacyFiles(folderId, tree, {
+        signal: controller.signal,
+        onFileDone: (relativePath) =>
+          setCopyProgress((p) => (p ? { ...p, doneSet: new Set(p.doneSet).add(relativePath) } : p)),
+      });
+    } finally {
+      setCopyProgress(null);
+      copyControllerRef.current = null;
+    }
+  }
+
   async function handleAddFolder() {
     let dirHandle, tree, folderId, sizeBytes;
     if (supportsDirectoryPicker()) {
@@ -342,33 +370,28 @@ function App() {
       }
     } else {
       const fileList = await pickFolderLegacy();
-      setAddingFolder(true);
-      try {
-        tree = buildTreeFromFileList(fileList);
-        if (!tree) {
-          setError("No PDF files found in that folder.");
-          return;
-        }
-        dirHandle = tree.handle;
-        folderId = crypto.randomUUID();
-        sizeBytes = treeByteSize(tree);
+      tree = buildTreeFromFileList(fileList);
+      if (!tree) {
+        setError("No PDF files found in that folder.");
+        return;
+      }
+      dirHandle = tree.handle;
+      folderId = crypto.randomUUID();
+      sizeBytes = treeByteSize(tree);
 
-        const estimate = await getStorageEstimate();
-        if (estimate && sizeBytes > estimate.quota - foldersBytesUsed) {
-          setError(
-            `"${dirHandle.name}" (${formatBytes(sizeBytes)}) is bigger than the space free on this device ` +
-              `(${formatBytes(estimate.quota - foldersBytesUsed)}). It may not fully save.`
-          );
-        }
-        try {
-          await writeLegacyFiles(folderId, tree);
-        } catch (err) {
-          await deleteLegacyFolderFiles(folderId);
-          setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
-          return;
-        }
-      } finally {
-        setAddingFolder(false);
+      const estimate = await getStorageEstimate();
+      if (estimate && sizeBytes > estimate.quota - foldersBytesUsed) {
+        setError(
+          `"${dirHandle.name}" (${formatBytes(sizeBytes)}) is bigger than the space free on this device ` +
+            `(${formatBytes(estimate.quota - foldersBytesUsed)}). It may not fully save.`
+        );
+      }
+      try {
+        await copyFolderFiles(folderId, tree, "Adding folder", dirHandle.name);
+      } catch (err) {
+        await deleteLegacyFolderFiles(folderId);
+        if (err.name !== "AbortError") setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
+        return;
       }
     }
     const connectedAt = Date.now();
@@ -422,7 +445,15 @@ function App() {
         }
         const newFolderId = crypto.randomUUID();
         const sizeBytes = treeByteSize(tree);
-        await writeLegacyFiles(newFolderId, tree);
+        try {
+          await copyFolderFiles(newFolderId, tree, "Refreshing folder", target.dirHandle.name);
+        } catch (err) {
+          await deleteLegacyFolderFiles(newFolderId);
+          if (err.name !== "AbortError") {
+            setError(`Couldn't refresh "${target.dirHandle.name}": ${err.message}`);
+          }
+          return;
+        }
         await deleteLegacyFolderFiles(target.folderId);
         const connectedAt = Date.now();
         setFolders((prev) => {
@@ -544,6 +575,15 @@ function App() {
           settings={settings}
           onChange={updateSettings}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+      {copyProgress && (
+        <CopyProgressModal
+          title={copyProgress.title}
+          folderName={copyProgress.folderName}
+          files={copyProgress.files}
+          doneSet={copyProgress.doneSet}
+          onCancel={() => copyControllerRef.current?.abort()}
         />
       )}
       <div className="topbar">

@@ -105,18 +105,38 @@ export function buildTreeFromFileList(fileList) {
   return root;
 }
 
+// Flat, ordered list of a tree's file leaves — used to show the full file
+// list up front in the add/refresh progress modal, before any of them have
+// actually been copied yet.
+export function flattenTreeFiles(tree) {
+  const out = [];
+  function walk(node) {
+    if (node.kind === "file") out.push({ name: node.name, relativePath: node.relativePath });
+    else node.children.forEach(walk);
+  }
+  walk(tree);
+  return out;
+}
+
 // Writes every file in a freshly-picked legacy tree into its own OPFS
 // subdirectory (folderId) — this is the actual persisted copy. Called once
 // at connect time and once per refresh (into a *new* folderId — see
 // App.jsx's handleRefreshFolder for why: write-the-new-copy-first is what
 // lets a failed refresh leave the old copy intact).
-export async function writeLegacyFiles(folderId, tree) {
+//
+// onFileDone(relativePath) fires after each file finishes, so the progress
+// modal can check it off live. signal lets the modal's Cancel button abort
+// mid-copy — throws the same AbortError a fetch() abort would, so callers
+// can tell a deliberate cancel apart from a real write failure.
+export async function writeLegacyFiles(folderId, tree, { onFileDone, signal } = {}) {
   async function walk(node) {
     if (node.kind === "file") {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
       await writeLegacyFile(folderId, node.relativePath, node.handle.file);
+      onFileDone?.(node.relativePath);
       return;
     }
-    await Promise.all(node.children.map(walk));
+    for (const child of node.children) await walk(child);
   }
   await walk(tree);
 }

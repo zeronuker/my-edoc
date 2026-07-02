@@ -519,6 +519,101 @@ html,
   width: min(360px, calc(100vw - 48px));
 }
 
+.copy-progress-dialog {
+  width: min(380px, calc(100vw - 48px));
+  max-height: min(520px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+}
+
+.copy-progress-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--cb-line-2);
+  border-top-color: var(--cb-mint);
+  animation: spin 0.8s linear infinite;
+}
+
+.copy-progress-icon.done {
+  animation: none;
+  border-color: var(--cb-mint);
+}
+
+.copy-progress-line {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  color: var(--cb-ink-2);
+  margin-bottom: 6px;
+}
+
+.copy-progress-bar {
+  height: 4px;
+  background: var(--cb-surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.copy-progress-bar-fill {
+  height: 100%;
+  background: var(--cb-mint);
+  transition: width 0.25s ease;
+}
+
+.copy-file-list {
+  overflow-y: auto;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--cb-radius-sm);
+  background: var(--cb-surface-2);
+  margin-bottom: 16px;
+}
+
+.copy-file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--cb-ink-dim);
+  border-bottom: 1px solid var(--cb-line);
+}
+
+.copy-file-row:last-child {
+  border-bottom: none;
+}
+
+.copy-file-row.done {
+  color: var(--cb-ink-2);
+}
+
+.copy-file-check {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cb-mint);
+}
+
+.copy-file-row:not(.done) .copy-file-check::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cb-line-2);
+}
+
+.copy-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .settings-row {
   display: flex;
   align-items: center;
