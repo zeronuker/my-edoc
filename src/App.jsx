@@ -696,6 +696,8 @@ function App() {
           <Toolbar
             viewMode={viewMode}
             setViewMode={setViewMode}
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen((v) => !v)}
             scale={scale}
             currentPage={currentPage}
             numPages={numPages}

@@ -1,8 +1,27 @@
 import SearchBar from "./SearchBar.jsx";
 
-export default function Toolbar({ viewMode, setViewMode, scale, currentPage, numPages, pdfViewer, eventBus }) {
+export default function Toolbar({
+  viewMode,
+  setViewMode,
+  scale,
+  currentPage,
+  numPages,
+  pdfViewer,
+  eventBus,
+  sidebarOpen,
+  onToggleSidebar,
+}) {
   return (
     <div className="toolbar">
+      <button
+        className="icon-btn sidebar-toggle"
+        onClick={onToggleSidebar}
+        aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+        aria-pressed={sidebarOpen}
+      >
+        ☰
+      </button>
+
       <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
         <option value="single">Single page</option>
         <option value="continuous">Continuous</option>

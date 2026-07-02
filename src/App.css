@@ -69,6 +69,22 @@ html,
   display: none;
 }
 
+/* The sidebar toggle lives in the topbar on mobile and in the toolbar on
+   desktop — one copy per breakpoint, each hidden where it doesn't belong. */
+.toolbar .sidebar-toggle {
+  display: none;
+}
+
+@media (min-width: 881px) {
+  .topbar .sidebar-toggle {
+    display: none;
+  }
+
+  .toolbar .sidebar-toggle {
+    display: inline-flex;
+  }
+}
+
 @media (max-width: 880px) {
   .settings-toggle {
     margin-right: 8px;
@@ -139,6 +155,8 @@ html,
 }
 
 .toolbar {
+  position: relative;
+  z-index: 1; /* stay above .viewer-empty, which is absolutely positioned over the rest of .main */
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
