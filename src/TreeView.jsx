@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function FolderIcon() {
   return (
@@ -60,6 +60,77 @@ function formatRelativeTime(ms) {
   if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
   if (diff < day) return `${Math.floor(diff / hour)}h ago`;
   return `${Math.floor(diff / day)}d ago`;
+}
+
+// Chip + a single "more actions" (⋮) button that reveals Refresh/Remove in
+// a small menu, instead of showing both as separate icons on the row —
+// keeps the row's layout fixed regardless of the folder name or chip
+// text length, so nothing shifts around as folders update.
+function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onRemoveFolder, isRefreshing }) {
+  const wrapRef = useRef(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) onClose();
+    }
+    function onKeyDown(e) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  const updated = formatRelativeTime(folder.connectedAt);
+
+  return (
+    <span className="tree-folder-actions" ref={wrapRef}>
+      {updated && (
+        <span className="tree-updated-chip" title={new Date(folder.connectedAt).toLocaleString()}>
+          {updated}
+        </span>
+      )}
+      <button
+        className={`tree-icon-btn tree-kebab${isRefreshing ? " spinning" : ""}`}
+        title="More actions"
+        aria-label="More actions"
+        aria-expanded={isOpen}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+      >
+        ⋮
+      </button>
+      {isOpen && (
+        <div className="tree-kebab-menu" onClick={(e) => e.stopPropagation()}>
+          <button
+            className="tree-kebab-item"
+            disabled={isRefreshing}
+            onClick={() => {
+              onClose();
+              onRefreshFolder(folder.key);
+            }}
+          >
+            <RefreshIcon /> {isRefreshing ? "Refreshing…" : "Refresh"}
+          </button>
+          <button
+            className="tree-kebab-item"
+            onClick={() => {
+              onClose();
+              onRemoveFolder(folder.key);
+            }}
+          >
+            <span className="tree-kebab-remove-icon">×</span> Remove
+          </button>
+        </div>
+      )}
+    </span>
+  );
 }
 
 // True if this node's own name matches, or (for a folder) any descendant
@@ -128,6 +199,8 @@ export default function TreeView({
   refreshingKeys,
 }) {
   const [search, setSearch] = useState("");
+  // Only one folder's actions menu open at a time.
+  const [openActionsKey, setOpenActionsKey] = useState(null);
   if (!folders.length) return null;
   const query = search.trim().toLowerCase();
 
@@ -150,39 +223,15 @@ export default function TreeView({
               selectedHandle={selectedHandle}
               query={query}
               actions={
-                <span className="tree-folder-actions">
-                  {formatRelativeTime(folder.connectedAt) && (
-                    <span
-                      className="tree-updated-chip"
-                      title={new Date(folder.connectedAt).toLocaleString()}
-                    >
-                      {formatRelativeTime(folder.connectedAt)}
-                    </span>
-                  )}
-                  <button
-                    className={`tree-icon-btn${refreshingKeys.has(folder.key) ? " spinning" : ""}`}
-                    title={`Refresh "${folder.dirHandle.name}"`}
-                    aria-label={`Refresh "${folder.dirHandle.name}"`}
-                    disabled={refreshingKeys.has(folder.key)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRefreshFolder(folder.key);
-                    }}
-                  >
-                    <RefreshIcon />
-                  </button>
-                  <button
-                    className="tree-remove"
-                    title={`Remove "${folder.dirHandle.name}"`}
-                    aria-label={`Remove "${folder.dirHandle.name}"`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onRemoveFolder(folder.key);
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
+                <FolderActions
+                  folder={folder}
+                  isOpen={openActionsKey === folder.key}
+                  onToggle={() => setOpenActionsKey((k) => (k === folder.key ? null : folder.key))}
+                  onClose={() => setOpenActionsKey(null)}
+                  onRefreshFolder={onRefreshFolder}
+                  onRemoveFolder={onRemoveFolder}
+                  isRefreshing={refreshingKeys.has(folder.key)}
+                />
               }
             />
           )
