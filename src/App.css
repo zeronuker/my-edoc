@@ -255,6 +255,12 @@ html,
   inset: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  /* Without this, the browser's native pinch-to-zoom fires alongside the
+     custom pointer-based pinch handler in PdfViewer.jsx, zooming the whole
+     page instead of (or as well as) the document — this hands pinch/
+     double-tap zoom entirely to that JS handler while still letting touch
+     panning/scrolling through natively. */
+  touch-action: manipulation;
   background: var(--cb-surface-2);
 }
 
