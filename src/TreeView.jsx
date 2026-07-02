@@ -48,18 +48,39 @@ function RefreshIcon() {
   );
 }
 
-// "Updated just now" / "5m ago" / "3h ago" / "2d ago", from a connectedAt
-// epoch-ms timestamp (null if never successfully connected/refreshed yet).
+// "updated just now" / "updated 5 minutes ago" / "updated 3 hours ago" /
+// "updated 2 days ago" / "updated 4 months ago" / "updated 1 year ago",
+// from a connectedAt epoch-ms timestamp (null if never successfully
+// connected/refreshed yet). Months/years are approximate (30/365 days).
 function formatRelativeTime(ms) {
   if (!ms) return null;
   const diff = Date.now() - ms;
   const minute = 60000;
   const hour = 3600000;
   const day = 86400000;
-  if (diff < minute) return "just now";
-  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
-  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
-  return `${Math.floor(diff / day)}d ago`;
+  const month = day * 30;
+  const year = day * 365;
+
+  if (diff < minute) return "updated just now";
+
+  let value, unit;
+  if (diff < hour) {
+    value = Math.floor(diff / minute);
+    unit = "minute";
+  } else if (diff < day) {
+    value = Math.floor(diff / hour);
+    unit = "hour";
+  } else if (diff < month) {
+    value = Math.floor(diff / day);
+    unit = "day";
+  } else if (diff < year) {
+    value = Math.floor(diff / month);
+    unit = "month";
+  } else {
+    value = Math.floor(diff / year);
+    unit = "year";
+  }
+  return `updated ${value} ${unit}${value === 1 ? "" : "s"} ago`;
 }
 
 // Chip + a single "more actions" (⋮) button that reveals Refresh/Remove in
