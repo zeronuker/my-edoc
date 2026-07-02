@@ -60,10 +60,6 @@ html,
   justify-content: center;
 }
 
-.sidebar-toggle {
-  display: none;
-}
-
 .settings-toggle {
   margin-left: auto;
   margin-right: 12px;
@@ -74,10 +70,6 @@ html,
 }
 
 @media (max-width: 880px) {
-  .sidebar-toggle {
-    display: inline-flex;
-  }
-
   .settings-toggle {
     margin-right: 8px;
   }
@@ -117,6 +109,25 @@ html,
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* Desktop collapse: the mobile drawer above already handles narrow
+   screens via transform, so this only needs to kick in above that
+   breakpoint. Collapsing width to 0 (rather than unmounting) keeps the
+   slide transition and avoids losing the TreeView's expanded-folder
+   state. */
+@media (min-width: 881px) {
+  .sidebar {
+    transition: width 0.2s ease, padding 0.2s ease;
+  }
+
+  .sidebar:not(.open) {
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    border-right: none;
+    overflow: hidden;
+  }
 }
 
 .main {

@@ -66,7 +66,9 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [viewerApi, setViewerApi] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Mobile starts with the drawer closed; desktop starts with the sidebar
+  // expanded (it has no separate "closed" affordance until now).
+  const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia(NARROW_QUERY).matches);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outline, setOutline] = useState(null);
@@ -535,7 +537,7 @@ function App() {
   async function selectFile(fileHandle) {
     setSelectedHandle(fileHandle);
     setError(null);
-    setSidebarOpen(false); // no-op on wide screens, closes the drawer on narrow ones
+    setSidebarOpen(false); // give the page the most space: close the drawer (mobile) / collapse the sidebar (desktop)
     setLoading(true);
     // Two-page (or single-page on narrow screens) + fit-page is the
     // default on every open; manually switching view mode only sticks
@@ -590,7 +592,8 @@ function App() {
         <button
           className="icon-btn sidebar-toggle"
           onClick={() => setSidebarOpen((v) => !v)}
-          aria-label="Toggle folders"
+          aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+          aria-pressed={sidebarOpen}
         >
           ☰
         </button>
