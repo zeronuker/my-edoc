@@ -10,6 +10,7 @@ import {
   buildLegacyManifest,
   reviveLegacyManifest,
   reviveInlineLegacyFolder,
+  treeByteSize,
 } from "./fileSystem.js";
 import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
@@ -68,8 +69,9 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outline, setOutline] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("folders");
-  const [storageEstimate, setStorageEstimate] = useState(null); // { usage, quota } in bytes
+  const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
   const [refreshingKeys, setRefreshingKeys] = useState(() => new Set());
+  const [addingFolder, setAddingFolder] = useState(false);
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
   // Persist-on-change effects below would otherwise fire once on mount
@@ -116,7 +118,14 @@ function App() {
       for (const record of legacyRecords) {
         if (record.manifest) {
           const tree = reviveLegacyManifest(record.id, record.manifest);
-          loaded.push({ key: crypto.randomUUID(), dirHandle: tree.handle, tree, connectedAt: record.connectedAt, folderId: record.id });
+          loaded.push({
+            key: crypto.randomUUID(),
+            dirHandle: tree.handle,
+            tree,
+            connectedAt: record.connectedAt,
+            folderId: record.id,
+            sizeBytes: record.sizeBytes ?? 0,
+          });
         } else {
           // Backward-compat: the very first version of this feature stored
           // file bytes inline in IndexedDB instead of in OPFS. Migrate it:
@@ -125,7 +134,14 @@ function App() {
           const tree = reviveInlineLegacyFolder(record);
           const folderId = crypto.randomUUID();
           await writeLegacyFiles(folderId, tree);
-          loaded.push({ key: crypto.randomUUID(), dirHandle: tree.handle, tree, connectedAt: null, folderId });
+          loaded.push({
+            key: crypto.randomUUID(),
+            dirHandle: tree.handle,
+            tree,
+            connectedAt: null,
+            folderId,
+            sizeBytes: treeByteSize(tree),
+          });
           legacyNeedsResave = true;
         }
       }
@@ -295,48 +311,69 @@ function App() {
     const legacy = next.filter((f) => f.dirHandle.__legacy);
     dbSet(
       "legacyFolders",
-      legacy.map((f) => ({ id: f.folderId, connectedAt: f.connectedAt, manifest: buildLegacyManifest(f.tree) }))
+      legacy.map((f) => ({
+        id: f.folderId,
+        connectedAt: f.connectedAt,
+        manifest: buildLegacyManifest(f.tree),
+        sizeBytes: f.sizeBytes,
+      }))
     );
   }
 
+  // Only fetches the device's overall quota — "used" is tracked ourselves
+  // from folders' own sizeBytes (see foldersBytesUsed below), since
+  // navigator.storage.estimate()'s usage figure lags behind real writes/
+  // deletes by as much as an app relaunch, which made the storage line
+  // show stale (e.g. doubled, or not-yet-zeroed) numbers right after a
+  // refresh or removal.
   async function refreshStorageEstimate() {
     setStorageEstimate(await getStorageEstimate());
   }
 
   async function handleAddFolder() {
-    let dirHandle, tree, folderId;
+    let dirHandle, tree, folderId, sizeBytes;
     if (supportsDirectoryPicker()) {
       dirHandle = await pickFolder();
-      tree = await scanDirectory(dirHandle);
+      setAddingFolder(true);
+      try {
+        tree = await scanDirectory(dirHandle);
+      } finally {
+        setAddingFolder(false);
+      }
     } else {
       const fileList = await pickFolderLegacy();
-      tree = buildTreeFromFileList(fileList);
-      if (!tree) {
-        setError("No PDF files found in that folder.");
-        return;
-      }
-      dirHandle = tree.handle;
-      folderId = crypto.randomUUID();
-
-      const totalBytes = [...fileList].reduce((sum, f) => sum + f.size, 0);
-      const estimate = await getStorageEstimate();
-      if (estimate && totalBytes > estimate.quota - estimate.usage) {
-        setError(
-          `"${dirHandle.name}" (${formatBytes(totalBytes)}) is bigger than the space free on this device ` +
-            `(${formatBytes(estimate.quota - estimate.usage)}). It may not fully save.`
-        );
-      }
+      setAddingFolder(true);
       try {
-        await writeLegacyFiles(folderId, tree);
-      } catch (err) {
-        await deleteLegacyFolderFiles(folderId);
-        setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
-        return;
+        tree = buildTreeFromFileList(fileList);
+        if (!tree) {
+          setError("No PDF files found in that folder.");
+          return;
+        }
+        dirHandle = tree.handle;
+        folderId = crypto.randomUUID();
+        sizeBytes = treeByteSize(tree);
+
+        const estimate = await getStorageEstimate();
+        if (estimate && sizeBytes > estimate.quota - foldersBytesUsed) {
+          setError(
+            `"${dirHandle.name}" (${formatBytes(sizeBytes)}) is bigger than the space free on this device ` +
+              `(${formatBytes(estimate.quota - foldersBytesUsed)}). It may not fully save.`
+          );
+        }
+        try {
+          await writeLegacyFiles(folderId, tree);
+        } catch (err) {
+          await deleteLegacyFolderFiles(folderId);
+          setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
+          return;
+        }
+      } finally {
+        setAddingFolder(false);
       }
     }
     const connectedAt = Date.now();
     setFolders((prev) => {
-      const next = [...prev, { key: crypto.randomUUID(), dirHandle, tree, connectedAt, folderId }];
+      const next = [...prev, { key: crypto.randomUUID(), dirHandle, tree, connectedAt, folderId, sizeBytes }];
       saveFolderList(next);
       return next;
     });
@@ -384,12 +421,15 @@ function App() {
           return;
         }
         const newFolderId = crypto.randomUUID();
+        const sizeBytes = treeByteSize(tree);
         await writeLegacyFiles(newFolderId, tree);
         await deleteLegacyFolderFiles(target.folderId);
         const connectedAt = Date.now();
         setFolders((prev) => {
           const next = prev.map((f) =>
-            f.key === key ? { ...f, dirHandle: tree.handle, tree, connectedAt, folderId: newFolderId } : f
+            f.key === key
+              ? { ...f, dirHandle: tree.handle, tree, connectedAt, folderId: newFolderId, sizeBytes }
+              : f
           );
           saveFolderList(next);
           return next;
@@ -493,6 +533,7 @@ function App() {
 
   const pendingFolders = folders.filter((f) => !f.tree);
   const activeTab = outline ? sidebarTab : "folders";
+  const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
@@ -552,8 +593,15 @@ function App() {
               TreeView's expanded-folder state is local to each Node, and
               unmounting it collapses the whole tree back to the root. */}
           <div hidden={activeTab !== "folders"}>
-            <button className="cb-btn cb-btn--primary" onClick={handleAddFolder}>
-              Add folder
+            <button className="cb-btn cb-btn--primary" onClick={handleAddFolder} disabled={addingFolder}>
+              {addingFolder ? (
+                <span className="viewer-loading">
+                  <span className="spinner" />
+                  Adding…
+                </span>
+              ) : (
+                "Add folder"
+              )}
             </button>
             {pendingFolders.length > 0 && (
               <button
@@ -565,7 +613,7 @@ function App() {
             )}
             {storageEstimate && (
               <div className="storage-usage">
-                {formatBytes(storageEstimate.usage)} used of {formatBytes(storageEstimate.quota)}
+                {formatBytes(foldersBytesUsed)} used of {formatBytes(storageEstimate.quota)}
               </div>
             )}
             <TreeView

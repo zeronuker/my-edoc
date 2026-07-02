@@ -121,6 +121,20 @@ export async function writeLegacyFiles(folderId, tree) {
   await walk(tree);
 }
 
+// Sum of a legacy tree's file sizes, read straight off the in-memory File
+// objects — used to track this folder's OPFS footprint ourselves, since
+// navigator.storage.estimate()'s usage figure lags behind (WebKit doesn't
+// update it immediately after a write/delete, sometimes not until the app
+// is relaunched) and would otherwise make the storage display read wrong
+// right after connecting/refreshing/removing a folder.
+export function treeByteSize(tree) {
+  function walk(node) {
+    if (node.kind === "file") return node.handle.file.size;
+    return node.children.reduce((sum, c) => sum + walk(c), 0);
+  }
+  return walk(tree);
+}
+
 // The lightweight, no-file-bytes description of a legacy tree's shape —
 // this (not the files themselves) is what actually goes into IndexedDB.
 export function buildLegacyManifest(tree) {
