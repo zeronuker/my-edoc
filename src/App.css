@@ -376,12 +376,19 @@ html,
   background: var(--cb-surface-3);
 }
 
+/* Second line under the folder name — chip on the left, kebab menu
+   pinned on the right, so neither ever shifts the name above. */
+.tree-folder-meta {
+  padding: 0 4px 3px 20px;
+}
+
 .tree-folder-actions {
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 4px;
-  margin-left: auto;
+  width: 100%;
 }
 
 .tree-updated-chip {

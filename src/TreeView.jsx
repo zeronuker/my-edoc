@@ -171,8 +171,10 @@ function Node({ node, onSelectFile, selectedHandle, query, actions }) {
         <span className="tree-chevron">{isOpen ? "▾" : "▸"}</span>
         <FolderIcon />
         <span className="tree-label">{node.name}</span>
-        {actions}
       </div>
+      {/* Root folders only (actions is undefined for nested subfolders) — its
+          own line so the name above never shifts based on chip/menu width. */}
+      {actions && <div className="tree-folder-meta">{actions}</div>}
       {isOpen && (
         <div className="tree-children">
           {children.map((child) => (
