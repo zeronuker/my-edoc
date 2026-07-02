@@ -644,12 +644,35 @@ function App() {
               )}
             </button>
             {pendingFolders.length > 0 && (
-              <button
-                className="cb-btn"
-                onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
-              >
-                Reconnect all
-              </button>
+              <div className="pending-folders">
+                <button
+                  className="cb-btn"
+                  onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
+                >
+                  Reconnect all
+                </button>
+                {pendingFolders.map((f) => (
+                  <div key={f.key} className="pending-folder-row">
+                    <span className="pending-folder-name">{f.dirHandle.name}</span>
+                    <button
+                      className="tree-icon-btn"
+                      title={`Reconnect "${f.dirHandle.name}"`}
+                      aria-label={`Reconnect "${f.dirHandle.name}"`}
+                      onClick={() => handleReconnect(f.dirHandle)}
+                    >
+                      ↻
+                    </button>
+                    <button
+                      className="tree-icon-btn"
+                      title={`Remove "${f.dirHandle.name}"`}
+                      aria-label={`Remove "${f.dirHandle.name}"`}
+                      onClick={() => handleRemoveFolder(f.key)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
             {storageEstimate && (
               <div className="storage-usage">

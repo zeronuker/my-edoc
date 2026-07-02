@@ -488,6 +488,35 @@ html,
   color: var(--cb-ink-dim);
 }
 
+.pending-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.pending-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-radius: var(--cb-radius-sm);
+}
+
+.pending-folder-row:hover {
+  background: var(--cb-surface-3);
+}
+
+.pending-folder-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--cb-ink-dim);
+}
+
 .tree-file.selected {
   background: var(--cb-surface-3);
   color: var(--cb-mint);

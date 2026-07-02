@@ -1,7 +1,17 @@
 import { writeLegacyFile, readLegacyFile } from "./opfs.js";
 
 export function supportsDirectoryPicker() {
-  return "showDirectoryPicker" in window;
+  // Safari/WebKit — iPhone, iPad, and even desktop Mac — has no genuine,
+  // working implementation of this API on any platform. Some versions
+  // still expose the property itself though, so feature-detection alone
+  // (`"showDirectoryPicker" in window`) isn't reliable there: it can
+  // return true, route folder-adding down the "live handle" desktop path,
+  // and then that folder loses permission the moment the app reopens
+  // (Safari doesn't persist it), permanently stuck needing "reconnect".
+  // navigator.vendor reliably identifies Apple's engine even on iPad,
+  // which otherwise reports a desktop-Mac user agent by default.
+  const isAppleWebKit = navigator.vendor === "Apple Computer, Inc.";
+  return !isAppleWebKit && "showDirectoryPicker" in window;
 }
 
 export async function pickFolder() {
