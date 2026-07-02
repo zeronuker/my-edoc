@@ -182,7 +182,8 @@ html,
     min-height: 44px;
   }
 
-  .tree-remove {
+  .tree-remove,
+  .tree-icon-btn {
     min-width: 44px;
     min-height: 44px;
   }
@@ -370,8 +371,47 @@ html,
   background: var(--cb-surface-3);
 }
 
-.tree-remove {
+.tree-folder-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
+}
+
+.tree-updated-chip {
+  flex-shrink: 0;
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  color: var(--cb-ink-dim);
+  white-space: nowrap;
+}
+
+.tree-icon-btn {
+  flex-shrink: 0;
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--cb-ink-dim);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.tree-icon-btn:hover {
+  color: var(--cb-mint);
+}
+
+.tree-icon-btn:disabled {
+  cursor: default;
+  color: var(--cb-ink-dim);
+}
+
+.tree-icon-btn.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+
+.tree-remove {
+  flex-shrink: 0;
   background: none;
   border: none;
   color: var(--cb-ink-dim);
@@ -383,6 +423,13 @@ html,
 
 .tree-remove:hover {
   color: var(--cb-mint);
+}
+
+.storage-usage {
+  margin: 6px 2px;
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  color: var(--cb-ink-dim);
 }
 
 .tree-file.selected {

@@ -1,3 +1,5 @@
+import { writeLegacyFile, readLegacyFile } from "./opfs.js";
+
 export function supportsDirectoryPicker() {
   return "showDirectoryPicker" in window;
 }
@@ -28,8 +30,8 @@ export async function scanDirectory(dirHandle, name = dirHandle.name) {
 function permissiveHandle(name, extra = {}) {
   // __legacy marks this for App.jsx: it carries function properties
   // (getFile/queryPermission), which IndexedDB can't structured-clone
-  // directly — see serializeLegacyFolder/reviveLegacyFolder below for
-  // how these get persisted across reloads instead.
+  // directly — see writeLegacyFiles/buildLegacyManifest/reviveLegacyManifest
+  // below for how these get persisted across reloads instead.
   return { name, __legacy: true, queryPermission: async () => "granted", ...extra };
 }
 
@@ -86,9 +88,13 @@ export function buildTreeFromFileList(fileList) {
       }
       parent = dir;
     }
+    // relativePath (path within the picked root, e.g. "Work/Q1.pdf") is
+    // the OPFS lookup key — see writeLegacyFiles/buildLegacyManifest below.
+    const relativePath = parts.slice(1).join("/");
     parent.children.push({
       name: file.name,
       kind: "file",
+      relativePath,
       handle: permissiveHandle(file.name, { getFile: async () => file, file }),
     });
   }
@@ -99,29 +105,72 @@ export function buildTreeFromFileList(fileList) {
   return root;
 }
 
-// Legacy folder trees hold their files as plain File blobs (structured-
-// cloneable) plus functions (not cloneable) hung off each handle. Strip the
-// functions down to a plain object graph so it can be written to IndexedDB...
-export function serializeLegacyFolder(tree) {
+// Writes every file in a freshly-picked legacy tree into its own OPFS
+// subdirectory (folderId) — this is the actual persisted copy. Called once
+// at connect time and once per refresh (into a *new* folderId — see
+// App.jsx's handleRefreshFolder for why: write-the-new-copy-first is what
+// lets a failed refresh leave the old copy intact).
+export async function writeLegacyFiles(folderId, tree) {
+  async function walk(node) {
+    if (node.kind === "file") {
+      await writeLegacyFile(folderId, node.relativePath, node.handle.file);
+      return;
+    }
+    await Promise.all(node.children.map(walk));
+  }
+  await walk(tree);
+}
+
+// The lightweight, no-file-bytes description of a legacy tree's shape —
+// this (not the files themselves) is what actually goes into IndexedDB.
+export function buildLegacyManifest(tree) {
   function walk(node) {
     if (node.kind === "file") {
-      return { name: node.name, kind: "file", file: node.handle.file };
+      return { name: node.name, kind: "file", relativePath: node.relativePath };
     }
     return { name: node.name, kind: "directory", children: node.children.map(walk) };
   }
   return walk(tree);
 }
 
-// ...and rebuild the same shape buildTreeFromFileList produces (functions
-// re-attached) when loading a saved session back out of IndexedDB.
-export function reviveLegacyFolder(serialized) {
+// Rebuilds the buildTreeFromFileList shape from a saved manifest, wiring
+// each file's getFile() to read its bytes back out of OPFS on demand.
+export function reviveLegacyManifest(folderId, manifest) {
   function walk(node) {
     if (node.kind === "file") {
-      return { name: node.name, kind: "file", handle: permissiveHandle(node.name, { getFile: async () => node.file, file: node.file }) };
+      return {
+        name: node.name,
+        kind: "file",
+        relativePath: node.relativePath,
+        handle: permissiveHandle(node.name, { getFile: () => readLegacyFile(folderId, node.relativePath) }),
+      };
     }
     return { name: node.name, kind: "directory", children: node.children.map(walk) };
   }
-  const tree = walk(serialized);
+  const tree = walk(manifest);
+  tree.handle = permissiveHandle(manifest.name);
+  return tree;
+}
+
+// One-time migration path only: the very first version of legacy-folder
+// persistence stored File blobs directly inside IndexedDB (see git history)
+// instead of in OPFS. This revives that old shape back into an in-memory
+// tree so App.jsx can re-save it through writeLegacyFiles/buildLegacyManifest
+// and drop the old inline-blob copy for good.
+export function reviveInlineLegacyFolder(serialized) {
+  function walk(node, pathSoFar) {
+    const relativePath = pathSoFar ? `${pathSoFar}/${node.name}` : node.name;
+    if (node.kind === "file") {
+      return {
+        name: node.name,
+        kind: "file",
+        relativePath,
+        handle: permissiveHandle(node.name, { getFile: async () => node.file, file: node.file }),
+      };
+    }
+    return { name: node.name, kind: "directory", children: node.children.map((c) => walk(c, relativePath)) };
+  }
+  const tree = { name: serialized.name, kind: "directory", children: serialized.children.map((c) => walk(c, "")) };
   tree.handle = permissiveHandle(serialized.name);
   return tree;
 }

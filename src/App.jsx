@@ -6,9 +6,13 @@ import {
   pickFolderLegacy,
   buildTreeFromFileList,
   wrapDroppedFile,
-  serializeLegacyFolder,
-  reviveLegacyFolder,
+  writeLegacyFiles,
+  buildLegacyManifest,
+  reviveLegacyManifest,
+  reviveInlineLegacyFolder,
 } from "./fileSystem.js";
+import { deleteLegacyFolderFiles } from "./opfs.js";
+import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { loadDocument } from "./edoc.js";
 import { dbGet, dbSet } from "./db.js";
 import TreeView from "./TreeView.jsx";
@@ -30,10 +34,22 @@ const DEFAULT_SETTINGS = {
 // Keep in sync with the mobile-layout breakpoint in App.css.
 const NARROW_QUERY = "(max-width: 880px)";
 
+function formatBytes(bytes) {
+  if (bytes == null) return "";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
+}
+
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const onSplashFinish = useCallback(() => setShowSplash(false), []);
-  const [folders, setFolders] = useState([]); // [{ dirHandle, tree }], tree is null while pending permission
+  const [folders, setFolders] = useState([]); // [{ key, dirHandle, tree, connectedAt, folderId }] — tree is null while pending permission; folderId only exists for legacy (OPFS-backed) folders
   const [selectedHandle, setSelectedHandle] = useState(null);
   const [pdf, setPdf] = useState(null);
   // Two-page (or single-page on narrow screens) + fit-page is forced on
@@ -52,6 +68,8 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [outline, setOutline] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("folders");
+  const [storageEstimate, setStorageEstimate] = useState(null); // { usage, quota } in bytes
+  const [refreshingKeys, setRefreshingKeys] = useState(() => new Set());
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
   // Persist-on-change effects below would otherwise fire once on mount
@@ -63,28 +81,58 @@ function App() {
   // a per-folder "Reconnect" button instead of silently failing.
   useEffect(() => {
     (async () => {
+      // Exempts our storage from Safari's "clear untouched site data"
+      // eviction and raises the quota ceiling — silently granted for
+      // installed home-screen apps, nothing to react to here.
+      requestPersistentStorage();
+
       const savedSettings = await dbGet("settings");
       const resolvedSettings = { ...DEFAULT_SETTINGS, ...savedSettings };
       setSettings(resolvedSettings);
       initializedRef.current = true;
 
-      const dirHandles = (await dbGet("rootDirHandles")) || [];
       const loaded = [];
-      for (const dirHandle of dirHandles) {
+
+      const rootRecords = (await dbGet("rootDirHandles")) || [];
+      for (const record of rootRecords) {
+        // Backward-compat: the pre-timestamp format stored a bare array
+        // of handles instead of { dirHandle, connectedAt } records.
+        const dirHandle = record?.dirHandle ?? record;
+        const connectedAt = record?.dirHandle ? record.connectedAt : null;
         const granted = (await dirHandle.queryPermission({ mode: "read" })) === "granted";
-        loaded.push({ dirHandle, tree: granted ? await scanDirectory(dirHandle) : null });
+        loaded.push({
+          key: crypto.randomUUID(),
+          dirHandle,
+          connectedAt,
+          tree: granted ? await scanDirectory(dirHandle) : null,
+        });
       }
 
       // Legacy (Safari/iOS, no File System Access API) folders have no
-      // permission to re-check — the picked files themselves were saved,
+      // permission to re-check — the file copies live in OPFS already,
       // so they're ready to browse immediately, no reconnect needed.
-      const legacyTrees = (await dbGet("legacyFolders")) || [];
-      for (const serialized of legacyTrees) {
-        const tree = reviveLegacyFolder(serialized);
-        loaded.push({ dirHandle: tree.handle, tree });
+      const legacyRecords = (await dbGet("legacyFolders")) || [];
+      let legacyNeedsResave = false;
+      for (const record of legacyRecords) {
+        if (record.manifest) {
+          const tree = reviveLegacyManifest(record.id, record.manifest);
+          loaded.push({ key: crypto.randomUUID(), dirHandle: tree.handle, tree, connectedAt: record.connectedAt, folderId: record.id });
+        } else {
+          // Backward-compat: the very first version of this feature stored
+          // file bytes inline in IndexedDB instead of in OPFS. Migrate it:
+          // revive the old shape, write the bytes into OPFS under a fresh
+          // folderId, then let the resave below drop the old inline copy.
+          const tree = reviveInlineLegacyFolder(record);
+          const folderId = crypto.randomUUID();
+          await writeLegacyFiles(folderId, tree);
+          loaded.push({ key: crypto.randomUUID(), dirHandle: tree.handle, tree, connectedAt: null, folderId });
+          legacyNeedsResave = true;
+        }
       }
 
       setFolders(loaded);
+      if (legacyNeedsResave) saveFolderList(loaded);
+      refreshStorageEstimate();
 
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
@@ -236,19 +284,27 @@ function App() {
     viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
   }, [viewerApi, viewMode]);
 
-  function persistFolders(next) {
-    // Real FileSystemHandle objects (Chromium) structured-clone as-is;
-    // legacy (Safari/iOS) folders need their functions stripped first —
-    // see serializeLegacyFolder.
+  // Saves the lightweight folder list only — real handles (Chromium)
+  // structured-clone as-is, and legacy folders save their (already OPFS-
+  // backed) manifest, not file bytes. Never call this expecting it to
+  // write any file content; that only happens in writeLegacyFiles.
+  function saveFolderList(next) {
     const real = next.filter((f) => !f.dirHandle.__legacy);
-    dbSet("rootDirHandles", real.map((f) => f.dirHandle));
+    dbSet("rootDirHandles", real.map((f) => ({ dirHandle: f.dirHandle, connectedAt: f.connectedAt })));
 
     const legacy = next.filter((f) => f.dirHandle.__legacy);
-    dbSet("legacyFolders", legacy.map((f) => serializeLegacyFolder(f.tree)));
+    dbSet(
+      "legacyFolders",
+      legacy.map((f) => ({ id: f.folderId, connectedAt: f.connectedAt, manifest: buildLegacyManifest(f.tree) }))
+    );
+  }
+
+  async function refreshStorageEstimate() {
+    setStorageEstimate(await getStorageEstimate());
   }
 
   async function handleAddFolder() {
-    let dirHandle, tree;
+    let dirHandle, tree, folderId;
     if (supportsDirectoryPicker()) {
       dirHandle = await pickFolder();
       tree = await scanDirectory(dirHandle);
@@ -260,31 +316,116 @@ function App() {
         return;
       }
       dirHandle = tree.handle;
+      folderId = crypto.randomUUID();
+
+      const totalBytes = [...fileList].reduce((sum, f) => sum + f.size, 0);
+      const estimate = await getStorageEstimate();
+      if (estimate && totalBytes > estimate.quota - estimate.usage) {
+        setError(
+          `"${dirHandle.name}" (${formatBytes(totalBytes)}) is bigger than the space free on this device ` +
+            `(${formatBytes(estimate.quota - estimate.usage)}). It may not fully save.`
+        );
+      }
+      try {
+        await writeLegacyFiles(folderId, tree);
+      } catch (err) {
+        await deleteLegacyFolderFiles(folderId);
+        setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
+        return;
+      }
     }
+    const connectedAt = Date.now();
     setFolders((prev) => {
-      const next = [...prev, { dirHandle, tree }];
-      persistFolders(next);
+      const next = [...prev, { key: crypto.randomUUID(), dirHandle, tree, connectedAt, folderId }];
+      saveFolderList(next);
       return next;
     });
+    refreshStorageEstimate();
   }
 
   async function handleReconnect(dirHandle) {
     const granted = (await dirHandle.requestPermission({ mode: "read" })) === "granted";
     if (!granted) return;
     const tree = await scanDirectory(dirHandle);
-    setFolders((prev) => prev.map((f) => (f.dirHandle === dirHandle ? { ...f, tree } : f)));
+    const connectedAt = Date.now();
+    setFolders((prev) => {
+      const next = prev.map((f) => (f.dirHandle === dirHandle ? { ...f, tree, connectedAt } : f));
+      saveFolderList(next);
+      return next;
+    });
   }
 
   async function handleReconnectAll(dirHandles) {
     for (const dirHandle of dirHandles) await handleReconnect(dirHandle);
   }
 
-  function handleRemoveFolder(dirHandle) {
+  // Folders never get a silent background refresh (no permission/handle
+  // persists for the legacy path — see fileSystem.js), so this always
+  // re-opens the native picker. Once the user re-picks the same folder:
+  // the fresh copy is written under a *new* OPFS folderId first, and only
+  // once that fully succeeds is the old folderId's copy deleted — so a
+  // failed refresh (cancelled picker, ran out of storage) leaves the
+  // previous working copy untouched instead of losing it.
+  async function handleRefreshFolder(key) {
+    const target = folders.find((f) => f.key === key);
+    if (!target) return;
+    setRefreshingKeys((prev) => new Set(prev).add(key));
+    try {
+      if (target.dirHandle.__legacy) {
+        let fileList;
+        try {
+          fileList = await pickFolderLegacy();
+        } catch {
+          return; // cancelled — leave the existing copy as-is
+        }
+        const tree = buildTreeFromFileList(fileList);
+        if (!tree) {
+          setError("No PDF files found in that folder.");
+          return;
+        }
+        const newFolderId = crypto.randomUUID();
+        await writeLegacyFiles(newFolderId, tree);
+        await deleteLegacyFolderFiles(target.folderId);
+        const connectedAt = Date.now();
+        setFolders((prev) => {
+          const next = prev.map((f) =>
+            f.key === key ? { ...f, dirHandle: tree.handle, tree, connectedAt, folderId: newFolderId } : f
+          );
+          saveFolderList(next);
+          return next;
+        });
+      } else {
+        const granted = (await target.dirHandle.requestPermission({ mode: "read" })) === "granted";
+        if (!granted) return;
+        const tree = await scanDirectory(target.dirHandle);
+        const connectedAt = Date.now();
+        setFolders((prev) => {
+          const next = prev.map((f) => (f.key === key ? { ...f, tree, connectedAt } : f));
+          saveFolderList(next);
+          return next;
+        });
+      }
+      refreshStorageEstimate();
+    } catch (err) {
+      setError(`Couldn't refresh folder: ${err.message}`);
+    } finally {
+      setRefreshingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
+  function handleRemoveFolder(key) {
     setFolders((prev) => {
-      const next = prev.filter((f) => f.dirHandle !== dirHandle);
-      persistFolders(next);
+      const target = prev.find((f) => f.key === key);
+      if (target?.folderId) deleteLegacyFolderFiles(target.folderId);
+      const next = prev.filter((f) => f.key !== key);
+      saveFolderList(next);
       return next;
     });
+    refreshStorageEstimate();
   }
 
   function handleDragOver(e) {
@@ -303,10 +444,11 @@ function App() {
         if (handle.kind === "directory") {
           const tree = await scanDirectory(handle);
           setFolders((prev) => {
-            const next = [...prev, { dirHandle: handle, tree }];
-            persistFolders(next);
+            const next = [...prev, { key: crypto.randomUUID(), dirHandle: handle, tree, connectedAt: Date.now() }];
+            saveFolderList(next);
             return next;
           });
+          refreshStorageEstimate();
         } else if (handle.name.toLowerCase().endsWith(".pdf")) {
           selectFile(handle);
         }
@@ -421,11 +563,18 @@ function App() {
                 Reconnect all
               </button>
             )}
+            {storageEstimate && (
+              <div className="storage-usage">
+                {formatBytes(storageEstimate.usage)} used of {formatBytes(storageEstimate.quota)}
+              </div>
+            )}
             <TreeView
               folders={folders.filter((f) => f.tree)}
               onSelectFile={selectFile}
               selectedHandle={selectedHandle}
               onRemoveFolder={handleRemoveFolder}
+              onRefreshFolder={handleRefreshFolder}
+              refreshingKeys={refreshingKeys}
             />
           </div>
         </aside>

@@ -27,6 +27,41 @@ function FileIcon() {
   );
 }
 
+function RefreshIcon() {
+  return (
+    <svg className="tree-icon" viewBox="0 0 16 16" width="14" height="14" fill="none">
+      <path
+        d="M13 3v3.5h-3.5M3 13v-3.5h3.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M3.5 8a4.5 4.5 0 0 1 7.9-2.95L13 6.5M12.5 8a4.5 4.5 0 0 1-7.9 2.95L3 9.5"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// "Updated just now" / "5m ago" / "3h ago" / "2d ago", from a connectedAt
+// epoch-ms timestamp (null if never successfully connected/refreshed yet).
+function formatRelativeTime(ms) {
+  if (!ms) return null;
+  const diff = Date.now() - ms;
+  const minute = 60000;
+  const hour = 3600000;
+  const day = 86400000;
+  if (diff < minute) return "just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+  return `${Math.floor(diff / day)}d ago`;
+}
+
 // True if this node's own name matches, or (for a folder) any descendant
 // does. query is already lowercased.
 function nodeMatches(node, query) {
@@ -84,7 +119,14 @@ function Node({ node, onSelectFile, selectedHandle, query, actions }) {
   );
 }
 
-export default function TreeView({ folders, onSelectFile, selectedHandle, onRemoveFolder }) {
+export default function TreeView({
+  folders,
+  onSelectFile,
+  selectedHandle,
+  onRemoveFolder,
+  onRefreshFolder,
+  refreshingKeys,
+}) {
   const [search, setSearch] = useState("");
   if (!folders.length) return null;
   const query = search.trim().toLowerCase();
@@ -99,26 +141,48 @@ export default function TreeView({ folders, onSelectFile, selectedHandle, onRemo
         onChange={(e) => setSearch(e.target.value)}
       />
       {folders.map(
-        ({ dirHandle, tree }) =>
-          tree && (
+        (folder) =>
+          folder.tree && (
             <Node
-              key={dirHandle.name}
-              node={tree}
+              key={folder.key}
+              node={folder.tree}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               query={query}
               actions={
-                <button
-                  className="tree-remove"
-                  title={`Remove "${dirHandle.name}"`}
-                  aria-label={`Remove "${dirHandle.name}"`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveFolder(dirHandle);
-                  }}
-                >
-                  ×
-                </button>
+                <span className="tree-folder-actions">
+                  {formatRelativeTime(folder.connectedAt) && (
+                    <span
+                      className="tree-updated-chip"
+                      title={new Date(folder.connectedAt).toLocaleString()}
+                    >
+                      {formatRelativeTime(folder.connectedAt)}
+                    </span>
+                  )}
+                  <button
+                    className={`tree-icon-btn${refreshingKeys.has(folder.key) ? " spinning" : ""}`}
+                    title={`Refresh "${folder.dirHandle.name}"`}
+                    aria-label={`Refresh "${folder.dirHandle.name}"`}
+                    disabled={refreshingKeys.has(folder.key)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRefreshFolder(folder.key);
+                    }}
+                  >
+                    <RefreshIcon />
+                  </button>
+                  <button
+                    className="tree-remove"
+                    title={`Remove "${folder.dirHandle.name}"`}
+                    aria-label={`Remove "${folder.dirHandle.name}"`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveFolder(folder.key);
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
               }
             />
           )
