@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node brand-kit/scripts/write-build-info.mjs && vite",
+    "build": "node brand-kit/scripts/write-build-info.mjs && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "brand:fonts": "node brand-kit/scripts/download-fonts.mjs",

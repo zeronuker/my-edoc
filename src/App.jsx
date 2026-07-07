@@ -21,11 +21,12 @@ import TreeView from "./TreeView.jsx";
 import OutlineView from "./OutlineView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
-import UpdatePrompt from "./UpdatePrompt.jsx";
 import Settings from "./Settings.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
+import UpdatePrompt from "@brand/UpdatePrompt";
+import { useUpdate } from "@brand/useUpdate";
 import "./App.css";
 
 const DEFAULT_SETTINGS = {
@@ -71,6 +72,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia(NARROW_QUERY).matches);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const update = useUpdate("edoc");
   const [outline, setOutline] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("folders");
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
@@ -571,12 +573,13 @@ function App() {
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
-      <UpdatePrompt ready={!showSplash} />
+      <UpdatePrompt ready={!showSplash} update={update} appLabel="CLAUDEBORNE EDOCUMENT READER" />
       {settingsOpen && (
         <Settings
           settings={settings}
           onChange={updateSettings}
           onClose={() => setSettingsOpen(false)}
+          update={update}
         />
       )}
       {copyProgress && (
@@ -601,9 +604,10 @@ function App() {
         <button
           className="icon-btn settings-toggle"
           onClick={() => setSettingsOpen(true)}
-          aria-label="Settings"
+          aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
         >
           ⚙
+          {update.needRefresh && <span className="update-dot" />}
         </button>
       </div>
       <div className="app-row">

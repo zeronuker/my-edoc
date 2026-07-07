@@ -49,6 +49,7 @@ html,
 }
 
 .icon-btn {
+  position: relative;
   flex-shrink: 0;
   margin-left: 8px;
   width: 32px;
@@ -62,6 +63,17 @@ html,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.update-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cb-update-accent);
+  border: 1px solid var(--cb-surface-1);
 }
 
 .settings-toggle {
@@ -765,4 +777,38 @@ html,
 
 .settings-actions {
   margin-top: 16px;
+}
+
+.settings-section-head {
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--cb-ink-dim);
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cb-line);
+}
+
+.settings-value {
+  font-family: var(--cb-font-mono);
+  font-size: 13px;
+  color: var(--cb-ink-dim);
+}
+
+.settings-update-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.settings-update-status {
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--cb-ink-dim);
+}
+
+.settings-update-status--available {
+  color: var(--cb-mint);
 }

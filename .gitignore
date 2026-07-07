@@ -25,3 +25,6 @@ dev-dist
 *.sw?
 
 .vercel
+
+# Regenerated per-build by scripts/write-build-info.mjs
+public/build-info.json

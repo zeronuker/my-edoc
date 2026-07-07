@@ -1,6 +1,6 @@
 // Same modal shell as UpdatePrompt.jsx (.modal-backdrop/.modal-dialog),
 // just with settings controls instead of an update notice.
-export default function Settings({ settings, onChange, onClose }) {
+export default function Settings({ settings, onChange, onClose, update }) {
   return (
     <>
       <div className="modal-backdrop" onClick={onClose} />
@@ -44,6 +44,40 @@ export default function Settings({ settings, onChange, onClose }) {
             checked={settings.keepAwake}
             onChange={(e) => onChange({ keepAwake: e.target.checked })}
           />
+        </div>
+
+        <div className="settings-section-head">APP UPDATE</div>
+
+        <div className="settings-row">
+          <label>Current build</label>
+          <span className="settings-value">{update.current.version}</span>
+        </div>
+
+        <div className="settings-update-row">
+          {update.needRefresh ? (
+            <button
+              className="cb-btn cb-btn--primary"
+              onClick={() => update.updateServiceWorker(true)}
+            >
+              UPDATE NOW
+            </button>
+          ) : (
+            <button
+              className="cb-btn"
+              onClick={update.checkForUpdate}
+              disabled={update.checkingUpdate}
+            >
+              {update.checkingUpdate ? "CHECKING…" : "CHECK FOR UPDATES"}
+            </button>
+          )}
+          {update.needRefresh && (
+            <span className="settings-update-status settings-update-status--available">
+              NEW VERSION AVAILABLE
+            </span>
+          )}
+          {!update.needRefresh && update.updateChecked && !update.checkingUpdate && (
+            <span className="settings-update-status">NO UPDATE AVAILABLE</span>
+          )}
         </div>
 
         <div className="update-dialog-actions settings-actions">
