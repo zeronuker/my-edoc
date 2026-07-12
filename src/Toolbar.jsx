@@ -10,6 +10,8 @@ export default function Toolbar({
   eventBus,
   sidebarOpen,
   onToggleSidebar,
+  nightReading,
+  onToggleNightReading,
 }) {
   return (
     <div className="toolbar">
@@ -81,6 +83,16 @@ export default function Toolbar({
           ⟳
         </button>
       </span>
+
+      <button
+        className={`icon-btn night-reading-toggle${nightReading ? " active" : ""}`}
+        aria-label={nightReading ? "Turn off night reading" : "Turn on night reading"}
+        aria-pressed={nightReading}
+        title="Night reading (invert page colors)"
+        onClick={onToggleNightReading}
+      >
+        🌙
+      </button>
 
       <SearchBar eventBus={eventBus} />
     </div>

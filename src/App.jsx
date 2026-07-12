@@ -13,6 +13,7 @@ import {
   treeByteSize,
   flattenTreeFiles,
   flattenTreeFileHandles,
+  isMobileDevice,
 } from "./fileSystem.js";
 import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
@@ -38,10 +39,15 @@ const DEFAULT_SETTINGS = {
   resumePosition: true,
   keepAwake: false,
   nightReading: false,
+  autoHideSidebar: false,
 };
 
-// Keep in sync with the mobile-layout breakpoint in App.css.
+// Keep in sync with the mobile-layout breakpoint in App.css. Drives the
+// drawer-vs-collapse CSS treatment and the single/two-page default — purely
+// width-based, unlike IS_MOBILE below (see fileSystem.js) which drives the
+// sidebar's default open/closed state and isn't affected by window width.
 const NARROW_QUERY = "(max-width: 880px)";
+const IS_MOBILE = isMobileDevice();
 
 function formatBytes(bytes) {
   if (bytes == null) return "";
@@ -72,18 +78,14 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [viewerApi, setViewerApi] = useState(null);
-  // Mobile starts with the drawer closed; desktop starts with the sidebar
-  // expanded (it has no separate "closed" affordance until now).
-  const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia(NARROW_QUERY).matches);
+  // Phone starts with the drawer closed; iPad and desktop start with the
+  // sidebar expanded, regardless of window width.
+  const [sidebarOpen, setSidebarOpen] = useState(() => !IS_MOBILE);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const update = useUpdate("edoc");
   const [outline, setOutline] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("folders");
-  // Keyed by filename, same key filePositions in IndexedDB uses — held in
-  // state (in addition to being persisted) purely so TreeView can show a
-  // "12/40" progress chip per file without a re-fetch per row.
-  const [filePositions, setFilePositions] = useState({});
   // [{ fileHandle, name, openedAt }], newest first — legacy (OPFS) handles
   // carry function properties IndexedDB can't clone, so only real handles
   // persist across reload (same restriction lastFileHandle already has);
@@ -179,7 +181,6 @@ function App() {
       if (legacyNeedsResave) saveFolderList(loaded);
       refreshStorageEstimate();
 
-      setFilePositions((await dbGet("filePositions")) || {});
       setRecentFiles((await dbGet("recentFiles")) || []);
       setTextIndex((await dbGet("textIndex")) || {});
 
@@ -291,11 +292,11 @@ function App() {
   // page/scale and clobber the new file's saved position before restore runs.
   useEffect(() => {
     if (!selectedHandle || restoringRef.current) return;
-    setFilePositions((prev) => {
-      const next = { ...prev, [selectedHandle.name]: { page: currentPage, scale, numPages } };
-      dbSet("filePositions", next);
-      return next;
-    });
+    (async () => {
+      const all = (await dbGet("filePositions")) || {};
+      all[selectedHandle.name] = { page: currentPage, scale, numPages };
+      await dbSet("filePositions", all);
+    })();
   }, [selectedHandle, currentPage, scale, numPages]);
 
   // Drive the pdf.js viewer from React state/events instead of rendering
@@ -621,7 +622,8 @@ function App() {
   async function selectFile(fileHandle) {
     setSelectedHandle(fileHandle);
     setError(null);
-    setSidebarOpen(false); // give the page the most space: close the drawer (mobile) / collapse the sidebar (desktop)
+    // Forced on phone; opt-in elsewhere via Settings > Auto-hide panel.
+    if (IS_MOBILE || settings.autoHideSidebar) setSidebarOpen(false);
     setLoading(true);
     // Two-page (or single-page on narrow screens) + fit-page is the
     // default on every open; manually switching view mode only sticks
@@ -678,6 +680,7 @@ function App() {
           onChange={updateSettings}
           onClose={() => setSettingsOpen(false)}
           update={update}
+          isMobile={IS_MOBILE}
         />
       )}
       {copyProgress && (
@@ -823,7 +826,6 @@ function App() {
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
               refreshingKeys={refreshingKeys}
-              filePositions={filePositions}
               recentFiles={recentFiles}
               textIndex={textIndex}
             />
@@ -840,6 +842,8 @@ function App() {
             numPages={numPages}
             pdfViewer={viewerApi?.pdfViewer}
             eventBus={viewerApi?.eventBus}
+            nightReading={settings.nightReading}
+            onToggleNightReading={() => updateSettings({ nightReading: !settings.nightReading })}
           />
           {error && <div className="error-banner">{error}</div>}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} nightReading={settings.nightReading} />

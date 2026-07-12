@@ -180,13 +180,12 @@ function sortChildren(children, recentMap) {
   });
 }
 
-function Node({ node, onSelectFile, selectedHandle, query, actions, filePositions, recentMap, textIndex }) {
+function Node({ node, onSelectFile, selectedHandle, query, actions, recentMap, textIndex }) {
   const [open, setOpen] = useState(false);
 
   if (node.kind === "file") {
     if (!nodeMatches(node, query, textIndex)) return null;
     const isSelected = node.handle === selectedHandle;
-    const position = filePositions?.[node.name];
     return (
       <div
         className={`tree-file${isSelected ? " selected" : ""}`}
@@ -196,11 +195,6 @@ function Node({ node, onSelectFile, selectedHandle, query, actions, filePosition
         <span className="tree-chevron" />
         <FileIcon />
         <span className="tree-label">{node.name}</span>
-        {position && (
-          <span className="tree-updated-chip">
-            {position.numPages ? `${position.page}/${position.numPages}` : `p. ${position.page}`}
-          </span>
-        )}
       </div>
     );
   }
@@ -229,7 +223,6 @@ function Node({ node, onSelectFile, selectedHandle, query, actions, filePosition
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               query={query}
-              filePositions={filePositions}
               recentMap={recentMap}
               textIndex={textIndex}
             />
@@ -247,7 +240,6 @@ export default function TreeView({
   onRemoveFolder,
   onRefreshFolder,
   refreshingKeys,
-  filePositions,
   recentFiles,
   textIndex,
 }) {
@@ -280,32 +272,33 @@ export default function TreeView({
           <option value="recent">Recently opened</option>
         </select>
       </div>
-      {folders.map(
-        (folder) =>
-          folder.tree && (
-            <Node
-              key={folder.key}
-              node={folder.tree}
-              onSelectFile={onSelectFile}
-              selectedHandle={selectedHandle}
-              query={query}
-              filePositions={filePositions}
-              recentMap={recentMap}
-              textIndex={textIndex}
-              actions={
-                <FolderActions
-                  folder={folder}
-                  isOpen={openActionsKey === folder.key}
-                  onToggle={() => setOpenActionsKey((k) => (k === folder.key ? null : folder.key))}
-                  onClose={() => setOpenActionsKey(null)}
-                  onRefreshFolder={onRefreshFolder}
-                  onRemoveFolder={onRemoveFolder}
-                  isRefreshing={refreshingKeys.has(folder.key)}
-                />
-              }
-            />
-          )
-      )}
+      <div className="tree-rows">
+        {folders.map(
+          (folder) =>
+            folder.tree && (
+              <Node
+                key={folder.key}
+                node={folder.tree}
+                onSelectFile={onSelectFile}
+                selectedHandle={selectedHandle}
+                query={query}
+                recentMap={recentMap}
+                textIndex={textIndex}
+                actions={
+                  <FolderActions
+                    folder={folder}
+                    isOpen={openActionsKey === folder.key}
+                    onToggle={() => setOpenActionsKey((k) => (k === folder.key ? null : folder.key))}
+                    onClose={() => setOpenActionsKey(null)}
+                    onRefreshFolder={onRefreshFolder}
+                    onRemoveFolder={onRemoveFolder}
+                    isRefreshing={refreshingKeys.has(folder.key)}
+                  />
+                }
+              />
+            )
+        )}
+      </div>
     </div>
   );
 }

@@ -65,6 +65,11 @@ html,
   justify-content: center;
 }
 
+.night-reading-toggle.active {
+  color: var(--cb-mint);
+  border-color: var(--cb-mint);
+}
+
 .update-dot {
   position: absolute;
   top: -3px;
@@ -481,10 +486,14 @@ html,
 
 .tree-label {
   flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Long names overflow rather than truncate — this scrolls horizontally
+   instead. Scoped to just the rows (not .tree-controls above them), so the
+   search box and sort dropdown stay put regardless of row width. */
+.tree-rows {
+  overflow-x: auto;
 }
 
 .tree-children {

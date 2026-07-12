@@ -17,6 +17,17 @@ export function supportsDirectoryPicker() {
   return !isAppleWebKit && !isAndroid && "showDirectoryPicker" in window;
 }
 
+// True only for an actual phone, not a tablet. iPhone/iPod always
+// self-identify in the UA; real Android phones carry a "Mobile" token that
+// Android tablets omit. (iPadOS masquerades as a desktop Mac UA by default —
+// see supportsDirectoryPicker above — so there's no reliable UA signal to
+// single out iPad specifically; it isn't needed here since "not a phone"
+// is the only distinction this makes.)
+export function isMobileDevice() {
+  const ua = navigator.userAgent;
+  return /iPhone|iPod/.test(ua) || (/Android/.test(ua) && /Mobile/.test(ua));
+}
+
 export async function pickFolder() {
   return window.showDirectoryPicker();
 }
