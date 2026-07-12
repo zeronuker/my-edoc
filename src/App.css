@@ -195,7 +195,8 @@ html,
 }
 
 .page-nav,
-.zoom {
+.zoom,
+.rotate {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -281,6 +282,14 @@ html,
   background: var(--cb-surface-2);
 }
 
+/* hue-rotate(180deg) alongside the invert keeps hues roughly where they
+   started (so a red highlight stays reddish instead of turning cyan) —
+   only lightness effectively flips, closer to a real "night mode" than a
+   plain invert(1). */
+.pdf-viewer-container.night-reading canvas {
+  filter: invert(1) hue-rotate(180deg);
+}
+
 .error-banner {
   background: var(--cb-surface-1, #141a2e);
   color: var(--cb-danger, #ff6b6b);
@@ -349,6 +358,51 @@ html,
   font-family: var(--cb-font-body);
 }
 
+.thumbnail-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px;
+  padding: 2px;
+}
+
+.thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--cb-radius-sm);
+}
+
+.thumb canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 60px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+}
+
+.thumb-page-num {
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  color: var(--cb-ink-dim);
+}
+
+.thumb:hover {
+  background: var(--cb-surface-3);
+}
+
+.thumb.active {
+  border-color: var(--cb-mint);
+}
+
+.thumb.active .thumb-page-num {
+  color: var(--cb-mint);
+}
+
 .outline-label {
   cursor: pointer;
   user-select: none;
@@ -368,9 +422,14 @@ html,
   padding-left: 14px;
 }
 
-.tree-search {
-  width: 100%;
+.tree-controls {
+  display: flex;
+  gap: 6px;
   margin-bottom: 6px;
+}
+
+.tree-search,
+.tree-sort {
   padding: 4px 6px;
   font-family: inherit;
   font-size: inherit;
@@ -378,6 +437,15 @@ html,
   color: var(--cb-ink);
   border: 1px solid var(--cb-line-2);
   border-radius: var(--cb-radius-sm);
+}
+
+.tree-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tree-sort {
+  flex-shrink: 0;
 }
 
 .tree-folder-label,

@@ -12,13 +12,17 @@ import {
   reviveInlineLegacyFolder,
   treeByteSize,
   flattenTreeFiles,
+  flattenTreeFileHandles,
 } from "./fileSystem.js";
 import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { loadDocument } from "./edoc.js";
+import { extractText } from "./textIndex.js";
 import { dbGet, dbSet } from "./db.js";
 import TreeView from "./TreeView.jsx";
 import OutlineView from "./OutlineView.jsx";
+import RecentView from "./RecentView.jsx";
+import ThumbnailView from "./ThumbnailView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import Settings from "./Settings.jsx";
@@ -33,6 +37,7 @@ const DEFAULT_SETTINGS = {
   theme: "system",
   resumePosition: true,
   keepAwake: false,
+  nightReading: false,
 };
 
 // Keep in sync with the mobile-layout breakpoint in App.css.
@@ -75,6 +80,22 @@ function App() {
   const update = useUpdate("edoc");
   const [outline, setOutline] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("folders");
+  // Keyed by filename, same key filePositions in IndexedDB uses — held in
+  // state (in addition to being persisted) purely so TreeView can show a
+  // "12/40" progress chip per file without a re-fetch per row.
+  const [filePositions, setFilePositions] = useState({});
+  // [{ fileHandle, name, openedAt }], newest first — legacy (OPFS) handles
+  // carry function properties IndexedDB can't clone, so only real handles
+  // persist across reload (same restriction lastFileHandle already has);
+  // legacy opens still show up in the list for the current session.
+  const [recentFiles, setRecentFiles] = useState([]);
+  // { [fileName]: extractedLowercaseText } — built lazily in the background
+  // (see the indexing effect below), persisted whole under one IndexedDB
+  // key like filePositions/recentFiles above.
+  // ponytail: no size cap, no indexing progress UI, no pause-while-reading —
+  // add if a large library or low-end device makes this a real problem.
+  const [textIndex, setTextIndex] = useState({});
+  const indexingRef = useRef(false);
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
   const [refreshingKeys, setRefreshingKeys] = useState(() => new Set());
   const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
@@ -158,6 +179,10 @@ function App() {
       if (legacyNeedsResave) saveFolderList(loaded);
       refreshStorageEstimate();
 
+      setFilePositions((await dbGet("filePositions")) || {});
+      setRecentFiles((await dbGet("recentFiles")) || []);
+      setTextIndex((await dbGet("textIndex")) || {});
+
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
         if (lastFileHandle && (await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
@@ -179,6 +204,46 @@ function App() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  // Background text indexing for full-text search: walks every connected
+  // folder, extracts+caches text for any file not already indexed, one at a
+  // time. Runs whenever the folder list changes (new folder, refresh);
+  // already-indexed files (checked against the textIndex snapshot from when
+  // this run started) are skipped, so this is a no-op on a re-render that
+  // doesn't add new files.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (indexingRef.current) return;
+      indexingRef.current = true;
+      try {
+        const files = folders.filter((f) => f.tree).flatMap((f) => flattenTreeFileHandles(f.tree));
+        for (const { name, handle } of files) {
+          if (cancelled) return;
+          if (textIndex[name]) continue;
+          try {
+            const file = await handle.getFile();
+            const text = await extractText(file);
+            if (cancelled) return;
+            setTextIndex((prev) => {
+              const next = { ...prev, [name]: text };
+              dbSet("textIndex", next);
+              return next;
+            });
+          } catch {
+            // Unreadable, corrupt, or password-protected (skipPassword) —
+            // leave unindexed; filename search still works for it.
+          }
+        }
+      } finally {
+        indexingRef.current = false;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folders]);
 
   // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
   // width-based default live, the same way opening a file does.
@@ -226,12 +291,12 @@ function App() {
   // page/scale and clobber the new file's saved position before restore runs.
   useEffect(() => {
     if (!selectedHandle || restoringRef.current) return;
-    (async () => {
-      const all = (await dbGet("filePositions")) || {};
-      all[selectedHandle.name] = { page: currentPage, scale };
-      await dbSet("filePositions", all);
-    })();
-  }, [selectedHandle, currentPage, scale]);
+    setFilePositions((prev) => {
+      const next = { ...prev, [selectedHandle.name]: { page: currentPage, scale, numPages } };
+      dbSet("filePositions", next);
+      return next;
+    });
+  }, [selectedHandle, currentPage, scale, numPages]);
 
   // Drive the pdf.js viewer from React state/events instead of rendering
   // pages ourselves — see PdfViewer.jsx.
@@ -326,6 +391,23 @@ function App() {
         sizeBytes: f.sizeBytes,
       }))
     );
+  }
+
+  // De-dupes by filename (same key filePositions uses) and caps at 10, most
+  // recent first. Only real (non-legacy) handles get persisted — see the
+  // recentFiles state comment above for why.
+  function addToRecent(fileHandle) {
+    setRecentFiles((prev) => {
+      const next = [
+        { fileHandle, name: fileHandle.name, openedAt: Date.now() },
+        ...prev.filter((e) => e.name !== fileHandle.name),
+      ].slice(0, 10);
+      dbSet(
+        "recentFiles",
+        next.filter((e) => !e.fileHandle.__legacy)
+      );
+      return next;
+    });
   }
 
   // Only fetches the device's overall quota — "used" is tracked ourselves
@@ -548,14 +630,23 @@ function App() {
     restoringRef.current = true;
     try {
       const file = await fileHandle.getFile();
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timed out loading PDF")), 15000)
-      );
-      const doc = await Promise.race([loadDocument(file), timeout]);
+      let timeoutId;
+      const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
+      });
+      // A password prompt blocks the JS thread for as long as the user takes
+      // to answer it — cancel the load timeout the instant one appears, or
+      // it'd fire the moment the thread frees up regardless of how long ago
+      // the 15s actually elapsed.
+      const doc = await Promise.race([
+        loadDocument(file, { onPasswordPrompt: () => clearTimeout(timeoutId) }),
+        timeout,
+      ]);
       const positions = (await dbGet("filePositions")) || {};
       pendingRestoreRef.current = positions[fileHandle.name] || null;
       setPdf(doc);
       if (!fileHandle.__legacy) await dbSet("lastFileHandle", fileHandle);
+      addToRecent(fileHandle);
     } catch (err) {
       console.error(err);
       setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
@@ -567,7 +658,14 @@ function App() {
   }
 
   const pendingFolders = folders.filter((f) => !f.tree);
-  const activeTab = outline ? sidebarTab : "folders";
+  const tabAvailable = {
+    folders: true,
+    recent: recentFiles.length > 0,
+    outline: !!outline,
+    pages: !!pdf && numPages > 0,
+  };
+  const showTabs = tabAvailable.recent || tabAvailable.outline || tabAvailable.pages;
+  const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -613,7 +711,7 @@ function App() {
       <div className="app-row">
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
-          {outline && (
+          {showTabs && (
             <div className="sidebar-tabs">
               <button
                 className={`sidebar-tab${activeTab === "folders" ? " active" : ""}`}
@@ -621,19 +719,51 @@ function App() {
               >
                 Folders
               </button>
-              <button
-                className={`sidebar-tab${activeTab === "outline" ? " active" : ""}`}
-                onClick={() => setSidebarTab("outline")}
-              >
-                Outline
-              </button>
+              {tabAvailable.recent && (
+                <button
+                  className={`sidebar-tab${activeTab === "recent" ? " active" : ""}`}
+                  onClick={() => setSidebarTab("recent")}
+                >
+                  Recent
+                </button>
+              )}
+              {tabAvailable.outline && (
+                <button
+                  className={`sidebar-tab${activeTab === "outline" ? " active" : ""}`}
+                  onClick={() => setSidebarTab("outline")}
+                >
+                  Outline
+                </button>
+              )}
+              {tabAvailable.pages && (
+                <button
+                  className={`sidebar-tab${activeTab === "pages" ? " active" : ""}`}
+                  onClick={() => setSidebarTab("pages")}
+                >
+                  Pages
+                </button>
+              )}
             </div>
+          )}
+          {activeTab === "recent" && (
+            <RecentView recentFiles={recentFiles} onSelectFile={selectFile} selectedHandle={selectedHandle} />
           )}
           {activeTab === "outline" && (
             <OutlineView
               items={outline}
               linkService={viewerApi?.linkService}
               onNavigate={() => setSidebarOpen(false)}
+            />
+          )}
+          {activeTab === "pages" && (
+            <ThumbnailView
+              pdf={pdf}
+              numPages={numPages}
+              currentPage={currentPage}
+              onSelect={(n) => {
+                if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
+                setSidebarOpen(false);
+              }}
             />
           )}
           {/* Kept mounted (just hidden) instead of unmounted on tab switch —
@@ -693,6 +823,9 @@ function App() {
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
               refreshingKeys={refreshingKeys}
+              filePositions={filePositions}
+              recentFiles={recentFiles}
+              textIndex={textIndex}
             />
           </div>
         </aside>
@@ -709,7 +842,7 @@ function App() {
             eventBus={viewerApi?.eventBus}
           />
           {error && <div className="error-banner">{error}</div>}
-          <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} />
+          <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} nightReading={settings.nightReading} />
           {(loading || !pdf) && (
             <div className="viewer-empty">
               {loading ? (

@@ -67,6 +67,21 @@ export default function Toolbar({
         <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-fit")}>Fit page</button>
       </span>
 
+      <span className="rotate">
+        <button
+          aria-label="Rotate left"
+          onClick={() => pdfViewer && (pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 270) % 360)}
+        >
+          ⟲
+        </button>
+        <button
+          aria-label="Rotate right"
+          onClick={() => pdfViewer && (pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 90) % 360)}
+        >
+          ⟳
+        </button>
+      </span>
+
       <SearchBar eventBus={eventBus} />
     </div>
   );

@@ -101,7 +101,7 @@ function attachTouchGestures(el, pdfViewer, viewMode) {
 // PDFFindController), instead of a hand-rolled canvas renderer — gets
 // text selection, find-and-highlight, and zoom presets for free, the
 // same engine Firefox's built-in PDF viewer uses.
-export default function PdfViewer({ pdf, viewMode, onReady }) {
+export default function PdfViewer({ pdf, viewMode, onReady, nightReading }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const pdfViewerRef = useRef(null);
@@ -132,7 +132,7 @@ export default function PdfViewer({ pdf, viewMode, onReady }) {
 
   return (
     <div className="viewer-area">
-      <div className="pdf-viewer-container" ref={containerRef}>
+      <div className={`pdf-viewer-container${nightReading ? " night-reading" : ""}`} ref={containerRef}>
         <div className="pdfViewer" ref={viewerRef} />
       </div>
     </div>

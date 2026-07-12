@@ -46,6 +46,16 @@ export default function Settings({ settings, onChange, onClose, update }) {
           />
         </div>
 
+        <div className="settings-row">
+          <label htmlFor="settings-night-reading">Night reading (invert page colors)</label>
+          <input
+            id="settings-night-reading"
+            type="checkbox"
+            checked={settings.nightReading}
+            onChange={(e) => onChange({ nightReading: e.target.checked })}
+          />
+        </div>
+
         <div className="settings-section-head">APP UPDATE</div>
 
         <div className="settings-row">

@@ -13,7 +13,7 @@ function FolderIcon() {
   );
 }
 
-function FileIcon() {
+export function FileIcon() {
   return (
     <svg className="tree-icon" viewBox="0 0 16 16" width="14" height="14" fill="none">
       <path
@@ -52,7 +52,7 @@ function RefreshIcon() {
 // "updated 2 days ago" / "updated 4 months ago" / "updated 1 year ago",
 // from a connectedAt epoch-ms timestamp (null if never successfully
 // connected/refreshed yet). Months/years are approximate (30/365 days).
-function formatRelativeTime(ms) {
+export function formatRelativeTime(ms) {
   if (!ms) return null;
   const diff = Date.now() - ms;
   const minute = 60000;
@@ -154,21 +154,39 @@ function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onR
   );
 }
 
-// True if this node's own name matches, or (for a folder) any descendant
-// does. query is already lowercased.
-function nodeMatches(node, query) {
+// True if this node's own name matches, its indexed page text matches (see
+// textIndex.js — built lazily in the background, so early searches may miss
+// not-yet-indexed files), or (for a folder) any descendant does. query is
+// already lowercased.
+function nodeMatches(node, query, textIndex) {
   if (!query) return true;
   if (node.name.toLowerCase().includes(query)) return true;
-  if (node.kind === "directory") return node.children.some((c) => nodeMatches(c, query));
-  return false;
+  if (node.kind === "file") return !!textIndex?.[node.name]?.includes(query);
+  return node.children.some((c) => nodeMatches(c, query, textIndex));
 }
 
-function Node({ node, onSelectFile, selectedHandle, query, actions }) {
+// recentMap (name -> last-opened epoch ms) is only passed in "recent" sort
+// mode — undefined otherwise, which leaves children in scanDirectory's
+// existing alphabetical order untouched. Entries never opened sink to the
+// bottom (alpha among themselves); this only reorders one folder level at a
+// time, not the whole tree by "most recently used subtree".
+function sortChildren(children, recentMap) {
+  if (!recentMap) return children;
+  return [...children].sort((a, b) => {
+    const ta = recentMap.get(a.name) ?? -Infinity;
+    const tb = recentMap.get(b.name) ?? -Infinity;
+    if (ta !== tb) return tb - ta;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function Node({ node, onSelectFile, selectedHandle, query, actions, filePositions, recentMap, textIndex }) {
   const [open, setOpen] = useState(false);
 
   if (node.kind === "file") {
-    if (!nodeMatches(node, query)) return null;
+    if (!nodeMatches(node, query, textIndex)) return null;
     const isSelected = node.handle === selectedHandle;
+    const position = filePositions?.[node.name];
     return (
       <div
         className={`tree-file${isSelected ? " selected" : ""}`}
@@ -178,13 +196,19 @@ function Node({ node, onSelectFile, selectedHandle, query, actions }) {
         <span className="tree-chevron" />
         <FileIcon />
         <span className="tree-label">{node.name}</span>
+        {position && (
+          <span className="tree-updated-chip">
+            {position.numPages ? `${position.page}/${position.numPages}` : `p. ${position.page}`}
+          </span>
+        )}
       </div>
     );
   }
 
-  if (!nodeMatches(node, query)) return null;
+  if (!nodeMatches(node, query, textIndex)) return null;
   const isOpen = query ? true : open;
-  const children = query ? node.children.filter((c) => nodeMatches(c, query)) : node.children;
+  const filtered = query ? node.children.filter((c) => nodeMatches(c, query, textIndex)) : node.children;
+  const children = sortChildren(filtered, recentMap);
 
   return (
     <div className="tree-folder">
@@ -205,6 +229,9 @@ function Node({ node, onSelectFile, selectedHandle, query, actions }) {
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               query={query}
+              filePositions={filePositions}
+              recentMap={recentMap}
+              textIndex={textIndex}
             />
           ))}
         </div>
@@ -220,22 +247,39 @@ export default function TreeView({
   onRemoveFolder,
   onRefreshFolder,
   refreshingKeys,
+  filePositions,
+  recentFiles,
+  textIndex,
 }) {
   const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState("name");
   // Only one folder's actions menu open at a time.
   const [openActionsKey, setOpenActionsKey] = useState(null);
   if (!folders.length) return null;
   const query = search.trim().toLowerCase();
+  const recentMap =
+    sortMode === "recent" ? new Map(recentFiles.map((e) => [e.name, e.openedAt])) : undefined;
 
   return (
     <div className="tree-view">
-      <input
-        type="text"
-        className="tree-search"
-        placeholder="Search files…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="tree-controls">
+        <input
+          type="text"
+          className="tree-search"
+          placeholder="Search files…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="tree-sort"
+          value={sortMode}
+          onChange={(e) => setSortMode(e.target.value)}
+          aria-label="Sort files"
+        >
+          <option value="name">Name</option>
+          <option value="recent">Recently opened</option>
+        </select>
+      </div>
       {folders.map(
         (folder) =>
           folder.tree && (
@@ -245,6 +289,9 @@ export default function TreeView({
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               query={query}
+              filePositions={filePositions}
+              recentMap={recentMap}
+              textIndex={textIndex}
               actions={
                 <FolderActions
                   folder={folder}

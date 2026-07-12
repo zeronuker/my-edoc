@@ -131,6 +131,19 @@ export function flattenTreeFiles(tree) {
   return out;
 }
 
+// Flat list of a tree's file leaves with their handles — for background
+// work (e.g. text indexing) that needs to actually read each file, unlike
+// flattenTreeFiles above which is display-only.
+export function flattenTreeFileHandles(tree) {
+  const out = [];
+  function walk(node) {
+    if (node.kind === "file") out.push({ name: node.name, handle: node.handle });
+    else node.children.forEach(walk);
+  }
+  walk(tree);
+  return out;
+}
+
 // Writes every file in a freshly-picked legacy tree into its own OPFS
 // subdirectory (folderId) — this is the actual persisted copy. Called once
 // at connect time and once per refresh (into a *new* folderId — see
