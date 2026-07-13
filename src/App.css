@@ -67,7 +67,6 @@ html,
 
 .night-reading-toggle.active {
   color: var(--cb-mint);
-  border-color: var(--cb-mint);
 }
 
 .update-dot {
