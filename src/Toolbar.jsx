@@ -12,6 +12,13 @@ export default function Toolbar({
   onToggleSidebar,
   nightReading,
   onToggleNightReading,
+  isBookmarked,
+  onToggleBookmark,
+  annotationTool,
+  onSetAnnotationTool,
+  hasUnsavedAnnotations,
+  onSaveAnnotations,
+  onChangeAnnotationMode,
 }) {
   return (
     <div className="toolbar">
@@ -61,6 +68,17 @@ export default function Toolbar({
         </span>
       )}
 
+      <button
+        className={`bookmark-toggle${isBookmarked ? " active" : ""}`}
+        aria-label={isBookmarked ? "Remove bookmark for this page" : "Bookmark this page"}
+        aria-pressed={isBookmarked}
+        title="Bookmark this page"
+        disabled={!numPages}
+        onClick={onToggleBookmark}
+      >
+        {isBookmarked ? "★" : "☆"}
+      </button>
+
       <span className="zoom">
         <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>-</button>
         <span>{Math.round(scale * 100)}%</span>
@@ -81,6 +99,35 @@ export default function Toolbar({
           onClick={() => pdfViewer && (pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 90) % 360)}
         >
           ⟳
+        </button>
+      </span>
+
+      <span className="annotate">
+        {[
+          { tool: "highlight", label: "Highlight" },
+          { tool: "ink", label: "Draw" },
+          { tool: "freetext", label: "Note" },
+        ].map(({ tool, label }) => (
+          <button
+            key={tool}
+            className={`annotate-tool${annotationTool === tool ? " active" : ""}`}
+            aria-pressed={annotationTool === tool}
+            disabled={!numPages}
+            onClick={() => onSetAnnotationTool(annotationTool === tool ? null : tool)}
+          >
+            {label}
+          </button>
+        ))}
+        <button disabled={!hasUnsavedAnnotations} onClick={onSaveAnnotations}>
+          Save
+        </button>
+        <button
+          aria-label="Change where annotations are saved"
+          title="Change where annotations are saved"
+          disabled={!numPages}
+          onClick={onChangeAnnotationMode}
+        >
+          ▾
         </button>
       </span>
 

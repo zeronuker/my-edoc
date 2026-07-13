@@ -69,6 +69,14 @@ html,
   color: var(--cb-mint);
 }
 
+.bookmark-toggle.active {
+  color: var(--cb-mint);
+}
+
+.annotate-tool.active {
+  color: var(--cb-mint);
+}
+
 .update-dot {
   position: absolute;
   top: -3px;
@@ -200,7 +208,8 @@ html,
 
 .page-nav,
 .zoom,
-.rotate {
+.rotate,
+.annotate {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -755,6 +764,43 @@ html,
 
 .settings-dialog {
   width: min(360px, calc(100vw - 48px));
+}
+
+.mode-picker-dialog {
+  width: min(380px, calc(100vw - 48px));
+}
+
+.mode-picker-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0 20px;
+}
+
+.mode-picker-option {
+  text-align: left;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  padding: 12px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--cb-ink);
+}
+
+.mode-picker-option:hover {
+  border-color: var(--cb-mint);
+}
+
+.mode-picker-option-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.mode-picker-option-desc {
+  font-size: 12px;
+  color: var(--cb-ink-dim);
+  line-height: 1.5;
 }
 
 .copy-progress-dialog {

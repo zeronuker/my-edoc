@@ -19,15 +19,19 @@ import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { loadDocument } from "./edoc.js";
 import { extractText } from "./textIndex.js";
+import { getAnnotationMode, loadAnnotatedCopy, saveAnnotations } from "./annotations.js";
 import { dbGet, dbSet } from "./db.js";
+import { AnnotationEditorType } from "pdfjs-dist";
 import TreeView from "./TreeView.jsx";
 import OutlineView from "./OutlineView.jsx";
+import BookmarksView from "./BookmarksView.jsx";
 import RecentView from "./RecentView.jsx";
 import ThumbnailView from "./ThumbnailView.jsx";
 import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import Settings from "./Settings.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
+import AnnotationModePicker from "./AnnotationModePicker.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
@@ -48,6 +52,12 @@ const DEFAULT_SETTINGS = {
 // sidebar's default open/closed state and isn't affected by window width.
 const NARROW_QUERY = "(max-width: 880px)";
 const IS_MOBILE = isMobileDevice();
+
+const ANNOTATION_EDITOR_MODE_BY_TOOL = {
+  highlight: AnnotationEditorType.HIGHLIGHT,
+  ink: AnnotationEditorType.INK,
+  freetext: AnnotationEditorType.FREETEXT,
+};
 
 function formatBytes(bytes) {
   if (bytes == null) return "";
@@ -98,6 +108,14 @@ function App() {
   // add if a large library or low-end device makes this a real problem.
   const [textIndex, setTextIndex] = useState({});
   const indexingRef = useRef(false);
+  // { [fileName]: [{ page, createdAt }] }, page-ascending — user-created
+  // marks, distinct from the PDF's own outline.
+  const [bookmarks, setBookmarks] = useState({});
+  // null | "highlight" | "ink" | "freetext" — mirrored onto
+  // pdfViewer.annotationEditorMode by the effect below.
+  const [annotationTool, setAnnotationTool] = useState(null);
+  const [hasUnsavedAnnotations, setHasUnsavedAnnotations] = useState(false);
+  const [modePickerOpen, setModePickerOpen] = useState(false);
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
   const [refreshingKeys, setRefreshingKeys] = useState(() => new Set());
   const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
@@ -183,6 +201,7 @@ function App() {
 
       setRecentFiles((await dbGet("recentFiles")) || []);
       setTextIndex((await dbGet("textIndex")) || {});
+      setBookmarks((await dbGet("bookmarks")) || {});
 
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
@@ -343,7 +362,34 @@ function App() {
     viewerApi.linkService.setDocument(pdf);
     setNumPages(pdf.numPages);
     pdf.getOutline().then((items) => setOutline(items?.length ? items : null));
+    // Tracks whether there are annotation edits not yet baked into a save
+    // (write-back or sidecar, see annotations.js) — drives the toolbar
+    // Save button's enabled state.
+    setHasUnsavedAnnotations(false);
+    pdf.annotationStorage.onSetModified = () => setHasUnsavedAnnotations(true);
+    pdf.annotationStorage.onResetModified = () => setHasUnsavedAnnotations(false);
   }, [viewerApi, pdf]);
+
+  useEffect(() => {
+    // The editor UI manager (and so the annotationEditorMode setter) isn't
+    // created until partway through pdf.js's own async setDocument work —
+    // it dispatches "annotationeditoruimanager" the moment it's ready.
+    // Applying immediately handles a tool change on an already-settled
+    // document; the listener catches the race right after a fresh load.
+    if (!viewerApi || !pdf) return;
+    const mode = ANNOTATION_EDITOR_MODE_BY_TOOL[annotationTool] ?? AnnotationEditorType.NONE;
+    function applyMode() {
+      try {
+        viewerApi.pdfViewer.annotationEditorMode = { mode };
+      } catch {
+        // Not ready yet — the event listener below re-applies once it is.
+      }
+    }
+    applyMode();
+    viewerApi.eventBus.on("annotationeditoruimanager", applyMode);
+    return () => viewerApi.eventBus.off("annotationeditoruimanager", applyMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerApi, pdf, annotationTool]);
 
   // Keyboard shortcuts: arrows/PageUp/PageDown for paging, +/- for zoom,
   // Ctrl/Cmd+F to focus search. Skipped while typing in a field (except
@@ -409,6 +455,68 @@ function App() {
       );
       return next;
     });
+  }
+
+  // Shared read-modify-write for one file's bookmark list — updater gets the
+  // existing list (or []) and returns the new one; an empty result drops the
+  // file's key entirely rather than persisting a stale empty array.
+  function updateBookmarks(name, updater) {
+    setBookmarks((prev) => {
+      const nextList = updater(prev[name] || []);
+      const next = { ...prev };
+      if (nextList.length) next[name] = nextList;
+      else delete next[name];
+      dbSet("bookmarks", next);
+      return next;
+    });
+  }
+
+  function toggleBookmark() {
+    if (!selectedHandle) return;
+    updateBookmarks(selectedHandle.name, (existing) =>
+      existing.some((b) => b.page === currentPage)
+        ? existing.filter((b) => b.page !== currentPage)
+        : [...existing, { page: currentPage, createdAt: Date.now() }].sort((a, b) => a.page - b.page)
+    );
+  }
+
+  function removeBookmark(page) {
+    if (!selectedHandle) return;
+    updateBookmarks(selectedHandle.name, (existing) => existing.filter((b) => b.page !== page));
+  }
+
+  // Bakes current annotation edits into the chosen destination (see
+  // annotations.js) and clears the "unsaved" flag. Also the path "change
+  // save mode" takes — re-saving to the newly chosen destination keeps it
+  // current even if nothing changed since the last save.
+  async function performAnnotationSave(mode) {
+    if (!selectedHandle || !pdf) return;
+    await saveAnnotations(selectedHandle, pdf, mode);
+    setHasUnsavedAnnotations(false);
+  }
+
+  // Legacy (Safari/OPFS) files have no real filesystem handle to write
+  // back to — they're already an app-managed copy, so "sidecar" is the
+  // only meaningful destination and there's nothing to ask about.
+  async function handleSaveAnnotations() {
+    if (!selectedHandle) return;
+    if (selectedHandle.__legacy) {
+      await performAnnotationSave("sidecar");
+      return;
+    }
+    const mode = await getAnnotationMode(selectedHandle.name);
+    if (mode) await performAnnotationSave(mode);
+    else setModePickerOpen(true);
+  }
+
+  function handleChangeAnnotationMode() {
+    if (!selectedHandle || selectedHandle.__legacy) return;
+    setModePickerOpen(true);
+  }
+
+  function handleAnnotationModeChosen(mode) {
+    setModePickerOpen(false);
+    performAnnotationSave(mode);
   }
 
   // Only fetches the device's overall quota — "used" is tracked ourselves
@@ -620,6 +728,15 @@ function App() {
   }
 
   async function selectFile(fileHandle) {
+    // Switching files abandons whatever's in the current document's
+    // annotationStorage — confirm rather than silently losing drawn/typed
+    // edits the user hasn't saved yet.
+    if (hasUnsavedAnnotations) {
+      const proceed = window.confirm(
+        `You have unsaved annotations on "${selectedHandle?.name}". Switch files and discard them?`
+      );
+      if (!proceed) return;
+    }
     setSelectedHandle(fileHandle);
     setError(null);
     // Forced on phone; opt-in elsewhere via Settings > Auto-hide panel.
@@ -631,7 +748,11 @@ function App() {
     setViewMode(isNarrow ? "single" : "two-up");
     restoringRef.current = true;
     try {
-      const file = await fileHandle.getFile();
+      // A sidecar copy (see annotations.js) holds this file's saved
+      // annotations when its mode is "sidecar" — load that instead of the
+      // original so they carry across sessions; the original is only ever
+      // touched in "writeback" mode.
+      const file = (await loadAnnotatedCopy(fileHandle.name)) || (await fileHandle.getFile());
       let timeoutId;
       const timeout = new Promise((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
@@ -660,13 +781,16 @@ function App() {
   }
 
   const pendingFolders = folders.filter((f) => !f.tree);
+  const currentBookmarks = selectedHandle ? bookmarks[selectedHandle.name] || [] : [];
+  const isBookmarked = currentBookmarks.some((b) => b.page === currentPage);
   const tabAvailable = {
     folders: true,
     recent: recentFiles.length > 0,
+    bookmarks: currentBookmarks.length > 0,
     outline: !!outline,
     pages: !!pdf && numPages > 0,
   };
-  const showTabs = tabAvailable.recent || tabAvailable.outline || tabAvailable.pages;
+  const showTabs = tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
@@ -690,6 +814,13 @@ function App() {
           files={copyProgress.files}
           doneSet={copyProgress.doneSet}
           onCancel={() => copyControllerRef.current?.abort()}
+        />
+      )}
+      {modePickerOpen && selectedHandle && (
+        <AnnotationModePicker
+          fileName={selectedHandle.name}
+          onChoose={handleAnnotationModeChosen}
+          onClose={() => setModePickerOpen(false)}
         />
       )}
       <div className="topbar">
@@ -730,6 +861,14 @@ function App() {
                   Recent
                 </button>
               )}
+              {tabAvailable.bookmarks && (
+                <button
+                  className={`sidebar-tab${activeTab === "bookmarks" ? " active" : ""}`}
+                  onClick={() => setSidebarTab("bookmarks")}
+                >
+                  Bookmarks
+                </button>
+              )}
               {tabAvailable.outline && (
                 <button
                   className={`sidebar-tab${activeTab === "outline" ? " active" : ""}`}
@@ -750,6 +889,17 @@ function App() {
           )}
           {activeTab === "recent" && (
             <RecentView recentFiles={recentFiles} onSelectFile={selectFile} selectedHandle={selectedHandle} />
+          )}
+          {activeTab === "bookmarks" && (
+            <BookmarksView
+              bookmarks={currentBookmarks}
+              currentPage={currentPage}
+              onNavigate={(n) => {
+                if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
+                setSidebarOpen(false);
+              }}
+              onRemove={removeBookmark}
+            />
           )}
           {activeTab === "outline" && (
             <OutlineView
@@ -844,6 +994,13 @@ function App() {
             eventBus={viewerApi?.eventBus}
             nightReading={settings.nightReading}
             onToggleNightReading={() => updateSettings({ nightReading: !settings.nightReading })}
+            isBookmarked={isBookmarked}
+            onToggleBookmark={toggleBookmark}
+            annotationTool={annotationTool}
+            onSetAnnotationTool={setAnnotationTool}
+            hasUnsavedAnnotations={hasUnsavedAnnotations}
+            onSaveAnnotations={handleSaveAnnotations}
+            onChangeAnnotationMode={handleChangeAnnotationMode}
           />
           {error && <div className="error-banner">{error}</div>}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} nightReading={settings.nightReading} />

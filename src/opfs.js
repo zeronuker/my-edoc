@@ -39,3 +39,38 @@ export async function deleteLegacyFolderFiles(folderId) {
   const root = await legacyFoldersRoot();
   await root.removeEntry(folderId, { recursive: true }).catch(() => {});
 }
+
+// Annotated copies (see annotations.js): one flat file per original
+// filename, holding the most recently saved "sidecar" version — used
+// instead of the original when a file's annotation mode is "sidecar" (the
+// original is never touched in that mode). Separate root directory from
+// legacy-folders above since these aren't tied to any particular folder.
+async function annotatedCopiesRoot() {
+  const root = await navigator.storage.getDirectory();
+  return root.getDirectoryHandle("annotated-copies", { create: true });
+}
+
+export async function writeAnnotatedCopy(name, bytes) {
+  const root = await annotatedCopiesRoot();
+  const fileHandle = await root.getFileHandle(escapeName(name), { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(bytes);
+  await writable.close();
+}
+
+// Returns the sidecar File, or null if this file has never been saved in
+// sidecar mode.
+export async function readAnnotatedCopy(name) {
+  const root = await annotatedCopiesRoot();
+  try {
+    const fileHandle = await root.getFileHandle(escapeName(name));
+    return await fileHandle.getFile();
+  } catch {
+    return null;
+  }
+}
+
+export async function deleteAnnotatedCopy(name) {
+  const root = await annotatedCopiesRoot();
+  await root.removeEntry(escapeName(name)).catch(() => {});
+}
