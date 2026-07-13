@@ -91,7 +91,7 @@ export default function Toolbar({
         title="Night reading (invert page colors)"
         onClick={onToggleNightReading}
       >
-        🌙
+        ◐
       </button>
 
       <SearchBar eventBus={eventBus} />

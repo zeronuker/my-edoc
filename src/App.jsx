@@ -772,7 +772,7 @@ function App() {
           {/* Kept mounted (just hidden) instead of unmounted on tab switch —
               TreeView's expanded-folder state is local to each Node, and
               unmounting it collapses the whole tree back to the root. */}
-          <div hidden={activeTab !== "folders"}>
+          <div className="folders-panel" hidden={activeTab !== "folders"}>
             <button className="cb-btn cb-btn--primary" onClick={handleAddFolder} disabled={addingFolder}>
               {addingFolder ? (
                 <span className="viewer-loading">

@@ -357,10 +357,31 @@ html,
   border-color: var(--cb-mint);
 }
 
+/* Bounds the tab's height to whatever's left in .sidebar below the Add
+   folder button / storage line, so .tree-rows below gets a fixed box to
+   scroll within instead of growing to its own content height. */
+.folders-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.folders-panel[hidden] {
+  display: none;
+}
+
 .tree-view,
 .outline-view {
   font-size: 13px;
   font-family: var(--cb-font-body);
+}
+
+.tree-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .thumbnail-view {
@@ -431,6 +452,7 @@ html,
   display: flex;
   gap: 6px;
   margin-bottom: 6px;
+  flex-shrink: 0;
 }
 
 .tree-search,
@@ -489,11 +511,16 @@ html,
   white-space: nowrap;
 }
 
-/* Long names overflow rather than truncate — this scrolls horizontally
-   instead. Scoped to just the rows (not .tree-controls above them), so the
-   search box and sort dropdown stay put regardless of row width. */
+/* Long names overflow rather than truncate — this scrolls instead.
+   Scoped to just the rows (not .tree-controls above them), so the search
+   box and sort dropdown stay put. flex + min-height:0 bounds this to the
+   space actually available (rather than growing to content height), so
+   the horizontal scrollbar sits at a fixed spot at the bottom of the
+   panel instead of trailing after however many rows are expanded. */
 .tree-rows {
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .tree-children {
