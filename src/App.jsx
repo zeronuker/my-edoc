@@ -87,6 +87,11 @@ function App() {
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Set when restoring the last-open file on launch finds the handle but
+  // the read permission grant didn't survive (e.g. the OS killed and
+  // reloaded the page in the background) — surfaces a one-tap "Reopen"
+  // banner instead of silently landing on the empty file browser.
+  const [pendingReopen, setPendingReopen] = useState(null);
   const [viewerApi, setViewerApi] = useState(null);
   // Phone starts with the drawer closed; iPad and desktop start with the
   // sidebar expanded, regardless of window width.
@@ -104,10 +109,18 @@ function App() {
   // { [fileName]: extractedLowercaseText } — built lazily in the background
   // (see the indexing effect below), persisted whole under one IndexedDB
   // key like filePositions/recentFiles above.
-  // ponytail: no size cap, no indexing progress UI, no pause-while-reading —
-  // add if a large library or low-end device makes this a real problem.
+  // ponytail: no size cap, no indexing progress UI — bounded to run only
+  // while no document is open (see pdfOpenRef) so it doesn't pile onto an
+  // active reading session's memory footprint.
   const [textIndex, setTextIndex] = useState({});
   const indexingRef = useRef(false);
+  // Mirrors `pdf` for the indexing loop below, which can't put `pdf`
+  // itself in its effect deps without restarting the whole walk every
+  // time a file is opened/closed.
+  const pdfOpenRef = useRef(false);
+  useEffect(() => {
+    pdfOpenRef.current = !!pdf;
+  }, [pdf]);
   // { [fileName]: [{ page, createdAt }] }, page-ascending — user-created
   // marks, distinct from the PDF's own outline.
   const [bookmarks, setBookmarks] = useState({});
@@ -205,8 +218,16 @@ function App() {
 
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
-        if (lastFileHandle && (await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
-          selectFile(lastFileHandle);
+        if (lastFileHandle) {
+          if ((await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
+            selectFile(lastFileHandle);
+          } else {
+            // Permission grant didn't survive (most often: the OS killed
+            // and reloaded the page in the background) — re-requesting it
+            // needs a user gesture, so offer a one-tap reopen instead of
+            // silently landing on the empty file browser.
+            setPendingReopen({ fileHandle: lastFileHandle, name: lastFileHandle.name });
+          }
         }
       }
     })();
@@ -231,6 +252,12 @@ function App() {
   // already-indexed files (checked against the textIndex snapshot from when
   // this run started) are skipped, so this is a no-op on a re-render that
   // doesn't add new files.
+  //
+  // Paused for as long as a document is open (pdfOpenRef): decoding PDFs
+  // in the background on top of an already-open, already-rendered document
+  // stacks memory fast, especially on iPad, where it's a good way to get
+  // the whole tab killed and reloaded by the OS. Indexing picks back up
+  // the moment the open document is closed.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -241,6 +268,10 @@ function App() {
         for (const { name, handle } of files) {
           if (cancelled) return;
           if (textIndex[name]) continue;
+          while (pdfOpenRef.current && !cancelled) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+          if (cancelled) return;
           try {
             const file = await handle.getFile();
             const text = await extractText(file);
@@ -739,6 +770,7 @@ function App() {
     }
     setSelectedHandle(fileHandle);
     setError(null);
+    setPendingReopen(null);
     // Forced on phone; opt-in elsewhere via Settings > Auto-hide panel.
     if (IS_MOBILE || settings.autoHideSidebar) setSidebarOpen(false);
     setLoading(true);
@@ -777,6 +809,18 @@ function App() {
       restoringRef.current = false;
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Button-click handler for the "Reopen [name]" banner — the click itself
+  // is the user gesture requestPermission needs, unlike the silent
+  // queryPermission check on launch.
+  async function reopenLastFile() {
+    const { fileHandle } = pendingReopen;
+    if ((await fileHandle.requestPermission({ mode: "read" })) === "granted") {
+      selectFile(fileHandle);
+    } else {
+      setPendingReopen(null);
     }
   }
 
@@ -1010,6 +1054,16 @@ function App() {
                 <span className="viewer-loading">
                   <span className="spinner" />
                   Loading {selectedHandle?.name}…
+                </span>
+              ) : pendingReopen ? (
+                <span className="reopen-banner">
+                  Lost your place — reopen "{pendingReopen.name}"?
+                  <button className="cb-btn cb-btn--primary" onClick={reopenLastFile}>
+                    REOPEN
+                  </button>
+                  <button className="cb-btn" onClick={() => setPendingReopen(null)}>
+                    DISMISS
+                  </button>
                 </span>
               ) : (
                 "Select a PDF to view"
