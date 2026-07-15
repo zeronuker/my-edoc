@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { dbGet, dbSet } from "./db.js";
 
 function FolderIcon() {
   return (
@@ -180,9 +181,18 @@ function sortChildren(children, recentMap) {
   });
 }
 
-function Node({ node, onSelectFile, selectedHandle, query, actions, recentMap, textIndex }) {
-  const [open, setOpen] = useState(false);
-
+function Node({
+  node,
+  path,
+  onSelectFile,
+  selectedHandle,
+  query,
+  actions,
+  recentMap,
+  textIndex,
+  expandedPaths,
+  onToggleOpen,
+}) {
   if (node.kind === "file") {
     if (!nodeMatches(node, query, textIndex)) return null;
     const isSelected = node.handle === selectedHandle;
@@ -200,13 +210,13 @@ function Node({ node, onSelectFile, selectedHandle, query, actions, recentMap, t
   }
 
   if (!nodeMatches(node, query, textIndex)) return null;
-  const isOpen = query ? true : open;
+  const isOpen = query ? true : expandedPaths.has(path);
   const filtered = query ? node.children.filter((c) => nodeMatches(c, query, textIndex)) : node.children;
   const children = sortChildren(filtered, recentMap);
 
   return (
     <div className="tree-folder">
-      <div className="tree-folder-label" onClick={() => setOpen(!open)} title={node.name}>
+      <div className="tree-folder-label" onClick={() => onToggleOpen(path)} title={node.name}>
         <span className="tree-chevron">{isOpen ? "▾" : "▸"}</span>
         <FolderIcon />
         <span className="tree-label">{node.name}</span>
@@ -220,11 +230,14 @@ function Node({ node, onSelectFile, selectedHandle, query, actions, recentMap, t
             <Node
               key={child.name + child.kind}
               node={child}
+              path={`${path}/${child.name}`}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               query={query}
               recentMap={recentMap}
               textIndex={textIndex}
+              expandedPaths={expandedPaths}
+              onToggleOpen={onToggleOpen}
             />
           ))}
         </div>
@@ -247,6 +260,33 @@ export default function TreeView({
   const [sortMode, setSortMode] = useState("name");
   // Only one folder's actions menu open at a time.
   const [openActionsKey, setOpenActionsKey] = useState(null);
+  const [expandedPaths, setExpandedPaths] = useState(() => new Set());
+  // Guards the persist-effect below from firing (with the empty default
+  // above) before the saved set has loaded, which would otherwise clobber it.
+  const expandedLoadedRef = useRef(false);
+
+  useEffect(() => {
+    (async () => {
+      const saved = await dbGet("expandedFolders");
+      if (Array.isArray(saved)) setExpandedPaths(new Set(saved));
+      expandedLoadedRef.current = true;
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!expandedLoadedRef.current) return;
+    dbSet("expandedFolders", [...expandedPaths]);
+  }, [expandedPaths]);
+
+  const toggleOpen = (path) => {
+    setExpandedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
   if (!folders.length) return null;
   const query = search.trim().toLowerCase();
   const recentMap =
@@ -279,11 +319,14 @@ export default function TreeView({
               <Node
                 key={folder.key}
                 node={folder.tree}
+                path={folder.tree.name}
                 onSelectFile={onSelectFile}
                 selectedHandle={selectedHandle}
                 query={query}
                 recentMap={recentMap}
                 textIndex={textIndex}
+                expandedPaths={expandedPaths}
+                onToggleOpen={toggleOpen}
                 actions={
                   <FolderActions
                     folder={folder}

@@ -88,18 +88,19 @@ html,
   border: 1px solid var(--cb-surface-1);
 }
 
-.settings-toggle {
-  margin-left: auto;
-  margin-right: 12px;
-}
-
 .sidebar-backdrop {
   display: none;
 }
 
 /* The sidebar toggle lives in the topbar on mobile and in the toolbar on
-   desktop — one copy per breakpoint, each hidden where it doesn't belong. */
+   desktop — one copy per breakpoint, each hidden where it doesn't belong.
+   Its divider follows the same rule so a lone divider doesn't show up
+   next to the hidden copy. */
 .toolbar .sidebar-toggle {
+  display: none;
+}
+
+.toolbar .sidebar-toggle + .toolbar-divider {
   display: none;
 }
 
@@ -111,13 +112,23 @@ html,
   .toolbar .sidebar-toggle {
     display: inline-flex;
   }
+
+  .toolbar .sidebar-toggle + .toolbar-divider {
+    display: block;
+  }
+
+  /* Collapses along with the sidebar so the same toolbar button hides
+     both at once — desktop only; the topbar is the mobile sidebar drawer's
+     only entry point, so it must stay put there. */
+  .topbar.collapsed {
+    height: 0;
+    border-bottom: none;
+    overflow: hidden;
+    transition: height 0.2s ease;
+  }
 }
 
 @media (max-width: 880px) {
-  .settings-toggle {
-    margin-right: 8px;
-  }
-
   .sidebar-backdrop {
     display: block;
     position: fixed;
@@ -208,7 +219,6 @@ html,
 
 .page-nav,
 .zoom,
-.rotate,
 .annotate {
   display: flex;
   align-items: center;
@@ -217,6 +227,69 @@ html,
 
 .page-nav input {
   width: 50px;
+}
+
+.toolbar-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 0;
+  background: var(--cb-line-2);
+  flex-shrink: 0;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--cb-ink-2);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: var(--cb-radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dropdown-menu button:hover {
+  background: var(--cb-surface-3);
+  color: var(--cb-mint);
+}
+
+.dropdown-menu button.active {
+  color: var(--cb-mint);
+}
+
+.dropdown-menu button:disabled {
+  cursor: default;
+  color: var(--cb-ink-dim);
+  background: none;
+}
+
+.dropdown-sep {
+  border-top: 1px solid var(--cb-line);
+  margin: 2px 0;
 }
 
 @media (max-width: 880px) {

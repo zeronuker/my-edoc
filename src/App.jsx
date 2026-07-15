@@ -867,7 +867,7 @@ function App() {
           onClose={() => setModePickerOpen(false)}
         />
       )}
-      <div className="topbar">
+      <div className={`topbar${sidebarOpen ? "" : " collapsed"}`}>
         <button
           className="icon-btn sidebar-toggle"
           onClick={() => setSidebarOpen((v) => !v)}
@@ -877,14 +877,6 @@ function App() {
           ☰
         </button>
         <BrandBanner subtitle="DOCUMENT VIEWER" />
-        <button
-          className="icon-btn settings-toggle"
-          onClick={() => setSettingsOpen(true)}
-          aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
-        >
-          ⚙
-          {update.needRefresh && <span className="update-dot" />}
-        </button>
       </div>
       <div className="app-row">
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -1045,6 +1037,8 @@ function App() {
             hasUnsavedAnnotations={hasUnsavedAnnotations}
             onSaveAnnotations={handleSaveAnnotations}
             onChangeAnnotationMode={handleChangeAnnotationMode}
+            onOpenSettings={() => setSettingsOpen(true)}
+            settingsUpdateAvailable={update.needRefresh}
           />
           {error && <div className="error-banner">{error}</div>}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} nightReading={settings.nightReading} />

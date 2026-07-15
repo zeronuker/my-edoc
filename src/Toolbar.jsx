@@ -1,4 +1,36 @@
+import { useEffect, useRef, useState } from "react";
 import SearchBar from "./SearchBar.jsx";
+
+const ANNOTATE_TOOLS = [
+  { tool: "highlight", label: "Highlight" },
+  { tool: "ink", label: "Draw" },
+  { tool: "freetext", label: "Note" },
+];
+
+// Closes whichever dropdown is open on an outside click or Escape — same
+// pattern as TreeView's FolderActions menu.
+function useDropdown() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    function onKeyDown(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return { open, setOpen, ref };
+}
 
 export default function Toolbar({
   viewMode,
@@ -19,7 +51,14 @@ export default function Toolbar({
   hasUnsavedAnnotations,
   onSaveAnnotations,
   onChangeAnnotationMode,
+  onOpenSettings,
+  settingsUpdateAvailable,
 }) {
+  const viewMenu = useDropdown();
+  const annotateMenu = useDropdown();
+
+  const activeToolLabel = ANNOTATE_TOOLS.find((t) => t.tool === annotationTool)?.label ?? "Annotate";
+
   return (
     <div className="toolbar">
       <button
@@ -30,6 +69,7 @@ export default function Toolbar({
       >
         ☰
       </button>
+      <span className="toolbar-divider" aria-hidden="true" />
 
       <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
         <option value="single">Single page</option>
@@ -67,6 +107,59 @@ export default function Toolbar({
           </button>
         </span>
       )}
+      <span className="toolbar-divider" aria-hidden="true" />
+
+      <span className="zoom dropdown" ref={viewMenu.ref}>
+        <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>-</button>
+        <span>{Math.round(scale * 100)}%</span>
+        <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>+</button>
+        <button
+          aria-label="More view options"
+          aria-expanded={viewMenu.open}
+          onClick={() => viewMenu.setOpen((v) => !v)}
+        >
+          ⌄
+        </button>
+        {viewMenu.open && (
+          <div className="dropdown-menu">
+            <button
+              onClick={() => {
+                if (pdfViewer) pdfViewer.currentScaleValue = "page-width";
+                viewMenu.setOpen(false);
+              }}
+            >
+              Fit width
+            </button>
+            <button
+              onClick={() => {
+                if (pdfViewer) pdfViewer.currentScaleValue = "page-fit";
+                viewMenu.setOpen(false);
+              }}
+            >
+              Fit page
+            </button>
+            <span className="dropdown-sep" />
+            <button
+              aria-label="Rotate left"
+              onClick={() => {
+                if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 270) % 360;
+                viewMenu.setOpen(false);
+              }}
+            >
+              ⟲ Rotate left
+            </button>
+            <button
+              aria-label="Rotate right"
+              onClick={() => {
+                if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 90) % 360;
+                viewMenu.setOpen(false);
+              }}
+            >
+              ⟳ Rotate right
+            </button>
+          </div>
+        )}
+      </span>
 
       <button
         className={`bookmark-toggle${isBookmarked ? " active" : ""}`}
@@ -79,57 +172,53 @@ export default function Toolbar({
         {isBookmarked ? "★" : "☆"}
       </button>
 
-      <span className="zoom">
-        <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>-</button>
-        <span>{Math.round(scale * 100)}%</span>
-        <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>+</button>
-        <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-width")}>Fit width</button>
-        <button onClick={() => pdfViewer && (pdfViewer.currentScaleValue = "page-fit")}>Fit page</button>
-      </span>
-
-      <span className="rotate">
+      <span className="annotate dropdown" ref={annotateMenu.ref}>
         <button
-          aria-label="Rotate left"
-          onClick={() => pdfViewer && (pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 270) % 360)}
+          className={`annotate-tool${annotationTool ? " active" : ""}`}
+          aria-expanded={annotateMenu.open}
+          onClick={() => annotateMenu.setOpen((v) => !v)}
         >
-          ⟲
+          {activeToolLabel} ▾
         </button>
-        <button
-          aria-label="Rotate right"
-          onClick={() => pdfViewer && (pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 90) % 360)}
-        >
-          ⟳
-        </button>
+        {annotateMenu.open && (
+          <div className="dropdown-menu">
+            {ANNOTATE_TOOLS.map(({ tool, label }) => (
+              <button
+                key={tool}
+                className={annotationTool === tool ? "active" : ""}
+                aria-pressed={annotationTool === tool}
+                disabled={!numPages}
+                onClick={() => {
+                  onSetAnnotationTool(annotationTool === tool ? null : tool);
+                  annotateMenu.setOpen(false);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="dropdown-sep" />
+            <button
+              disabled={!hasUnsavedAnnotations}
+              onClick={() => {
+                onSaveAnnotations();
+                annotateMenu.setOpen(false);
+              }}
+            >
+              Save
+            </button>
+            <button
+              disabled={!numPages}
+              onClick={() => {
+                onChangeAnnotationMode();
+                annotateMenu.setOpen(false);
+              }}
+            >
+              Change save location…
+            </button>
+          </div>
+        )}
       </span>
-
-      <span className="annotate">
-        {[
-          { tool: "highlight", label: "Highlight" },
-          { tool: "ink", label: "Draw" },
-          { tool: "freetext", label: "Note" },
-        ].map(({ tool, label }) => (
-          <button
-            key={tool}
-            className={`annotate-tool${annotationTool === tool ? " active" : ""}`}
-            aria-pressed={annotationTool === tool}
-            disabled={!numPages}
-            onClick={() => onSetAnnotationTool(annotationTool === tool ? null : tool)}
-          >
-            {label}
-          </button>
-        ))}
-        <button disabled={!hasUnsavedAnnotations} onClick={onSaveAnnotations}>
-          Save
-        </button>
-        <button
-          aria-label="Change where annotations are saved"
-          title="Change where annotations are saved"
-          disabled={!numPages}
-          onClick={onChangeAnnotationMode}
-        >
-          ▾
-        </button>
-      </span>
+      <span className="toolbar-divider" aria-hidden="true" />
 
       <button
         className={`night-reading-toggle${nightReading ? " active" : ""}`}
@@ -140,8 +229,23 @@ export default function Toolbar({
       >
         ◐
       </button>
+      <span className="toolbar-divider" aria-hidden="true" />
 
       <SearchBar eventBus={eventBus} />
+
+      {onOpenSettings && (
+        <>
+          <span className="toolbar-divider" aria-hidden="true" />
+          <button
+            className="icon-btn settings-toggle"
+            onClick={onOpenSettings}
+            aria-label={settingsUpdateAvailable ? "Settings · update available" : "Settings"}
+          >
+            ⚙
+            {settingsUpdateAvailable && <span className="update-dot" />}
+          </button>
+        </>
+      )}
     </div>
   );
 }
