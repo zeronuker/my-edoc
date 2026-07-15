@@ -130,6 +130,29 @@ export default function PdfViewer({ pdf, viewMode, onReady, nightReading }) {
     return attachTouchGestures(containerRef.current, pdfViewerRef.current, viewMode);
   }, [viewMode]);
 
+  // pdf.js only resolves a named scale ("page-fit", "page-width", ...) into
+  // an actual number on load — it doesn't re-fit when the container is
+  // resized afterward (e.g. collapsing the sidebar/topbar, or a window
+  // resize). Reassigning currentScaleValue to itself forces it to
+  // recompute against the container's current size.
+  useEffect(() => {
+    if (!pdfViewerRef.current || !containerRef.current) return;
+    const pdfViewer = pdfViewerRef.current;
+    let raf = null;
+    const observer = new ResizeObserver(() => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const value = pdfViewer.currentScaleValue;
+        if (value && isNaN(value)) pdfViewer.currentScaleValue = value;
+      });
+    });
+    observer.observe(containerRef.current);
+    return () => {
+      observer.disconnect();
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
   return (
     <div className="viewer-area">
       <div className={`pdf-viewer-container${nightReading ? " night-reading" : ""}`} ref={containerRef}>
