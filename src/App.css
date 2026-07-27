@@ -256,6 +256,21 @@ html,
   gap: 4px;
 }
 
+/* Zoom in/out, the view-options chevron, and the page prev/next chevrons
+   never got the flat-icon treatment the other toolbar buttons (bookmark,
+   annotate, night reading) have — they were bare <button> elements
+   rendering the browser's default grey chrome. Invisible on desktop where
+   they stay content-sized, but blown up into a visible grey box by the
+   44px touch-target rule below. Reset them to match. */
+.zoom button,
+.page-nav button {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
 .page-nav,
 .zoom,
 .annotate {
