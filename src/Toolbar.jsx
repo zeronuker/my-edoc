@@ -12,6 +12,9 @@ import {
   IconRotateClockwise,
   IconMoon,
   IconSettings,
+  IconFileText,
+  IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 import SearchBar from "./SearchBar.jsx";
 
@@ -70,6 +73,7 @@ export default function Toolbar({
 }) {
   const viewMenu = useDropdown();
   const annotateMenu = useDropdown();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const activeToolLabel = ANNOTATE_TOOLS.find((t) => t.tool === annotationTool)?.label ?? "Annotate";
 
@@ -86,11 +90,17 @@ export default function Toolbar({
       <span className="toolbar-divider" aria-hidden="true" />
 
       <div className="toolbar-group toolbar-group-nav">
-        <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
-          <option value="single">Single page</option>
-          <option value="continuous">Continuous</option>
-          <option value="two-up">Two-page</option>
-        </select>
+        <span className="view-mode-select">
+          <select value={viewMode} onChange={(e) => setViewMode(e.target.value)} aria-label="Page view mode">
+            <option value="single">Single page</option>
+            <option value="continuous">Continuous</option>
+            <option value="two-up">Two-page</option>
+          </select>
+          <span className="view-mode-icon" aria-hidden="true">
+            <IconFileText size={14} />
+            <IconChevronDown size={10} />
+          </span>
+        </span>
 
         {viewMode !== "continuous" && (
           <span className="page-nav">
@@ -254,7 +264,23 @@ export default function Toolbar({
         </button>
         <span className="toolbar-divider" aria-hidden="true" />
 
-        <SearchBar eventBus={eventBus} />
+        <span className={`search-wrap${mobileSearchOpen ? " open" : ""}`}>
+          <button
+            className="search-toggle"
+            aria-label="Search"
+            onClick={() => setMobileSearchOpen(true)}
+          >
+            <IconSearch size={16} />
+          </button>
+          <SearchBar eventBus={eventBus} />
+          <button
+            className="search-close"
+            aria-label="Close search"
+            onClick={() => setMobileSearchOpen(false)}
+          >
+            <IconX size={16} />
+          </button>
+        </span>
       </div>
 
       {onOpenSettings && (
