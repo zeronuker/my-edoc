@@ -22,6 +22,15 @@ import { extractText } from "./textIndex.js";
 import { getAnnotationMode, loadAnnotatedCopy, saveAnnotations } from "./annotations.js";
 import { dbGet, dbSet } from "./db.js";
 import { AnnotationEditorType } from "pdfjs-dist";
+import {
+  IconX,
+  IconFolder,
+  IconClock,
+  IconBookmark,
+  IconListTree,
+  IconLayoutGrid,
+  IconLayoutSidebar,
+} from "@tabler/icons-react";
 import TreeView from "./TreeView.jsx";
 import OutlineView from "./OutlineView.jsx";
 import BookmarksView from "./BookmarksView.jsx";
@@ -874,7 +883,7 @@ function App() {
           aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
           aria-pressed={sidebarOpen}
         >
-          ☰
+          <IconLayoutSidebar size={16} />
         </button>
         <BrandBanner subtitle="DOCUMENT VIEWER" />
       </div>
@@ -887,6 +896,7 @@ function App() {
                 className={`sidebar-tab${activeTab === "folders" ? " active" : ""}`}
                 onClick={() => setSidebarTab("folders")}
               >
+                <IconFolder size={14} />
                 Folders
               </button>
               {tabAvailable.recent && (
@@ -894,6 +904,7 @@ function App() {
                   className={`sidebar-tab${activeTab === "recent" ? " active" : ""}`}
                   onClick={() => setSidebarTab("recent")}
                 >
+                  <IconClock size={14} />
                   Recent
                 </button>
               )}
@@ -902,6 +913,7 @@ function App() {
                   className={`sidebar-tab${activeTab === "bookmarks" ? " active" : ""}`}
                   onClick={() => setSidebarTab("bookmarks")}
                 >
+                  <IconBookmark size={14} />
                   Bookmarks
                 </button>
               )}
@@ -910,6 +922,7 @@ function App() {
                   className={`sidebar-tab${activeTab === "outline" ? " active" : ""}`}
                   onClick={() => setSidebarTab("outline")}
                 >
+                  <IconListTree size={14} />
                   Outline
                 </button>
               )}
@@ -918,6 +931,7 @@ function App() {
                   className={`sidebar-tab${activeTab === "pages" ? " active" : ""}`}
                   onClick={() => setSidebarTab("pages")}
                 >
+                  <IconLayoutGrid size={14} />
                   Pages
                 </button>
               )}
@@ -959,7 +973,7 @@ function App() {
               TreeView's expanded-folder state is local to each Node, and
               unmounting it collapses the whole tree back to the root. */}
           <div className="folders-panel" hidden={activeTab !== "folders"}>
-            <button className="cb-btn cb-btn--primary" onClick={handleAddFolder} disabled={addingFolder}>
+            <button className="cb-btn cb-btn--accent" onClick={handleAddFolder} disabled={addingFolder}>
               {addingFolder ? (
                 <span className="viewer-loading">
                   <span className="spinner" />
@@ -1040,7 +1054,14 @@ function App() {
             onOpenSettings={() => setSettingsOpen(true)}
             settingsUpdateAvailable={update.needRefresh}
           />
-          {error && <div className="error-banner">{error}</div>}
+          {error && (
+            <div className="error-banner">
+              <span>{error}</span>
+              <button aria-label="Dismiss" onClick={() => setError(null)}>
+                <IconX size={16} />
+              </button>
+            </div>
+          )}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} nightReading={settings.nightReading} />
           {(loading || !pdf) && (
             <div className="viewer-empty">
@@ -1060,7 +1081,59 @@ function App() {
                   </button>
                 </span>
               ) : (
-                "Select a PDF to view"
+                <div className="empty-illustration">
+                  <svg className="empty-illustration-icon" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="empty-doc-grad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="var(--cb-mint)" />
+                        <stop offset="55%" stopColor="var(--cb-blue)" />
+                        <stop offset="100%" stopColor="var(--cb-violet)" />
+                      </linearGradient>
+                    </defs>
+                    <rect
+                      x="4"
+                      y="4"
+                      width="142"
+                      height="142"
+                      rx="8"
+                      fill="none"
+                      stroke="url(#empty-doc-grad)"
+                      strokeWidth="1.5"
+                      strokeDasharray="6 6"
+                      opacity="0.45"
+                    />
+                    <polyline
+                      points="52,38 52,112 98,112 98,58 78,38 52,38"
+                      fill="none"
+                      stroke="url(#empty-doc-grad)"
+                      strokeWidth="3"
+                      strokeLinejoin="miter"
+                    />
+                    <polyline
+                      points="78,38 78,58 98,58"
+                      fill="none"
+                      stroke="url(#empty-doc-grad)"
+                      strokeWidth="3"
+                      strokeLinejoin="miter"
+                    />
+                    <line x1="60" y1="76" x2="90" y2="76" stroke="url(#empty-doc-grad)" strokeWidth="2" />
+                    <line x1="60" y1="88" x2="90" y2="88" stroke="url(#empty-doc-grad)" strokeWidth="2" />
+                    <line x1="60" y1="100" x2="80" y2="100" stroke="url(#empty-doc-grad)" strokeWidth="2" />
+                    <polyline
+                      points="112,86 124,98 112,110"
+                      fill="none"
+                      stroke="url(#empty-doc-grad)"
+                      strokeWidth="2.5"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    <line x1="112" y1="98" x2="123" y2="98" stroke="url(#empty-doc-grad)" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                  <div className="empty-illustration-text">
+                    <div className="empty-illustration-headline">Wow, such empty</div>
+                    <div className="empty-illustration-subtext">Drag a PDF here, or pick one from the sidebar</div>
+                  </div>
+                </div>
               )}
             </div>
           )}

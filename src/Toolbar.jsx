@@ -1,4 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  IconLayoutSidebar,
+  IconChevronLeft,
+  IconChevronRight,
+  IconChevronDown,
+  IconZoomIn,
+  IconZoomOut,
+  IconBookmark,
+  IconBookmarkFilled,
+  IconRotate,
+  IconRotateClockwise,
+  IconMoon,
+  IconSettings,
+} from "@tabler/icons-react";
 import SearchBar from "./SearchBar.jsx";
 
 const ANNOTATE_TOOLS = [
@@ -67,7 +81,7 @@ export default function Toolbar({
         aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
         aria-pressed={sidebarOpen}
       >
-        ☰
+        <IconLayoutSidebar size={16} />
       </button>
       <span className="toolbar-divider" aria-hidden="true" />
 
@@ -84,7 +98,7 @@ export default function Toolbar({
             disabled={currentPage <= 1}
             onClick={() => pdfViewer?.previousPage()}
           >
-            ‹
+            <IconChevronLeft size={16} />
           </button>
           <input
             type="number"
@@ -103,22 +117,26 @@ export default function Toolbar({
             disabled={!numPages || currentPage >= numPages}
             onClick={() => pdfViewer?.nextPage()}
           >
-            ›
+            <IconChevronRight size={16} />
           </button>
         </span>
       )}
       <span className="toolbar-divider" aria-hidden="true" />
 
       <span className="zoom dropdown" ref={viewMenu.ref}>
-        <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>-</button>
+        <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
+          <IconZoomOut size={16} />
+        </button>
         <span>{Math.round(scale * 100)}%</span>
-        <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>+</button>
+        <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
+          <IconZoomIn size={16} />
+        </button>
         <button
           aria-label="More view options"
           aria-expanded={viewMenu.open}
           onClick={() => viewMenu.setOpen((v) => !v)}
         >
-          ⌄
+          <IconChevronDown size={16} />
         </button>
         {viewMenu.open && (
           <div className="dropdown-menu">
@@ -146,7 +164,7 @@ export default function Toolbar({
                 viewMenu.setOpen(false);
               }}
             >
-              ⟲ Rotate left
+              <IconRotate size={16} /> Rotate left
             </button>
             <button
               aria-label="Rotate right"
@@ -155,7 +173,7 @@ export default function Toolbar({
                 viewMenu.setOpen(false);
               }}
             >
-              ⟳ Rotate right
+              <IconRotateClockwise size={16} /> Rotate right
             </button>
           </div>
         )}
@@ -169,7 +187,7 @@ export default function Toolbar({
         disabled={!numPages}
         onClick={onToggleBookmark}
       >
-        {isBookmarked ? "★" : "☆"}
+        {isBookmarked ? <IconBookmarkFilled size={16} /> : <IconBookmark size={16} />}
       </button>
 
       <span className="annotate dropdown" ref={annotateMenu.ref}>
@@ -178,7 +196,7 @@ export default function Toolbar({
           aria-expanded={annotateMenu.open}
           onClick={() => annotateMenu.setOpen((v) => !v)}
         >
-          {activeToolLabel} ▾
+          {activeToolLabel} <IconChevronDown size={16} />
         </button>
         {annotateMenu.open && (
           <div className="dropdown-menu">
@@ -227,7 +245,7 @@ export default function Toolbar({
         title="Night reading (invert page colors)"
         onClick={onToggleNightReading}
       >
-        ◐
+        <IconMoon size={16} />
       </button>
       <span className="toolbar-divider" aria-hidden="true" />
 
@@ -241,7 +259,7 @@ export default function Toolbar({
             onClick={onOpenSettings}
             aria-label={settingsUpdateAvailable ? "Settings · update available" : "Settings"}
           >
-            ⚙
+            <IconSettings size={16} />
             {settingsUpdateAvailable && <span className="update-dot" />}
           </button>
         </>

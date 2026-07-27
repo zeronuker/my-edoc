@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 
 // In-file keyword search via pdf.js's own PDFFindController — highlighting
 // on the page and match navigation come from the library; we just relay
@@ -61,13 +62,13 @@ export default function SearchBar({ eventBus }) {
       {query && (
         <>
           <button aria-label="Previous match" onClick={() => dispatchFind("again", { findPrevious: true })}>
-            ‹
+            <IconChevronLeft size={16} />
           </button>
           <span className="match-count">
             {matchInfo ? `${matchInfo.current}/${matchInfo.total}` : "0/0"}
           </span>
           <button aria-label="Next match" onClick={() => dispatchFind("again", { findPrevious: false })}>
-            ›
+            <IconChevronRight size={16} />
           </button>
         </>
       )}

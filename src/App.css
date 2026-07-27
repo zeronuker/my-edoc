@@ -65,15 +65,31 @@ html,
   justify-content: center;
 }
 
-.night-reading-toggle.active {
-  color: var(--cb-mint);
+.bookmark-toggle,
+.night-reading-toggle,
+.annotate-tool {
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  background: none;
+  color: var(--cb-ink);
+  padding: 4px 8px;
 }
 
-.bookmark-toggle.active {
-  color: var(--cb-mint);
+.bookmark-toggle,
+.night-reading-toggle {
+  width: 32px;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
 }
 
+/* Same treatment as the active sidebar tab: background fill + mint border,
+   not just a color change, so "active" reads without relying on hue alone. */
+.night-reading-toggle.active,
+.bookmark-toggle.active,
 .annotate-tool.active {
+  background: var(--cb-surface-3);
+  border-color: var(--cb-mint);
   color: var(--cb-mint);
 }
 
@@ -215,6 +231,12 @@ html,
   color: var(--cb-ink);
   border: 1px solid var(--cb-line-2);
   border-radius: var(--cb-radius-sm);
+}
+
+.toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .page-nav,
@@ -376,11 +398,37 @@ html,
   filter: invert(1) hue-rotate(180deg);
 }
 
+/* App-local button style, not part of the shared brand-kit button variants —
+   same background+border treatment as the active sidebar tab/toolbar icon,
+   used for Add folder instead of the brand-kit's gradient-filled primary. */
+.cb-btn--accent {
+  background: var(--cb-surface-3);
+  border-color: var(--cb-mint);
+  color: var(--cb-mint);
+}
+.cb-btn--accent:hover {
+  filter: brightness(1.1);
+}
+
 .error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   background: var(--cb-surface-1, #141a2e);
   color: var(--cb-danger, #ff6b6b);
   padding: 8px 12px;
   border-bottom: 1px solid var(--cb-line, #232b45);
+}
+
+.error-banner button {
+  flex-shrink: 0;
+  display: inline-flex;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 2px;
 }
 
 .viewer-empty {
@@ -398,6 +446,34 @@ html,
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.empty-illustration {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.empty-illustration-text {
+  text-align: center;
+}
+
+.empty-illustration-headline {
+  font-family: var(--cb-font-display);
+  font-weight: 700;
+  font-size: 18px;
+  background: var(--cb-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 4px;
+}
+
+.empty-illustration-subtext {
+  font-family: var(--cb-font-mono);
+  font-size: 12px;
+  color: var(--cb-ink-dim);
 }
 
 .reopen-banner {
@@ -435,13 +511,17 @@ html,
 
 .sidebar-tab {
   flex: 1;
-  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 0;
   background: var(--cb-surface-2);
   border: 1px solid var(--cb-line-2);
   border-radius: var(--cb-radius-sm);
   color: var(--cb-ink-2);
   font-family: var(--cb-font-mono);
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
 }
 
