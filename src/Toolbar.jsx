@@ -15,6 +15,7 @@ import {
   IconFileText,
   IconSearch,
   IconX,
+  IconEdit,
 } from "@tabler/icons-react";
 import SearchBar from "./SearchBar.jsx";
 
@@ -209,9 +210,11 @@ export default function Toolbar({
           <button
             className={`annotate-tool${annotationTool ? " active" : ""}`}
             aria-expanded={annotateMenu.open}
+            aria-label={activeToolLabel}
             onClick={() => annotateMenu.setOpen((v) => !v)}
           >
-            {activeToolLabel} <IconChevronDown size={16} />
+            <IconEdit size={14} className="annotate-icon" aria-hidden="true" />
+            <span className="annotate-label">{activeToolLabel}</span> <IconChevronDown size={16} />
           </button>
           {annotateMenu.open && (
             <div className="dropdown-menu">

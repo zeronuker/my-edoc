@@ -296,6 +296,13 @@ html,
   display: none;
 }
 
+/* Desktop: no leading icon, full "Annotate"/tool-name label — unchanged.
+   Mobile (below) swaps that for a leading icon and hides the label,
+   same treatment as the view mode select. */
+.annotate-icon {
+  display: none;
+}
+
 /* Desktop: the collapse/expand toggle never shows, search-bar is always
    the full input. Mobile (below) starts collapsed to an icon and expands
    in place when tapped. */
@@ -312,31 +319,37 @@ html,
   display: none;
 }
 
-/* Desktop: invisible wiring, children flow into .toolbar's row exactly as
-   if these wrappers weren't there. Mobile turns them into two deliberate
-   rows (nav, then tools) instead of leaving the grouping to flex-wrap,
-   which broke items across rows wherever they happened to run out of
-   space. */
+/* Invisible wiring at every width — children flow directly into .toolbar's
+   row as if these wrappers weren't there. The grouping only mattered while
+   mobile forced two separate rows; now that view mode, annotate and search
+   all collapse to icons there's enough width for one flex-wrap row like
+   desktop already had, so the groups don't need their own layout. */
 .toolbar-group {
   display: contents;
 }
 
 @media (max-width: 880px) {
   .toolbar {
-    flex-direction: column;
-    align-items: stretch;
+    gap: 8px;
   }
 
   .toolbar-divider {
     display: none;
   }
 
-  .toolbar-group {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    width: 100%;
+  .annotate-tool {
+    width: 30px;
+    height: 30px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .annotate-icon {
+    display: inline-flex;
+  }
+
+  .annotate-label {
+    display: none;
   }
 
   /* Narrower page input to claw back width for the nav row — button size
@@ -347,11 +360,6 @@ html,
     width: 30px;
     padding: 2px;
     text-align: center;
-  }
-
-  .toolbar-group-tools {
-    border-top: 1px solid var(--cb-line-2);
-    padding-top: 8px;
   }
 
   /* Icon + invisible native select stacked on top of each other — clicking
@@ -388,8 +396,14 @@ html,
   }
 
   .search-wrap {
-    flex: 1 1 120px;
     gap: 6px;
+  }
+
+  /* Only grow to make room for the input once actually expanded — while
+     collapsed it's just a 30px icon and shouldn't force-fill the row's
+     leftover space (which pushed later items onto the next line). */
+  .search-wrap.open {
+    flex: 1 1 120px;
   }
 
   .search-toggle,
