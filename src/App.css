@@ -125,6 +125,10 @@ html,
    and in the toolbar on desktop. */
 .topbar .settings-toggle {
   display: none;
+  /* .icon-btn's margin-left:8px gives the sidebar toggle breathing room
+     from the left edge; nothing did the same on this side, so it sat
+     flush against the screen edge. */
+  margin-right: 8px;
 }
 
 @media (max-width: 880px) {
