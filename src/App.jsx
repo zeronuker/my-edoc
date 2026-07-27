@@ -850,7 +850,7 @@ function App() {
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
-      <UpdatePrompt ready={!showSplash} update={update} appLabel="CLAUDEBORNE EDOCUMENT READER" />
+      <UpdatePrompt ready={!showSplash} update={update} />
       {settingsOpen && (
         <Settings
           settings={settings}
