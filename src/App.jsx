@@ -25,11 +25,13 @@ import { AnnotationEditorType } from "pdfjs-dist";
 import {
   IconX,
   IconFolder,
+  IconFolderPlus,
   IconClock,
   IconBookmark,
   IconListTree,
   IconLayoutGrid,
   IconLayoutSidebar,
+  IconSettings,
 } from "@tabler/icons-react";
 import TreeView from "./TreeView.jsx";
 import OutlineView from "./OutlineView.jsx";
@@ -886,6 +888,15 @@ function App() {
           <IconLayoutSidebar size={16} />
         </button>
         <BrandBanner subtitle="DOCUMENT VIEWER" />
+        <button
+          className="icon-btn settings-toggle"
+          style={{ marginLeft: "auto" }}
+          onClick={() => setSettingsOpen(true)}
+          aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
+        >
+          <IconSettings size={16} />
+          {update.needRefresh && <span className="update-dot" />}
+        </button>
       </div>
       <div className="app-row">
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -980,7 +991,10 @@ function App() {
                   Adding…
                 </span>
               ) : (
-                "Add folder"
+                <>
+                  <IconFolderPlus size={14} />
+                  Add folder
+                </>
               )}
             </button>
             {pendingFolders.length > 0 && (

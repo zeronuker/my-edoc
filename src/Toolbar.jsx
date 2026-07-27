@@ -85,171 +85,177 @@ export default function Toolbar({
       </button>
       <span className="toolbar-divider" aria-hidden="true" />
 
-      <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
-        <option value="single">Single page</option>
-        <option value="continuous">Continuous</option>
-        <option value="two-up">Two-page</option>
-      </select>
+      <div className="toolbar-group toolbar-group-nav">
+        <select value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
+          <option value="single">Single page</option>
+          <option value="continuous">Continuous</option>
+          <option value="two-up">Two-page</option>
+        </select>
 
-      {viewMode !== "continuous" && (
-        <span className="page-nav">
-          <button
-            aria-label="Previous page"
-            disabled={currentPage <= 1}
-            onClick={() => pdfViewer?.previousPage()}
-          >
-            <IconChevronLeft size={16} />
+        {viewMode !== "continuous" && (
+          <span className="page-nav">
+            <button
+              aria-label="Previous page"
+              disabled={currentPage <= 1}
+              onClick={() => pdfViewer?.previousPage()}
+            >
+              <IconChevronLeft size={16} />
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={numPages}
+              value={currentPage}
+              aria-label="Current page"
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
+              }}
+            />
+            <span>/ {numPages || "-"}</span>
+            <button
+              aria-label="Next page"
+              disabled={!numPages || currentPage >= numPages}
+              onClick={() => pdfViewer?.nextPage()}
+            >
+              <IconChevronRight size={16} />
+            </button>
+          </span>
+        )}
+        <span className="toolbar-divider" aria-hidden="true" />
+
+        <span className="zoom dropdown" ref={viewMenu.ref}>
+          <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
+            <IconZoomOut size={16} />
           </button>
-          <input
-            type="number"
-            min={1}
-            max={numPages}
-            value={currentPage}
-            aria-label="Current page"
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
-            }}
-          />
-          <span>/ {numPages || "-"}</span>
-          <button
-            aria-label="Next page"
-            disabled={!numPages || currentPage >= numPages}
-            onClick={() => pdfViewer?.nextPage()}
-          >
-            <IconChevronRight size={16} />
+          <span>{Math.round(scale * 100)}%</span>
+          <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
+            <IconZoomIn size={16} />
           </button>
+          <button
+            aria-label="More view options"
+            aria-expanded={viewMenu.open}
+            onClick={() => viewMenu.setOpen((v) => !v)}
+          >
+            <IconChevronDown size={16} />
+          </button>
+          {viewMenu.open && (
+            <div className="dropdown-menu">
+              <button
+                onClick={() => {
+                  if (pdfViewer) pdfViewer.currentScaleValue = "page-width";
+                  viewMenu.setOpen(false);
+                }}
+              >
+                Fit width
+              </button>
+              <button
+                onClick={() => {
+                  if (pdfViewer) pdfViewer.currentScaleValue = "page-fit";
+                  viewMenu.setOpen(false);
+                }}
+              >
+                Fit page
+              </button>
+              <span className="dropdown-sep" />
+              <button
+                aria-label="Rotate left"
+                onClick={() => {
+                  if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 270) % 360;
+                  viewMenu.setOpen(false);
+                }}
+              >
+                <IconRotate size={16} /> Rotate left
+              </button>
+              <button
+                aria-label="Rotate right"
+                onClick={() => {
+                  if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 90) % 360;
+                  viewMenu.setOpen(false);
+                }}
+              >
+                <IconRotateClockwise size={16} /> Rotate right
+              </button>
+            </div>
+          )}
         </span>
-      )}
+      </div>
+
       <span className="toolbar-divider" aria-hidden="true" />
 
-      <span className="zoom dropdown" ref={viewMenu.ref}>
-        <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
-          <IconZoomOut size={16} />
-        </button>
-        <span>{Math.round(scale * 100)}%</span>
-        <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
-          <IconZoomIn size={16} />
-        </button>
+      <div className="toolbar-group toolbar-group-tools">
         <button
-          aria-label="More view options"
-          aria-expanded={viewMenu.open}
-          onClick={() => viewMenu.setOpen((v) => !v)}
+          className={`bookmark-toggle${isBookmarked ? " active" : ""}`}
+          aria-label={isBookmarked ? "Remove bookmark for this page" : "Bookmark this page"}
+          aria-pressed={isBookmarked}
+          title="Bookmark this page"
+          disabled={!numPages}
+          onClick={onToggleBookmark}
         >
-          <IconChevronDown size={16} />
+          {isBookmarked ? <IconBookmarkFilled size={16} /> : <IconBookmark size={16} />}
         </button>
-        {viewMenu.open && (
-          <div className="dropdown-menu">
-            <button
-              onClick={() => {
-                if (pdfViewer) pdfViewer.currentScaleValue = "page-width";
-                viewMenu.setOpen(false);
-              }}
-            >
-              Fit width
-            </button>
-            <button
-              onClick={() => {
-                if (pdfViewer) pdfViewer.currentScaleValue = "page-fit";
-                viewMenu.setOpen(false);
-              }}
-            >
-              Fit page
-            </button>
-            <span className="dropdown-sep" />
-            <button
-              aria-label="Rotate left"
-              onClick={() => {
-                if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 270) % 360;
-                viewMenu.setOpen(false);
-              }}
-            >
-              <IconRotate size={16} /> Rotate left
-            </button>
-            <button
-              aria-label="Rotate right"
-              onClick={() => {
-                if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 90) % 360;
-                viewMenu.setOpen(false);
-              }}
-            >
-              <IconRotateClockwise size={16} /> Rotate right
-            </button>
-          </div>
-        )}
-      </span>
 
-      <button
-        className={`bookmark-toggle${isBookmarked ? " active" : ""}`}
-        aria-label={isBookmarked ? "Remove bookmark for this page" : "Bookmark this page"}
-        aria-pressed={isBookmarked}
-        title="Bookmark this page"
-        disabled={!numPages}
-        onClick={onToggleBookmark}
-      >
-        {isBookmarked ? <IconBookmarkFilled size={16} /> : <IconBookmark size={16} />}
-      </button>
-
-      <span className="annotate dropdown" ref={annotateMenu.ref}>
-        <button
-          className={`annotate-tool${annotationTool ? " active" : ""}`}
-          aria-expanded={annotateMenu.open}
-          onClick={() => annotateMenu.setOpen((v) => !v)}
-        >
-          {activeToolLabel} <IconChevronDown size={16} />
-        </button>
-        {annotateMenu.open && (
-          <div className="dropdown-menu">
-            {ANNOTATE_TOOLS.map(({ tool, label }) => (
+        <span className="annotate dropdown" ref={annotateMenu.ref}>
+          <button
+            className={`annotate-tool${annotationTool ? " active" : ""}`}
+            aria-expanded={annotateMenu.open}
+            onClick={() => annotateMenu.setOpen((v) => !v)}
+          >
+            {activeToolLabel} <IconChevronDown size={16} />
+          </button>
+          {annotateMenu.open && (
+            <div className="dropdown-menu">
+              {ANNOTATE_TOOLS.map(({ tool, label }) => (
+                <button
+                  key={tool}
+                  className={annotationTool === tool ? "active" : ""}
+                  aria-pressed={annotationTool === tool}
+                  disabled={!numPages}
+                  onClick={() => {
+                    onSetAnnotationTool(annotationTool === tool ? null : tool);
+                    annotateMenu.setOpen(false);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className="dropdown-sep" />
               <button
-                key={tool}
-                className={annotationTool === tool ? "active" : ""}
-                aria-pressed={annotationTool === tool}
-                disabled={!numPages}
+                disabled={!hasUnsavedAnnotations}
                 onClick={() => {
-                  onSetAnnotationTool(annotationTool === tool ? null : tool);
+                  onSaveAnnotations();
                   annotateMenu.setOpen(false);
                 }}
               >
-                {label}
+                Save
               </button>
-            ))}
-            <span className="dropdown-sep" />
-            <button
-              disabled={!hasUnsavedAnnotations}
-              onClick={() => {
-                onSaveAnnotations();
-                annotateMenu.setOpen(false);
-              }}
-            >
-              Save
-            </button>
-            <button
-              disabled={!numPages}
-              onClick={() => {
-                onChangeAnnotationMode();
-                annotateMenu.setOpen(false);
-              }}
-            >
-              Change save location…
-            </button>
-          </div>
-        )}
-      </span>
-      <span className="toolbar-divider" aria-hidden="true" />
+              <button
+                disabled={!numPages}
+                onClick={() => {
+                  onChangeAnnotationMode();
+                  annotateMenu.setOpen(false);
+                }}
+              >
+                Change save location…
+              </button>
+            </div>
+          )}
+        </span>
+        <span className="toolbar-divider" aria-hidden="true" />
 
-      <button
-        className={`night-reading-toggle${nightReading ? " active" : ""}`}
-        aria-label={nightReading ? "Turn off night reading" : "Turn on night reading"}
-        aria-pressed={nightReading}
-        title="Night reading (invert page colors)"
-        onClick={onToggleNightReading}
-      >
-        <IconMoon size={16} />
-      </button>
-      <span className="toolbar-divider" aria-hidden="true" />
+        <button
+          className={`night-reading-toggle${nightReading ? " active" : ""}`}
+          aria-label={nightReading ? "Turn off night reading" : "Turn on night reading"}
+          aria-pressed={nightReading}
+          title="Night reading (invert page colors)"
+          onClick={onToggleNightReading}
+        >
+          <IconMoon size={16} />
+        </button>
+        <span className="toolbar-divider" aria-hidden="true" />
 
-      <SearchBar eventBus={eventBus} />
+        <SearchBar eventBus={eventBus} />
+      </div>
 
       {onOpenSettings && (
         <>

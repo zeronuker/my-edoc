@@ -120,6 +120,23 @@ html,
   display: none;
 }
 
+/* Same one-copy-per-breakpoint split as .sidebar-toggle above: settings
+   lives in the topbar on mobile (reachable without opening the toolbar)
+   and in the toolbar on desktop. */
+.topbar .settings-toggle {
+  display: none;
+}
+
+@media (max-width: 880px) {
+  .toolbar .settings-toggle {
+    display: none;
+  }
+
+  .topbar .settings-toggle {
+    display: inline-flex;
+  }
+}
+
 @media (min-width: 881px) {
   .topbar .sidebar-toggle {
     display: none;
@@ -249,6 +266,58 @@ html,
 
 .page-nav input {
   width: 50px;
+}
+
+/* Desktop: invisible wiring, children flow into .toolbar's row exactly as
+   if these wrappers weren't there. Mobile turns them into two deliberate
+   rows (nav, then tools) instead of leaving the grouping to flex-wrap,
+   which broke items across rows wherever they happened to run out of
+   space. */
+.toolbar-group {
+  display: contents;
+}
+
+@media (max-width: 880px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-divider {
+    display: none;
+  }
+
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+
+  /* Narrower page input to claw back width for the nav row — button size
+     itself isn't trimmed here since the pointer:coarse rule below already
+     floors every toolbar button/select at 44px on touch devices, so
+     padding tweaks on those would be a no-op there. */
+  .page-nav input {
+    width: 30px;
+    padding: 2px;
+    text-align: center;
+  }
+
+  .toolbar-group-tools {
+    border-top: 1px solid var(--cb-line-2);
+    padding-top: 8px;
+  }
+
+  .search-bar {
+    flex: 1 1 120px;
+    margin-left: 0;
+  }
+
+  .search-bar input {
+    width: 100%;
+  }
 }
 
 .toolbar-divider {
@@ -848,12 +917,14 @@ html,
 }
 
 .tree-file.selected {
-  background: var(--cb-surface-3);
-  color: var(--cb-mint);
+  background: rgba(216, 90, 48, 0.14);
+  border-left: 3px solid #D85A30;
+  padding-left: 1px;
+  color: #F0997B;
 }
 
 .tree-file.selected .tree-icon {
-  color: var(--cb-mint);
+  color: #F0997B;
 }
 
 .modal-backdrop {
