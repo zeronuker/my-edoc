@@ -355,18 +355,12 @@ html,
     display: none;
   }
 
-  /* Bookmark/night reading (32px base, desktop-shared) and the topbar's
-     sidebar/settings icons (32px .icon-btn, also desktop-shared) land on
-     the same 30px size as everything else that's already mobile-only
-     styled (annotate, search, page-nav) — one consistent icon size
-     across the whole mobile UI instead of three different ones. */
+  /* Bookmark/night reading (32px base, desktop-shared) land on the same
+     30px size as everything else that's mobile-only styled (annotate,
+     search, page-nav). Topbar's sidebar/settings icons stay at .icon-btn's
+     32px base — same size as each other and as desktop. */
   .bookmark-toggle,
   .night-reading-toggle {
-    width: 30px;
-    height: 30px;
-  }
-
-  .topbar .icon-btn {
     width: 30px;
     height: 30px;
   }
