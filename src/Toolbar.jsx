@@ -16,6 +16,7 @@ import {
   IconSearch,
   IconX,
   IconEdit,
+  IconHash,
 } from "@tabler/icons-react";
 import SearchBar from "./SearchBar.jsx";
 
@@ -75,6 +76,7 @@ export default function Toolbar({
   const viewMenu = useDropdown();
   const annotateMenu = useDropdown();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobilePageJumpOpen, setMobilePageJumpOpen] = useState(false);
 
   const activeToolLabel = ANNOTATE_TOOLS.find((t) => t.tool === annotationTool)?.label ?? "Annotate";
 
@@ -112,18 +114,43 @@ export default function Toolbar({
             >
               <IconChevronLeft size={16} />
             </button>
-            <input
-              type="number"
-              min={1}
-              max={numPages}
-              value={currentPage}
-              aria-label="Current page"
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
-              }}
-            />
-            <span>/ {numPages || "-"}</span>
+            <span className={`page-jump${mobilePageJumpOpen ? " open" : ""}`}>
+              <button
+                className="page-jump-toggle"
+                aria-label="Jump to page"
+                onClick={() => {
+                  setMobilePageJumpOpen(true);
+                  setMobileSearchOpen(false);
+                }}
+              >
+                <IconHash size={14} />
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={numPages}
+                value={currentPage}
+                aria-label="Current page"
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "Escape") {
+                    e.target.blur();
+                    setMobilePageJumpOpen(false);
+                  }
+                }}
+              />
+              <span className="page-jump-total">/ {numPages || "-"}</span>
+              <button
+                className="page-jump-close"
+                aria-label="Close page jump"
+                onClick={() => setMobilePageJumpOpen(false)}
+              >
+                <IconX size={14} />
+              </button>
+            </span>
             <button
               aria-label="Next page"
               disabled={!numPages || currentPage >= numPages}
@@ -271,7 +298,10 @@ export default function Toolbar({
           <button
             className="search-toggle"
             aria-label="Search"
-            onClick={() => setMobileSearchOpen(true)}
+            onClick={() => {
+              setMobileSearchOpen(true);
+              setMobilePageJumpOpen(false);
+            }}
           >
             <IconSearch size={16} />
           </button>

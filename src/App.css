@@ -319,6 +319,20 @@ html,
   display: none;
 }
 
+/* Desktop: plain "invisible wrapper" (display:contents) so the input and
+   "/ total" text flow straight into .page-nav's own gap, pixel-identical
+   to before this existed. Toggle/close stay hidden — same two-class
+   specificity reasoning as search above. Mobile (below) turns this into
+   a real flex container that swaps toggle <-> input+total+close. */
+.page-jump {
+  display: contents;
+}
+
+.toolbar .page-jump-toggle,
+.toolbar .page-jump-close {
+  display: none;
+}
+
 /* Invisible wiring at every width — children flow directly into .toolbar's
    row as if these wrappers weren't there. The grouping only mattered while
    mobile forced two separate rows; now that view mode, annotate and search
@@ -350,6 +364,52 @@ html,
 
   .annotate-label {
     display: none;
+  }
+
+  /* Percent readout drops — just the two magnifying glasses and the
+     fit/rotate chevron remain. */
+  .zoom > span {
+    display: none;
+  }
+
+  .zoom {
+    gap: 4px;
+  }
+
+  .page-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* .page-nav button {border:none} (class+type) outranks a plain single
+     class, so this needs two-class specificity to keep its border. */
+  .page-nav .page-jump-toggle,
+  .page-nav .page-jump-close {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--cb-line-2);
+    border-radius: var(--cb-radius-sm);
+    align-items: center;
+    justify-content: center;
+  }
+
+  .page-jump:not(.open) input,
+  .page-jump:not(.open) .page-jump-total,
+  .page-jump:not(.open) .page-jump-close {
+    display: none;
+  }
+
+  .page-jump:not(.open) .page-jump-toggle {
+    display: flex;
+  }
+
+  .page-jump.open .page-jump-toggle {
+    display: none;
+  }
+
+  .page-jump.open .page-jump-close {
+    display: flex;
   }
 
   /* Narrower page input to claw back width for the nav row — button size
