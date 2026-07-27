@@ -258,6 +258,13 @@ html,
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  /* iOS/iPadOS Safari keeps its own native button chrome (and the
+     padding that comes with it) until appearance is explicitly reset —
+     background/border alone don't fully strip it there, unlike Chromium.
+     Invisible on desktop, but enough to throw off spacing around bare
+     icon buttons like the page-nav chevrons on a real iPhone/iPad. */
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 /* Zoom in/out, the view-options chevron, and the page prev/next chevrons
