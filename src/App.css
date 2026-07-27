@@ -398,6 +398,20 @@ html,
     justify-content: center;
   }
 
+  /* Defensive fix: give the prev/next chevrons the same bordered 26px box
+     as the jump-to-page icon so all three controls share identical
+     framing. Couldn't pin down a real cause for the reported unevenness
+     (measured symmetric under every scenario tested), so instead of
+     guessing again, remove anything that could visually read as
+     asymmetric regardless of the actual cause. */
+  .page-nav > button {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--cb-line-2);
+    border-radius: var(--cb-radius-sm);
+    justify-content: center;
+  }
+
   .page-jump:not(.open) input,
   .page-jump:not(.open) .page-jump-total,
   .page-jump:not(.open) .page-jump-close {
