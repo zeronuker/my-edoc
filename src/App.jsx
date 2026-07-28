@@ -894,7 +894,10 @@ function App() {
           onClick={() => setSettingsOpen(true)}
           aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
         >
-          <IconSettings size={16} />
+          {/* Gear's teeth-and-ring shape is optically lighter than the
+              sidebar icon's solid rectangle at the same nominal size —
+              bumped to compensate so they read as equally weighted. */}
+          <IconSettings size={19} />
           {update.needRefresh && <span className="update-dot" />}
         </button>
       </div>
