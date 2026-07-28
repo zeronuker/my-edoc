@@ -896,7 +896,7 @@ function App() {
         >
           {/* Gear's teeth-and-ring shape is optically lighter than the
               sidebar icon's solid rectangle at the same nominal size. */}
-          <IconSettings size={20} />
+          <IconSettings size={32} />
           {update.needRefresh && <span className="update-dot" />}
         </button>
       </div>
