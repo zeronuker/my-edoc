@@ -26,6 +26,12 @@ const ANNOTATE_TOOLS = [
   { tool: "freetext", label: "Note" },
 ];
 
+const VIEW_MODES = [
+  { value: "single", label: "Single page" },
+  { value: "continuous", label: "Continuous" },
+  { value: "two-up", label: "Two-page" },
+];
+
 // Closes whichever dropdown is open on an outside click or Escape — same
 // pattern as TreeView's FolderActions menu.
 function useDropdown() {
@@ -75,6 +81,7 @@ export default function Toolbar({
 }) {
   const viewMenu = useDropdown();
   const annotateMenu = useDropdown();
+  const viewModeMenu = useDropdown();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [mobilePageJumpOpen, setMobilePageJumpOpen] = useState(false);
 
@@ -94,14 +101,43 @@ export default function Toolbar({
 
       <div className="toolbar-group toolbar-group-nav">
         <span className="view-mode-select">
-          <select value={viewMode} onChange={(e) => setViewMode(e.target.value)} aria-label="Page view mode">
+          <select
+            className="view-mode-native"
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+            aria-label="Page view mode"
+          >
             <option value="single">Single page</option>
             <option value="continuous">Continuous</option>
             <option value="two-up">Two-page</option>
           </select>
-          <span className="view-mode-icon" aria-hidden="true">
-            <IconFileText size={14} />
-            <IconChevronDown size={10} />
+
+          <span className="view-mode-dropdown dropdown" ref={viewModeMenu.ref}>
+            <button
+              className="view-mode-trigger"
+              aria-expanded={viewModeMenu.open}
+              aria-label="Page view mode"
+              onClick={() => viewModeMenu.setOpen((v) => !v)}
+            >
+              <IconFileText size={14} />
+              <IconChevronDown size={10} />
+            </button>
+            {viewModeMenu.open && (
+              <div className="dropdown-menu">
+                {VIEW_MODES.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    className={viewMode === value ? "active" : ""}
+                    onClick={() => {
+                      setViewMode(value);
+                      viewModeMenu.setOpen(false);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </span>
         </span>
 

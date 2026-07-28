@@ -298,16 +298,16 @@ html,
   width: 50px;
 }
 
-/* Desktop: plain native select, full text label, no overlay. Mobile (below)
-   overlays a decorative icon and makes the select itself invisible-but-
-   clickable, so the native picker still works without the label eating
-   ~70px of the nav row. */
+/* Desktop: plain native select, full text label — .view-mode-native shown,
+   .view-mode-dropdown (the custom popup menu, same pattern as the zoom
+   options / annotate dropdowns) hidden. Mobile (below) flips which one
+   shows, since the label eats ~70px the nav row doesn't have there. */
 .view-mode-select {
   position: relative;
   display: inline-flex;
 }
 
-.view-mode-icon {
+.view-mode-dropdown {
   display: none;
 }
 
@@ -461,37 +461,31 @@ html,
     text-align: center;
   }
 
-  /* Icon + invisible native select stacked on top of each other — clicking
-     anywhere in the 40x30 box still opens the real <select>'s picker. */
+  /* Custom dropdown menu (same pattern as zoom options / annotate) instead
+     of the native picker — swap which half of .view-mode-select shows. */
   .view-mode-select {
     width: 40px;
     height: 30px;
   }
 
-  .view-mode-select select {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    border: none;
-    opacity: 0;
-    cursor: pointer;
+  .view-mode-native {
+    display: none;
   }
 
-  .view-mode-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
+  .view-mode-dropdown {
+    display: inline-flex;
     width: 100%;
     height: 100%;
+  }
+
+  .view-mode-trigger {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
     border: 1px solid var(--cb-line-2);
     border-radius: var(--cb-radius-sm);
     background: var(--cb-surface-2);
     color: var(--cb-ink);
-    pointer-events: none;
   }
 
   .search-wrap {
