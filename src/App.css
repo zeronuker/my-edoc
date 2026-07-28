@@ -138,8 +138,8 @@ html,
   /* Bigger box than .icon-btn's 32px base, settings-only — gives the
      gear icon room to grow past 32px without .icon-btn's border/padding
      clamping it back down. Sidebar-toggle stays at the 32px base. */
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
 }
 
 @media (max-width: 880px) {
