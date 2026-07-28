@@ -134,12 +134,12 @@ html,
   /* .icon-btn's margin-left:8px gives the sidebar toggle breathing room
      from the left edge; nothing did the same on this side, so it sat
      flush against the screen edge. */
-  margin-right: 8px;
+  margin-right: 16px;
   /* Bigger box than .icon-btn's 32px base, settings-only — gives the
      gear icon room to grow past 32px without .icon-btn's border/padding
      clamping it back down. Sidebar-toggle stays at the 32px base. */
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
 }
 
 @media (max-width: 880px) {
