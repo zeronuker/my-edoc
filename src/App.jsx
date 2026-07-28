@@ -895,10 +895,8 @@ function App() {
           aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
         >
           {/* Gear's teeth-and-ring shape is optically lighter than the
-              sidebar icon's solid rectangle at the same nominal size —
-              18 (first value to render at true size post padding-fix)
-              still read too small on device, bumped to 24. */}
-          <IconSettings size={24} />
+              sidebar icon's solid rectangle at the same nominal size. */}
+          <IconSettings size={20} />
           {update.needRefresh && <span className="update-dot" />}
         </button>
       </div>
