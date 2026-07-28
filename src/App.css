@@ -63,6 +63,12 @@ html,
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Unlike every other button class here, this one never reset the
+     browser's default button padding (~6px horizontal). At 16px icons
+     that stayed invisible (16 < the ~18px it left available), but a
+     larger icon gets silently flex-shrunk narrower than tall — exactly
+     what was undermining the settings icon size bump above. */
+  padding: 0;
 }
 
 .bookmark-toggle,
