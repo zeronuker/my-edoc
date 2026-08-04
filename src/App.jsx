@@ -887,7 +887,7 @@ function App() {
         >
           <IconLayoutSidebar size={16} />
         </button>
-        <BrandBanner subtitle="DOCUMENT VIEWER" />
+        <BrandBanner subtitle="eDoc" />
         <button
           className="icon-btn settings-toggle"
           style={{ marginLeft: "auto" }}
