@@ -763,6 +763,14 @@ function App() {
     e.preventDefault();
   }
 
+  // Shared with selectFile below — same rule for every "jump to a spot in
+  // the document" action (opening a file, or navigating from Outline/
+  // Bookmarks/Pages): forced on phone, opt-in elsewhere via Settings >
+  // Auto-hide panel.
+  function closeSidebarIfAutoHide() {
+    if (IS_MOBILE || settings.autoHideSidebar) setSidebarOpen(false);
+  }
+
   // Drag-and-drop: folders only work via getAsFileSystemHandle (Chromium);
   // other browsers can still drop individual PDF files, which is the more
   // common case anyway.
@@ -805,8 +813,7 @@ function App() {
     setSelectedHandle(fileHandle);
     setError(null);
     setPendingReopen(null);
-    // Forced on phone; opt-in elsewhere via Settings > Auto-hide panel.
-    if (IS_MOBILE || settings.autoHideSidebar) setSidebarOpen(false);
+    closeSidebarIfAutoHide();
     setLoading(true);
     // Two-page (or single-page on narrow screens) + fit-page is the
     // default on every open; manually switching view mode only sticks
@@ -986,7 +993,7 @@ function App() {
                 currentPage={currentPage}
                 onNavigate={(n) => {
                   if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
-                  setSidebarOpen(false);
+                  closeSidebarIfAutoHide();
                 }}
                 onRemove={removeBookmark}
               />
@@ -997,7 +1004,7 @@ function App() {
               <OutlineView
                 items={outline}
                 linkService={viewerApi?.linkService}
-                onNavigate={() => setSidebarOpen(false)}
+                onNavigate={closeSidebarIfAutoHide}
                 expandedKeys={currentOutlineExpanded}
                 onToggle={toggleOutlineNode}
               />
@@ -1011,7 +1018,7 @@ function App() {
                 currentPage={currentPage}
                 onSelect={(n) => {
                   if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
-                  setSidebarOpen(false);
+                  closeSidebarIfAutoHide();
                 }}
               />
             </div>
