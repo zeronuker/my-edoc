@@ -665,6 +665,43 @@ html,
   }
 }
 
+/* The search-bar fix above closes most of the gap, but on the narrowest
+   current iPad (11th gen base model, 944px landscape CSS width) collapsing
+   the sidebar still isn't enough room: the view-mode <select> renders its
+   full text ("Single page"/"Continuous"/"Two-page") at this width, ~110px
+   wide, and that alone is more than what's left over. Swap in the same
+   icon-plus-chevron dropdown the sub-880px mobile layout already uses for
+   this control, gated on pointer:coarse like the search collapse above so
+   desktop with a mouse keeps the native select. */
+@media (pointer: coarse) and (min-width: 881px) {
+  .view-mode-select {
+    width: 44px;
+    height: 44px;
+  }
+
+  .view-mode-native {
+    display: none;
+  }
+
+  .view-mode-dropdown {
+    display: inline-flex;
+    width: 100%;
+    height: 100%;
+  }
+
+  .view-mode-trigger {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    align-self: center;
+    justify-content: center;
+    border: 1px solid var(--cb-line-2);
+    border-radius: var(--cb-radius-sm);
+    background: var(--cb-surface-2);
+    color: var(--cb-ink);
+  }
+}
+
 .toolbar-divider {
   align-self: stretch;
   width: 1px;
