@@ -1148,31 +1148,130 @@ html,
   padding-left: 14px;
 }
 
-.tree-controls {
+.global-search {
   display: flex;
+  align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
   flex-shrink: 0;
-}
-
-.tree-search,
-.tree-sort {
-  padding: 4px 6px;
-  font-family: inherit;
-  font-size: inherit;
+  padding: 4px 8px;
   background: var(--cb-surface-2);
-  color: var(--cb-ink);
   border: 1px solid var(--cb-line-2);
   border-radius: var(--cb-radius-sm);
 }
 
-.tree-search {
-  flex: 1 1 auto;
-  min-width: 0;
+.global-search-icon {
+  flex-shrink: 0;
+  color: var(--cb-ink-dim);
 }
 
-.tree-sort {
+.global-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 0;
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  color: var(--cb-ink);
+  border: none;
+}
+
+.global-search-input:focus {
+  outline: none;
+}
+
+.global-search-clear {
   flex-shrink: 0;
+  display: inline-flex;
+  background: none;
+  border: none;
+  color: var(--cb-ink-dim);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.back-to-results-banner {
+  display: flex;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--cb-line);
+}
+
+/* Overlays the always-mounted PdfViewer beneath it (see the comment above
+   <PdfViewer> in App.jsx) rather than replacing it in the DOM — same
+   position:absolute trick .viewer-empty uses, and for the same reason: a
+   closed doc's last-rendered pages would otherwise still show through. */
+.search-results {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 12px 16px;
+  font-size: 13px;
+  background: var(--cb-surface-2);
+}
+
+.search-results-header {
+  margin-bottom: 10px;
+}
+
+.search-results-count {
+  font-weight: 600;
+  color: var(--cb-ink);
+}
+
+.search-results-indexing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  color: var(--cb-ink-dim);
+}
+
+.search-results-indexing .spinner {
+  width: 12px;
+  height: 12px;
+}
+
+.search-results-empty {
+  color: var(--cb-ink-dim);
+}
+
+.search-result-file {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cb-line-2);
+  cursor: pointer;
+}
+
+.search-result-file:hover {
+  background: var(--cb-surface-2);
+}
+
+.search-result-file-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--cb-ink);
+  margin-bottom: 4px;
+}
+
+.search-result-hit-count {
+  font-weight: 400;
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  color: var(--cb-ink-dim);
+}
+
+.search-result-snippet {
+  margin: 2px 0;
+  color: var(--cb-ink-2);
+  line-height: 1.5;
+}
+
+.search-result-snippet mark {
+  background: color-mix(in srgb, var(--cb-mint) 35%, transparent);
+  color: var(--cb-ink);
+  border-radius: 2px;
 }
 
 .tree-folder-label,

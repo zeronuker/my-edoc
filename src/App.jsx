@@ -32,8 +32,11 @@ import {
   IconLayoutGrid,
   IconLayoutSidebar,
   IconSettings,
+  IconSearch,
+  IconArrowLeft,
 } from "@tabler/icons-react";
 import TreeView from "./TreeView.jsx";
+import SearchResults from "./SearchResults.jsx";
 import OutlineView from "./OutlineView.jsx";
 import BookmarksView from "./BookmarksView.jsx";
 import RecentView from "./RecentView.jsx";
@@ -152,6 +155,11 @@ function App() {
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
+  const [globalSearch, setGlobalSearch] = useState("");
+  // Term to jump to/highlight once the doc a search result opened has
+  // finished loading — consumed by onPagesInit below, same handoff pattern
+  // as pendingRestoreRef above.
+  const pendingFindRef = useRef(null);
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
@@ -389,6 +397,19 @@ function App() {
       if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
       pendingRestoreRef.current = null;
       restoringRef.current = false;
+      if (pendingFindRef.current) {
+        eventBus.dispatch("find", {
+          source: "edoc",
+          type: "",
+          query: pendingFindRef.current,
+          caseSensitive: false,
+          entireWord: false,
+          highlightAll: true,
+          findPrevious: false,
+          matchDiacritics: false,
+        });
+        pendingFindRef.current = null;
+      }
     };
     eventBus.on("pagechanging", onPageChanging);
     eventBus.on("scalechanging", onScaleChanging);
@@ -405,6 +426,12 @@ function App() {
     if (!viewerApi) return;
     if (!pdf) {
       setOutline(null);
+      // Closing a doc (search typing, back-to-results, a failed open) has
+      // to clear this the same way opening one does below — otherwise it's
+      // stuck at whatever it was, and the next selectFile call's own
+      // unsaved-annotations guard blocks silently on a stale true.
+      setHasUnsavedAnnotations(false);
+      setNumPages(0);
       return;
     }
     viewerApi.pdfViewer.setDocument(pdf);
@@ -853,6 +880,50 @@ function App() {
     }
   }
 
+  // Any edit to the global search field, while a document is open, closes
+  // it — clearing the field this way lands on the blank state rather than
+  // restoring whatever was open before search started, matching the rest
+  // of the main pane always reflecting the field's current value.
+  function handleGlobalSearchChange(value) {
+    if (pdf) {
+      if (
+        hasUnsavedAnnotations &&
+        !window.confirm(`You have unsaved annotations on "${selectedHandle?.name}". Discard them?`)
+      ) {
+        return;
+      }
+      setPdf(null);
+      setSelectedHandle(null);
+      setError(null);
+      setPendingReopen(null);
+    }
+    setGlobalSearch(value);
+  }
+
+  // "Back to results" button, shown while viewing a doc opened from a
+  // search hit — closes the doc without touching the query, so the results
+  // list (recomputed from the still-populated field) reappears.
+  function backToResults() {
+    if (
+      hasUnsavedAnnotations &&
+      !window.confirm(`You have unsaved annotations on "${selectedHandle?.name}". Discard them?`)
+    ) {
+      return;
+    }
+    setPdf(null);
+    setSelectedHandle(null);
+    setError(null);
+    setPendingReopen(null);
+  }
+
+  // Clicking a search result: open it like any other file, then jump to
+  // the matching text once it's loaded (see pendingFindRef, consumed in
+  // onPagesInit above).
+  function openSearchResult(fileHandle, term) {
+    pendingFindRef.current = term;
+    selectFile(fileHandle);
+  }
+
   // Button-click handler for the "Reopen [name]" banner — the click itself
   // is the user gesture requestPermission needs, unlike the silent
   // queryPermission check on launch.
@@ -934,6 +1005,27 @@ function App() {
       <div className="app-row">
         {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
+          {folders.length > 0 && (
+            <div className="global-search">
+              <IconSearch size={14} className="global-search-icon" />
+              <input
+                type="text"
+                className="global-search-input"
+                placeholder="Search files and content…"
+                value={globalSearch}
+                onChange={(e) => handleGlobalSearchChange(e.target.value)}
+              />
+              {globalSearch && (
+                <button
+                  className="icon-btn global-search-clear"
+                  aria-label="Clear search"
+                  onClick={() => handleGlobalSearchChange("")}
+                >
+                  <IconX size={14} />
+                </button>
+              )}
+            </div>
+          )}
           {showTabs && (
             <div className="sidebar-tabs">
               <button
@@ -1071,8 +1163,6 @@ function App() {
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
               refreshingKeys={refreshingKeys}
-              recentFiles={recentFiles}
-              textIndex={textIndex}
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the
                 corner as the tree scrolls underneath it. */}
@@ -1118,15 +1208,34 @@ function App() {
               </button>
             </div>
           )}
+          {globalSearch.trim() && pdf && (
+            <div className="back-to-results-banner">
+              <button className="cb-btn" onClick={backToResults}>
+                <IconArrowLeft size={14} />
+                Back to results
+              </button>
+            </div>
+          )}
+          {/* PdfViewer stays mounted for the app's whole lifetime — it builds
+              its own pdf.js viewer/eventBus once on mount (see PdfViewer.jsx)
+              and swaps documents via the pdf prop, so it must never be
+              conditionally unmounted (e.g. while search results are showing)
+              or that internal viewer is torn down and pdf.js breaks on the
+              next open. Loading/search-results/empty states are layered on
+              top of it instead, same trick .viewer-empty already used. */}
           <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} nightReading={settings.nightReading} />
-          {(loading || !pdf) && (
+          {loading ? (
             <div className="viewer-empty">
-              {loading ? (
-                <span className="viewer-loading">
-                  <span className="spinner" />
-                  Loading {selectedHandle?.name}…
-                </span>
-              ) : pendingReopen ? (
+              <span className="viewer-loading">
+                <span className="spinner" />
+                Loading {selectedHandle?.name}…
+              </span>
+            </div>
+          ) : globalSearch.trim() && !pdf ? (
+            <SearchResults query={globalSearch} folders={folders} textIndex={textIndex} onOpenResult={openSearchResult} />
+          ) : !pdf ? (
+            <div className="viewer-empty">
+              {pendingReopen ? (
                 <span className="reopen-banner">
                   Lost your place — reopen "{pendingReopen.name}"?
                   <button className="cb-btn cb-btn--primary" onClick={reopenLastFile}>
@@ -1192,7 +1301,7 @@ function App() {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </main>
       </div>
     </div>

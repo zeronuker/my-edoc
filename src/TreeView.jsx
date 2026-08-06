@@ -155,46 +155,8 @@ function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onR
   );
 }
 
-// True if this node's own name matches, its indexed page text matches (see
-// textIndex.js — built lazily in the background, so early searches may miss
-// not-yet-indexed files), or (for a folder) any descendant does. query is
-// already lowercased.
-function nodeMatches(node, query, textIndex) {
-  if (!query) return true;
-  if (node.name.toLowerCase().includes(query)) return true;
-  if (node.kind === "file") return !!textIndex?.[node.name]?.includes(query);
-  return node.children.some((c) => nodeMatches(c, query, textIndex));
-}
-
-// recentMap (name -> last-opened epoch ms) is only passed in "recent" sort
-// mode — undefined otherwise, which leaves children in scanDirectory's
-// existing alphabetical order untouched. Entries never opened sink to the
-// bottom (alpha among themselves); this only reorders one folder level at a
-// time, not the whole tree by "most recently used subtree".
-function sortChildren(children, recentMap) {
-  if (!recentMap) return children;
-  return [...children].sort((a, b) => {
-    const ta = recentMap.get(a.name) ?? -Infinity;
-    const tb = recentMap.get(b.name) ?? -Infinity;
-    if (ta !== tb) return tb - ta;
-    return a.name.localeCompare(b.name);
-  });
-}
-
-function Node({
-  node,
-  path,
-  onSelectFile,
-  selectedHandle,
-  query,
-  actions,
-  recentMap,
-  textIndex,
-  expandedPaths,
-  onToggleOpen,
-}) {
+function Node({ node, path, onSelectFile, selectedHandle, actions, expandedPaths, onToggleOpen }) {
   if (node.kind === "file") {
-    if (!nodeMatches(node, query, textIndex)) return null;
     const isSelected = node.handle === selectedHandle;
     return (
       <div
@@ -209,10 +171,7 @@ function Node({
     );
   }
 
-  if (!nodeMatches(node, query, textIndex)) return null;
-  const isOpen = query ? true : expandedPaths.has(path);
-  const filtered = query ? node.children.filter((c) => nodeMatches(c, query, textIndex)) : node.children;
-  const children = sortChildren(filtered, recentMap);
+  const isOpen = expandedPaths.has(path);
 
   return (
     <div className="tree-folder">
@@ -226,16 +185,13 @@ function Node({
       {actions && <div className="tree-folder-meta">{actions}</div>}
       {isOpen && (
         <div className="tree-children">
-          {children.map((child) => (
+          {node.children.map((child) => (
             <Node
               key={child.name + child.kind}
               node={child}
               path={`${path}/${child.name}`}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
-              query={query}
-              recentMap={recentMap}
-              textIndex={textIndex}
               expandedPaths={expandedPaths}
               onToggleOpen={onToggleOpen}
             />
@@ -253,11 +209,7 @@ export default function TreeView({
   onRemoveFolder,
   onRefreshFolder,
   refreshingKeys,
-  recentFiles,
-  textIndex,
 }) {
-  const [search, setSearch] = useState("");
-  const [sortMode, setSortMode] = useState("name");
   // Only one folder's actions menu open at a time.
   const [openActionsKey, setOpenActionsKey] = useState(null);
   const [expandedPaths, setExpandedPaths] = useState(() => new Set());
@@ -288,30 +240,9 @@ export default function TreeView({
   };
 
   if (!folders.length) return null;
-  const query = search.trim().toLowerCase();
-  const recentMap =
-    sortMode === "recent" ? new Map(recentFiles.map((e) => [e.name, e.openedAt])) : undefined;
 
   return (
     <div className="tree-view">
-      <div className="tree-controls">
-        <input
-          type="text"
-          className="tree-search"
-          placeholder="Search files…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select
-          className="tree-sort"
-          value={sortMode}
-          onChange={(e) => setSortMode(e.target.value)}
-          aria-label="Sort files"
-        >
-          <option value="name">Name</option>
-          <option value="recent">Recently opened</option>
-        </select>
-      </div>
       <div className="tree-rows">
         {folders.map(
           (folder) =>
@@ -322,9 +253,6 @@ export default function TreeView({
                 path={folder.tree.name}
                 onSelectFile={onSelectFile}
                 selectedHandle={selectedHandle}
-                query={query}
-                recentMap={recentMap}
-                textIndex={textIndex}
                 expandedPaths={expandedPaths}
                 onToggleOpen={toggleOpen}
                 actions={

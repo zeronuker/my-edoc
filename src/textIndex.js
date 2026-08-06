@@ -1,8 +1,9 @@
 import { loadDocument } from "./edoc.js";
 
-// Concatenates every page's text into one lowercased blob for substring
-// search — no per-page/word structure kept, this only needs to answer
-// "does this document contain X" for the tree search box.
+// Concatenates every page's text into one blob for substring search — no
+// per-page/word structure kept. Original case is preserved (matching is
+// done case-insensitively by callers) so search results can show readable
+// snippets instead of all-lowercase text.
 export async function extractText(file) {
   const doc = await loadDocument(file, { skipPassword: true });
   try {
@@ -12,7 +13,7 @@ export async function extractText(file) {
       const content = await page.getTextContent();
       text += content.items.map((item) => item.str).join(" ") + " ";
     }
-    return text.toLowerCase();
+    return text;
   } finally {
     doc.destroy();
   }
