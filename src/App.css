@@ -205,7 +205,11 @@ html,
 .sidebar {
   width: 280px;
   flex-shrink: 0;
-  overflow-y: auto;
+  /* Not overflow-y:auto — that scrolled the whole sidebar as one block,
+     carrying .sidebar-tabs off along with whichever tab's content ran
+     long. Each tab's own content panel (.folders-panel, .sidebar-tab-panel)
+     scrolls itself instead, so the tab bar stays put. */
+  overflow: hidden;
   background: var(--cb-surface-1);
   border-right: 1px solid var(--cb-line);
   padding: 8px;
@@ -984,16 +988,30 @@ html,
 
 /* Bounds the tab's height to whatever's left in .sidebar below the Add
    folder button / storage line, so .tree-rows below gets a fixed box to
-   scroll within instead of growing to its own content height. */
+   scroll within instead of growing to its own content height. overflow:auto
+   here is a fallback for that header content itself overrunning (e.g. many
+   pending-folder reconnect rows) — .tree-rows below is the one normally
+   doing the scrolling. */
 .folders-panel {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: auto;
 }
 
 .folders-panel[hidden] {
   display: none;
+}
+
+/* Same "scroll only the content, not the tab bar above it" treatment as
+   .folders-panel, for the other four sidebar tabs (Recent, Bookmarks,
+   Outline, Pages) — none of them have their own internal scroll region
+   the way TreeView's .tree-rows does. */
+.sidebar-tab-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .tree-view,
@@ -1054,7 +1072,31 @@ html,
   color: var(--cb-mint);
 }
 
+.outline-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Same sizing as .tree-chevron, but an actual button — outline nodes
+   navigate on label click, so expand/collapse needs its own hit target
+   rather than doubling up on the label the way TreeView's folder rows do. */
+.outline-chevron {
+  flex-shrink: 0;
+  width: 14px;
+  height: 18px;
+  font-size: 10px;
+  text-align: center;
+  color: var(--cb-ink-dim);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
 .outline-label {
+  flex: 1;
+  min-width: 0;
   cursor: pointer;
   user-select: none;
   padding: 3px 4px;

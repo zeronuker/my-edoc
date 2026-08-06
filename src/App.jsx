@@ -135,6 +135,12 @@ function App() {
   // { [fileName]: [{ page, createdAt }] }, page-ascending — user-created
   // marks, distinct from the PDF's own outline.
   const [bookmarks, setBookmarks] = useState({});
+  // { [fileName]: [path, ...] } — which outline nodes are expanded, keyed by
+  // a stable "0-2-1" index path rather than title (titles repeat; paths are
+  // stable across reopens since getOutline() returns the same structure
+  // every time). Nodes default to collapsed, so only expanded paths are
+  // ever stored.
+  const [outlineExpanded, setOutlineExpanded] = useState({});
   // null | "highlight" | "ink" | "freetext" — mirrored onto
   // pdfViewer.annotationEditorMode by the effect below.
   const [annotationTool, setAnnotationTool] = useState(null);
@@ -226,6 +232,7 @@ function App() {
       setRecentFiles((await dbGet("recentFiles")) || []);
       setTextIndex((await dbGet("textIndex")) || {});
       setBookmarks((await dbGet("bookmarks")) || {});
+      setOutlineExpanded((await dbGet("outlineExpanded")) || {});
 
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
@@ -525,6 +532,22 @@ function App() {
   function removeBookmark(page) {
     if (!selectedHandle) return;
     updateBookmarks(selectedHandle.name, (existing) => existing.filter((b) => b.page !== page));
+  }
+
+  // Same read-modify-write shape as updateBookmarks, one entry per outline
+  // node path instead of per page.
+  function toggleOutlineNode(path) {
+    if (!selectedHandle) return;
+    setOutlineExpanded((prev) => {
+      const name = selectedHandle.name;
+      const existing = prev[name] || [];
+      const nextPaths = existing.includes(path) ? existing.filter((p) => p !== path) : [...existing, path];
+      const next = { ...prev };
+      if (nextPaths.length) next[name] = nextPaths;
+      else delete next[name];
+      dbSet("outlineExpanded", next);
+      return next;
+    });
   }
 
   // Bakes current annotation edits into the chosen destination (see
@@ -838,6 +861,7 @@ function App() {
   const pendingFolders = folders.filter((f) => !f.tree);
   const currentBookmarks = selectedHandle ? bookmarks[selectedHandle.name] || [] : [];
   const isBookmarked = currentBookmarks.some((b) => b.page === currentPage);
+  const currentOutlineExpanded = new Set(selectedHandle ? outlineExpanded[selectedHandle.name] || [] : []);
   const tabAvailable = {
     folders: true,
     recent: recentFiles.length > 0,
@@ -951,36 +975,46 @@ function App() {
             </div>
           )}
           {activeTab === "recent" && (
-            <RecentView recentFiles={recentFiles} onSelectFile={selectFile} selectedHandle={selectedHandle} />
+            <div className="sidebar-tab-panel">
+              <RecentView recentFiles={recentFiles} onSelectFile={selectFile} selectedHandle={selectedHandle} />
+            </div>
           )}
           {activeTab === "bookmarks" && (
-            <BookmarksView
-              bookmarks={currentBookmarks}
-              currentPage={currentPage}
-              onNavigate={(n) => {
-                if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
-                setSidebarOpen(false);
-              }}
-              onRemove={removeBookmark}
-            />
+            <div className="sidebar-tab-panel">
+              <BookmarksView
+                bookmarks={currentBookmarks}
+                currentPage={currentPage}
+                onNavigate={(n) => {
+                  if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
+                  setSidebarOpen(false);
+                }}
+                onRemove={removeBookmark}
+              />
+            </div>
           )}
           {activeTab === "outline" && (
-            <OutlineView
-              items={outline}
-              linkService={viewerApi?.linkService}
-              onNavigate={() => setSidebarOpen(false)}
-            />
+            <div className="sidebar-tab-panel">
+              <OutlineView
+                items={outline}
+                linkService={viewerApi?.linkService}
+                onNavigate={() => setSidebarOpen(false)}
+                expandedKeys={currentOutlineExpanded}
+                onToggle={toggleOutlineNode}
+              />
+            </div>
           )}
           {activeTab === "pages" && (
-            <ThumbnailView
-              pdf={pdf}
-              numPages={numPages}
-              currentPage={currentPage}
-              onSelect={(n) => {
-                if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
-                setSidebarOpen(false);
-              }}
-            />
+            <div className="sidebar-tab-panel">
+              <ThumbnailView
+                pdf={pdf}
+                numPages={numPages}
+                currentPage={currentPage}
+                onSelect={(n) => {
+                  if (viewerApi) viewerApi.pdfViewer.currentPageNumber = n;
+                  setSidebarOpen(false);
+                }}
+              />
+            </div>
           )}
           {/* Kept mounted (just hidden) instead of unmounted on tab switch —
               TreeView's expanded-folder state is local to each Node, and
