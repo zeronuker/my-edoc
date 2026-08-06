@@ -605,6 +605,66 @@ html,
   }
 }
 
+/* Above 880px the search bar normally stays a permanently-expanded input
+   (see ".search-wrap" comment above) since desktop has room for it. On a
+   touch device (iPad, etc.) that's no longer true once the pointer:coarse
+   rule below floors every toolbar control at 44px — the fixed-width input
+   alone can eat enough of the row to push the settings icon onto a 2nd
+   line, with nothing left to reclaim by shrinking buttons that are already
+   at their floor. So collapse it to the same icon-that-expands-on-tap
+   treatment mobile uses, independent of viewport width. */
+@media (pointer: coarse) {
+  .search-wrap {
+    gap: 6px;
+  }
+
+  .search-wrap.open {
+    flex: 1 1 120px;
+  }
+
+  .search-toggle,
+  .search-close {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--cb-line-2);
+    border-radius: var(--cb-radius-sm);
+    background: none;
+    color: var(--cb-ink);
+    align-items: center;
+    justify-content: center;
+  }
+
+  .search-wrap:not(.open) .search-bar {
+    display: none;
+  }
+
+  .search-wrap:not(.open) .search-toggle {
+    display: inline-flex;
+  }
+
+  .search-wrap:not(.open) .search-close {
+    display: none;
+  }
+
+  .search-wrap.open .search-toggle {
+    display: none;
+  }
+
+  .search-wrap.open .search-close {
+    display: inline-flex;
+  }
+
+  .search-bar {
+    flex: 1 1 120px;
+    margin-left: 0;
+  }
+
+  .search-bar input {
+    width: 100%;
+  }
+}
+
 .toolbar-divider {
   align-self: stretch;
   width: 1px;
