@@ -853,18 +853,6 @@ html,
   filter: invert(1) hue-rotate(180deg);
 }
 
-/* App-local button style, not part of the shared brand-kit button variants —
-   same background+border treatment as the active sidebar tab/toolbar icon,
-   used for Add folder instead of the brand-kit's gradient-filled primary. */
-.cb-btn--accent {
-  background: var(--cb-surface-3);
-  border-color: var(--cb-mint);
-  color: var(--cb-mint);
-}
-.cb-btn--accent:hover {
-  filter: brightness(1.1);
-}
-
 .error-banner {
   display: flex;
   align-items: center;
@@ -986,13 +974,16 @@ html,
   border-color: var(--cb-mint);
 }
 
-/* Bounds the tab's height to whatever's left in .sidebar below the Add
-   folder button / storage line, so .tree-rows below gets a fixed box to
-   scroll within instead of growing to its own content height. overflow:auto
-   here is a fallback for that header content itself overrunning (e.g. many
-   pending-folder reconnect rows) — .tree-rows below is the one normally
-   doing the scrolling. */
+/* Bounds the tab's height to whatever's left in .sidebar below the storage
+   line, so .tree-rows below gets a fixed box to scroll within instead of
+   growing to its own content height. overflow:auto here is a fallback for
+   that header content itself overrunning (e.g. many pending-folder
+   reconnect rows) — .tree-rows below is the one normally doing the
+   scrolling. position:relative anchors .add-folder-fab to this panel
+   (not to .tree-rows), so the button sits still while the tree scrolls
+   under it. */
 .folders-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1002,6 +993,48 @@ html,
 
 .folders-panel[hidden] {
   display: none;
+}
+
+.folders-empty-hint {
+  margin: 4px 2px;
+  font-size: 13px;
+  color: var(--cb-ink-dim);
+}
+
+/* Rounded-square FAB (not eDoc's usual sharp corners) — matches the
+   "Add sector" button in the eLogbook app, same brand-kit mint. Anchored
+   to .folders-panel's corner, floating over the tree rather than taking a
+   layout row, and only ever rendered while the Folders tab is active. */
+.add-folder-fab {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 14px;
+  background: var(--cb-mint);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--cb-mint) 70%, transparent);
+  z-index: 1;
+}
+
+.add-folder-fab:hover {
+  filter: brightness(1.06);
+}
+
+.add-folder-fab:disabled {
+  cursor: default;
+  filter: brightness(0.92);
+}
+
+.add-folder-fab .spinner {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
 }
 
 /* Same "scroll only the content, not the tab bar above it" treatment as
@@ -1183,11 +1216,14 @@ html,
    box and sort dropdown stay put. flex + min-height:0 bounds this to the
    space actually available (rather than growing to content height), so
    the horizontal scrollbar sits at a fixed spot at the bottom of the
-   panel instead of trailing after however many rows are expanded. */
+   panel instead of trailing after however many rows are expanded.
+   padding-bottom clears .add-folder-fab, floating in the same corner —
+   otherwise the last row(s) of a long tree end up behind it. */
 .tree-rows {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  padding-bottom: 52px;
 }
 
 .tree-children {

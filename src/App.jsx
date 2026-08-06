@@ -25,7 +25,7 @@ import { AnnotationEditorType } from "pdfjs-dist";
 import {
   IconX,
   IconFolder,
-  IconFolderPlus,
+  IconPlus,
   IconClock,
   IconBookmark,
   IconListTree,
@@ -1020,19 +1020,7 @@ function App() {
               TreeView's expanded-folder state is local to each Node, and
               unmounting it collapses the whole tree back to the root. */}
           <div className="folders-panel" hidden={activeTab !== "folders"}>
-            <button className="cb-btn cb-btn--accent" onClick={handleAddFolder} disabled={addingFolder}>
-              {addingFolder ? (
-                <span className="viewer-loading">
-                  <span className="spinner" />
-                  Adding…
-                </span>
-              ) : (
-                <>
-                  <IconFolderPlus size={14} />
-                  Add folder
-                </>
-              )}
-            </button>
+            {folders.length === 0 && <p className="folders-empty-hint">No folders yet — tap + to add one.</p>}
             {pendingFolders.length > 0 && (
               <div className="pending-folders">
                 <button
@@ -1079,6 +1067,17 @@ function App() {
               recentFiles={recentFiles}
               textIndex={textIndex}
             />
+            {/* Anchored to .folders-panel, not .tree-rows — stays put in the
+                corner as the tree scrolls underneath it. */}
+            <button
+              className="add-folder-fab"
+              onClick={handleAddFolder}
+              disabled={addingFolder}
+              aria-label="Add folder"
+              title="Add folder"
+            >
+              {addingFolder ? <span className="spinner" /> : <IconPlus size={20} />}
+            </button>
           </div>
         </aside>
         <main className="main">
