@@ -4,7 +4,15 @@ import { useEffect, useRef } from "react";
 // OPFS — both on initial "Add folder" and on a per-folder "Refresh". Not
 // used for the live-handle (desktop Chrome/Edge) path, since nothing is
 // actually being copied there.
-export default function CopyProgressModal({ title, folderName, files, doneSet, onCancel, actionLabel = "copied" }) {
+export default function CopyProgressModal({
+  title,
+  folderName,
+  files,
+  doneSet,
+  onCancel,
+  actionLabel = "copied",
+  onBackground,
+}) {
   const doneCount = doneSet.size;
   const pct = files.length ? Math.round((doneCount / files.length) * 100) : 0;
   // First not-yet-done file — the one currently being copied. -1 once
@@ -71,6 +79,11 @@ export default function CopyProgressModal({ title, folderName, files, doneSet, o
         </div>
 
         <div className="update-dialog-actions">
+          {onBackground && (
+            <button className="cb-btn" onClick={onBackground}>
+              Run in background
+            </button>
+          )}
           <button className="cb-btn" onClick={onCancel}>
             Cancel
           </button>

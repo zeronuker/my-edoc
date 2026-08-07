@@ -1027,6 +1027,38 @@ html,
   filter: brightness(1.06);
 }
 
+/* Reopens the full indexing progress popup (see indexProgress in App.jsx)
+   when minimized via "Run in background" — fixed to the viewport corner,
+   deliberately clear of the document/toolbar so it never blocks reading or
+   interaction the way the full modal does. */
+.index-progress-pill {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  color: var(--cb-ink);
+  font-family: var(--cb-font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.4);
+}
+
+.index-progress-pill:hover {
+  background: var(--cb-surface-3);
+}
+
+.index-progress-pill .spinner {
+  width: 12px;
+  height: 12px;
+}
+
 .add-folder-fab:disabled {
   cursor: default;
   filter: brightness(0.92);

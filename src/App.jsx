@@ -162,6 +162,17 @@ function App() {
   // as pendingRestoreRef above.
   const pendingFindRef = useRef(null);
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
+  // { folderKey, folderName, files, minimized } tracking the indexing
+  // progress of whichever folder was most recently added/refreshed — set
+  // right after that folder commits to `folders`, cleared once every one
+  // of its files shows up in textIndex (or the user cancels it). Distinct
+  // from copyProgress: that one only covers the add/scan/copy step, this
+  // one covers the (often much longer) indexing step that follows it.
+  const [indexProgress, setIndexProgress] = useState(null);
+  // Folder keys the user has explicitly cancelled indexing for — the
+  // indexing effect below skips their remaining files. Session-only (not
+  // persisted): a later refresh of that folder clears it and starts fresh.
+  const cancelledIndexFolderKeysRef = useRef(new Set());
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
   const initializedRef = useRef(false);
@@ -291,10 +302,13 @@ function App() {
       if (indexingRef.current) return;
       indexingRef.current = true;
       try {
-        const files = folders.filter((f) => f.tree).flatMap((f) => flattenTreeFileHandles(f.tree));
-        for (const { name, handle } of files) {
+        const files = folders
+          .filter((f) => f.tree)
+          .flatMap((f) => flattenTreeFileHandles(f.tree).map((x) => ({ ...x, folderKey: f.key })));
+        for (const { name, handle, folderKey } of files) {
           if (cancelled) return;
           if (textIndex[name]) continue;
+          if (cancelledIndexFolderKeysRef.current.has(folderKey)) continue;
           while (pdfOpenRef.current && !cancelled) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
@@ -322,6 +336,18 @@ function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folders]);
+
+  // Auto-dismisses the indexing progress popup/pill once every one of the
+  // tracked folder's files has shown up in textIndex — nothing further for
+  // it to show. Brief delay so "100%" is actually visible for a moment
+  // rather than vanishing the instant the last file finishes.
+  useEffect(() => {
+    if (!indexProgress) return;
+    const allDone = indexProgress.files.every((f) => textIndex[f.name]);
+    if (!allDone) return;
+    const t = setTimeout(() => setIndexProgress(null), 1200);
+    return () => clearTimeout(t);
+  }, [indexProgress, textIndex]);
 
   // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
   // width-based default live, the same way opening a file does.
@@ -686,6 +712,20 @@ function App() {
     }
   }
 
+  // Starts tracking a just-added/refreshed folder's indexing progress —
+  // called right after that folder commits to `folders`. Doesn't drive the
+  // indexing itself (the effect above already does that for every folder,
+  // this just visually follows one of them); doneSet for rendering is
+  // derived live from textIndex, not stored here. A fresh call always
+  // clears any earlier cancellation for this folder key, since re-adding/
+  // refreshing is a deliberate new attempt.
+  function trackIndexingProgress(folderKey, folderName, tree) {
+    cancelledIndexFolderKeysRef.current.delete(folderKey);
+    const files = flattenTreeFilesWithPath(tree);
+    if (files.length === 0) return;
+    setIndexProgress({ folderKey, folderName, files, minimized: false });
+  }
+
   async function handleAddFolder() {
     let dirHandle, tree, folderId, sizeBytes;
     if (supportsDirectoryPicker()) {
@@ -729,12 +769,14 @@ function App() {
       }
     }
     const connectedAt = Date.now();
+    const key = crypto.randomUUID();
     setFolders((prev) => {
-      const next = [...prev, { key: crypto.randomUUID(), dirHandle, tree, connectedAt, folderId, sizeBytes }];
+      const next = [...prev, { key, dirHandle, tree, connectedAt, folderId, sizeBytes }];
       saveFolderList(next);
       return next;
     });
     refreshStorageEstimate();
+    trackIndexingProgress(key, dirHandle.name, tree);
   }
 
   async function handleReconnect(dirHandle) {
@@ -799,6 +841,7 @@ function App() {
           saveFolderList(next);
           return next;
         });
+        trackIndexingProgress(key, target.dirHandle.name, tree);
       } else {
         const granted = (await target.dirHandle.requestPermission({ mode: "read" })) === "granted";
         if (!granted) return;
@@ -817,6 +860,7 @@ function App() {
           saveFolderList(next);
           return next;
         });
+        trackIndexingProgress(key, target.dirHandle.name, tree);
       }
       refreshStorageEstimate();
     } catch (err) {
@@ -1005,6 +1049,9 @@ function App() {
   const showTabs = tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
+  const indexDoneSet = indexProgress
+    ? new Set(indexProgress.files.filter((f) => textIndex[f.name]).map((f) => f.relativePath))
+    : null;
 
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
@@ -1027,6 +1074,29 @@ function App() {
           doneSet={copyProgress.doneSet}
           onCancel={() => copyControllerRef.current?.abort()}
         />
+      )}
+      {indexProgress && !indexProgress.minimized && (
+        <CopyProgressModal
+          title="Indexing for search"
+          folderName={indexProgress.folderName}
+          files={indexProgress.files}
+          doneSet={indexDoneSet}
+          actionLabel="indexed"
+          onCancel={() => {
+            cancelledIndexFolderKeysRef.current.add(indexProgress.folderKey);
+            setIndexProgress(null);
+          }}
+          onBackground={() => setIndexProgress((p) => (p ? { ...p, minimized: true } : p))}
+        />
+      )}
+      {indexProgress?.minimized && (
+        <button
+          className="index-progress-pill"
+          onClick={() => setIndexProgress((p) => (p ? { ...p, minimized: false } : p))}
+        >
+          <span className="spinner" />
+          Indexing… {indexDoneSet.size}/{indexProgress.files.length}
+        </button>
       )}
       {modePickerOpen && selectedHandle && (
         <AnnotationModePicker
