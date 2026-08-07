@@ -12,6 +12,7 @@ import {
   reviveInlineLegacyFolder,
   treeByteSize,
   flattenTreeFiles,
+  flattenTreeFilesWithPath,
   flattenTreeFileHandles,
   isMobileDevice,
 } from "./fileSystem.js";
@@ -645,6 +646,46 @@ function App() {
     }
   }
 
+  // Desktop's directory scan (scanDirectory) is metadata-only and finishes
+  // near-instantly — there's no real per-file work to show progress on.
+  // This paces a reveal of the same CopyProgressModal iPad/Android's real
+  // per-file copy uses, purely so desktop gets the same visual experience
+  // for Add/Refresh folder. Duration scales with file count (sqrt, capped
+  // at 4s) so a huge folder doesn't drag the fake wait out forever; reveals
+  // happen in a fixed ~60 ticks rather than one state update per file, so
+  // it doesn't spam re-renders on a folder with thousands of files. Throws
+  // an AbortError (matching copyFolderFiles' real-cancel shape) on Cancel,
+  // so callers can share the same catch-and-bail handling.
+  async function simulateScanProgress(tree, title, folderName) {
+    const files = flattenTreeFilesWithPath(tree);
+    const total = files.length;
+    if (total === 0) return;
+    const controller = new AbortController();
+    copyControllerRef.current = controller;
+    setCopyProgress({ title, folderName, files, doneSet: new Set(), actionLabel: "scanned" });
+    try {
+      const duration = Math.min(4000, Math.max(400, 400 + 40 * Math.sqrt(total)));
+      const ticks = Math.min(total, 60);
+      const perTick = duration / ticks;
+      for (let t = 1; t <= ticks; t++) {
+        await new Promise((resolve, reject) => {
+          const id = setTimeout(resolve, perTick);
+          controller.signal.addEventListener("abort", () => {
+            clearTimeout(id);
+            reject(new DOMException("Aborted", "AbortError"));
+          });
+        });
+        const doneCount = Math.round((t / ticks) * total);
+        setCopyProgress((p) =>
+          p ? { ...p, doneSet: new Set(files.slice(0, doneCount).map((f) => f.relativePath)) } : p
+        );
+      }
+    } finally {
+      setCopyProgress(null);
+      copyControllerRef.current = null;
+    }
+  }
+
   async function handleAddFolder() {
     let dirHandle, tree, folderId, sizeBytes;
     if (supportsDirectoryPicker()) {
@@ -654,6 +695,12 @@ function App() {
         tree = await scanDirectory(dirHandle);
       } finally {
         setAddingFolder(false);
+      }
+      try {
+        await simulateScanProgress(tree, "Adding folder", dirHandle.name);
+      } catch (err) {
+        if (err.name !== "AbortError") setError(`Couldn't add "${dirHandle.name}": ${err.message}`);
+        return;
       }
     } else {
       const fileList = await pickFolderLegacy();
@@ -756,6 +803,14 @@ function App() {
         const granted = (await target.dirHandle.requestPermission({ mode: "read" })) === "granted";
         if (!granted) return;
         const tree = await scanDirectory(target.dirHandle);
+        try {
+          await simulateScanProgress(tree, "Refreshing folder", target.dirHandle.name);
+        } catch (err) {
+          if (err.name !== "AbortError") {
+            setError(`Couldn't refresh "${target.dirHandle.name}": ${err.message}`);
+          }
+          return;
+        }
         const connectedAt = Date.now();
         setFolders((prev) => {
           const next = prev.map((f) => (f.key === key ? { ...f, tree, connectedAt } : f));

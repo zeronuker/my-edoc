@@ -142,6 +142,23 @@ export function flattenTreeFiles(tree) {
   return out;
 }
 
+// Same idea as flattenTreeFiles, but for a live-handle tree (scanDirectory)
+// whose file nodes don't carry a relativePath the way legacy-path trees do —
+// computed here instead of threading it through scanDirectory, since the
+// desktop add/refresh progress simulation is the only thing that needs it.
+export function flattenTreeFilesWithPath(tree) {
+  const out = [];
+  function walk(node, prefix) {
+    if (node.kind === "file") {
+      out.push({ name: node.name, relativePath: prefix + node.name });
+      return;
+    }
+    for (const child of node.children) walk(child, `${prefix}${node.name}/`);
+  }
+  for (const child of tree.children) walk(child, "");
+  return out;
+}
+
 // Flat list of a tree's file leaves with their handles — for background
 // work (e.g. text indexing) that needs to actually read each file, unlike
 // flattenTreeFiles above which is display-only.
