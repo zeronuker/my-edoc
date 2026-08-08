@@ -19,9 +19,8 @@ import {
 import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { loadDocument } from "./edoc.js";
-import { extractText } from "./textIndex.js";
 import { getAnnotationMode, loadAnnotatedCopy, saveAnnotations } from "./annotations.js";
-import { dbGet, dbSet } from "./db.js";
+import { dbGet, dbSet, dbDelete } from "./db.js";
 import { AnnotationEditorType } from "pdfjs-dist";
 import {
   IconX,
@@ -121,33 +120,6 @@ function App() {
   // persist across reload (same restriction lastFileHandle already has);
   // legacy opens still show up in the list for the current session.
   const [recentFiles, setRecentFiles] = useState([]);
-  // { [relativePath]: extractedText } — built lazily in the background
-  // (see the indexing effect below), persisted whole under one IndexedDB
-  // key like filePositions/recentFiles above. Keyed by full path, not bare
-  // filename, so two same-named files in different folders/subfolders
-  // don't collide and shadow each other's indexed content.
-  // ponytail: no size cap, no indexing progress UI — bounded to run only
-  // while no document is open (see pdfOpenRef) so it doesn't pile onto an
-  // active reading session's memory footprint.
-  const [textIndex, setTextIndex] = useState({});
-  // { [relativePath]: failedAttemptCount } — persisted the same way, so a file
-  // that keeps timing out/erroring stops being retried after 3 attempts
-  // (across reloads too, not just within one session) instead of eating a
-  // fresh 20s timeout every single pass. Cleared for a folder's files
-  // whenever that folder is re-added/refreshed (see trackIndexingProgress).
-  const [indexFailCounts, setIndexFailCounts] = useState({});
-  // Names dismissed from the "couldn't index" banner this session — doesn't
-  // clear indexFailCounts, just hides them from the banner until a fresh
-  // failure (or app reload) brings the list back.
-  const [dismissedIndexFailures, setDismissedIndexFailures] = useState(() => new Set());
-  const indexingRef = useRef(false);
-  // Mirrors `pdf` for the indexing loop below, which can't put `pdf`
-  // itself in its effect deps without restarting the whole walk every
-  // time a file is opened/closed.
-  const pdfOpenRef = useRef(false);
-  useEffect(() => {
-    pdfOpenRef.current = !!pdf;
-  }, [pdf]);
   // { [fileName]: [{ page, createdAt }] }, page-ascending — user-created
   // marks, distinct from the PDF's own outline.
   const [bookmarks, setBookmarks] = useState({});
@@ -169,22 +141,7 @@ function App() {
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
   const [globalSearch, setGlobalSearch] = useState("");
-  // Term to jump to/highlight once the doc a search result opened has
-  // finished loading — consumed by onPagesInit below, same handoff pattern
-  // as pendingRestoreRef above.
-  const pendingFindRef = useRef(null);
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
-  // { folderKey, folderName, files, minimized } tracking the indexing
-  // progress of whichever folder was most recently added/refreshed — set
-  // right after that folder commits to `folders`, cleared once every one
-  // of its files shows up in textIndex (or the user cancels it). Distinct
-  // from copyProgress: that one only covers the add/scan/copy step, this
-  // one covers the (often much longer) indexing step that follows it.
-  const [indexProgress, setIndexProgress] = useState(null);
-  // Folder keys the user has explicitly cancelled indexing for — the
-  // indexing effect below skips their remaining files. Session-only (not
-  // persisted): a later refresh of that folder clears it and starts fresh.
-  const cancelledIndexFolderKeysRef = useRef(new Set());
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
   const initializedRef = useRef(false);
@@ -262,10 +219,13 @@ function App() {
       refreshStorageEstimate();
 
       setRecentFiles((await dbGet("recentFiles")) || []);
-      setTextIndex((await dbGet("textIndex")) || {});
-      setIndexFailCounts((await dbGet("indexFailCounts")) || {});
       setBookmarks((await dbGet("bookmarks")) || {});
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
+      // One-time cleanup: content search (and the indexed text it stored
+      // under these keys) has been removed — reclaim whatever was already
+      // saved instead of leaving it orphaned in IndexedDB forever.
+      dbDelete("textIndex");
+      dbDelete("indexFailCounts");
 
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
@@ -320,88 +280,6 @@ function App() {
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
-
-  // Background text indexing for full-text search: walks every connected
-  // folder, extracts+caches text for any file not already indexed, one at a
-  // time. Runs whenever the folder list changes (new folder, refresh);
-  // already-indexed files (checked against the textIndex snapshot from when
-  // this run started) are skipped, so this is a no-op on a re-render that
-  // doesn't add new files.
-  //
-  // Paused for as long as a document is open (pdfOpenRef): decoding PDFs
-  // in the background on top of an already-open, already-rendered document
-  // stacks memory fast, especially on iPad, where it's a good way to get
-  // the whole tab killed and reloaded by the OS. Indexing picks back up
-  // the moment the open document is closed.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (indexingRef.current) return;
-      indexingRef.current = true;
-      try {
-        const files = folders
-          .filter((f) => f.tree)
-          .flatMap((f) => flattenTreeFileHandles(f.tree).map((x) => ({ ...x, folderKey: f.key })));
-        for (const { handle, relativePath, folderKey } of files) {
-          if (cancelled) return;
-          if (textIndex[relativePath]) continue;
-          if (cancelledIndexFolderKeysRef.current.has(folderKey)) continue;
-          if ((indexFailCounts[relativePath] || 0) >= 3) continue;
-          while (pdfOpenRef.current && !cancelled) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          }
-          if (cancelled) return;
-          try {
-            const file = await handle.getFile();
-            // Same race-a-timeout shape as selectFile's doc-open path — pdf.js
-            // can hang indefinitely on a specific page/text-extraction call
-            // for a large or malformed PDF, and since this loop is strictly
-            // sequential (one file at a time), a single hung file would
-            // otherwise freeze indexing for every file behind it forever.
-            const text = await Promise.race([
-              extractText(file),
-              new Promise((_, reject) => setTimeout(() => reject(new Error("Indexing timed out")), 20000)),
-            ]);
-            if (cancelled) return;
-            setTextIndex((prev) => {
-              const next = { ...prev, [relativePath]: text };
-              dbSet("textIndex", next);
-              return next;
-            });
-          } catch {
-            // Unreadable, corrupt, password-protected (skipPassword), or
-            // timed out — leave unindexed; filename search still works for
-            // it. Counted so a file that fails 3 times stops being retried
-            // (see the skip check above) instead of eating a fresh 20s
-            // timeout on every future pass.
-            setIndexFailCounts((prev) => {
-              const next = { ...prev, [relativePath]: (prev[relativePath] || 0) + 1 };
-              dbSet("indexFailCounts", next);
-              return next;
-            });
-          }
-        }
-      } finally {
-        indexingRef.current = false;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folders]);
-
-  // Auto-dismisses the indexing progress popup/pill once every one of the
-  // tracked folder's files has shown up in textIndex — nothing further for
-  // it to show. Brief delay so "100%" is actually visible for a moment
-  // rather than vanishing the instant the last file finishes.
-  useEffect(() => {
-    if (!indexProgress) return;
-    const allDone = indexProgress.files.every((f) => textIndex[f.name]);
-    if (!allDone) return;
-    const t = setTimeout(() => setIndexProgress(null), 1200);
-    return () => clearTimeout(t);
-  }, [indexProgress, textIndex]);
 
   // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
   // width-based default live, the same way opening a file does.
@@ -478,19 +356,6 @@ function App() {
       if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
       pendingRestoreRef.current = null;
       restoringRef.current = false;
-      if (pendingFindRef.current) {
-        eventBus.dispatch("find", {
-          source: "edoc",
-          type: "",
-          query: pendingFindRef.current,
-          caseSensitive: false,
-          entireWord: false,
-          highlightAll: true,
-          findPrevious: false,
-          matchDiacritics: false,
-        });
-        pendingFindRef.current = null;
-      }
     };
     eventBus.on("pagechanging", onPageChanging);
     eventBus.on("scalechanging", onScaleChanging);
@@ -769,34 +634,6 @@ function App() {
     }
   }
 
-  // Starts tracking a just-added/refreshed folder's indexing progress —
-  // called right after that folder commits to `folders`. Doesn't drive the
-  // indexing itself (the effect above already does that for every folder,
-  // this just visually follows one of them); doneSet for rendering is
-  // derived live from textIndex, not stored here. A fresh call always
-  // clears any earlier cancellation for this folder key, and resets its
-  // files' fail-attempt counts, since re-adding/refreshing is a deliberate
-  // new attempt — matches how the cancellation itself already resets here.
-  function trackIndexingProgress(folderKey, folderName, tree) {
-    cancelledIndexFolderKeysRef.current.delete(folderKey);
-    const files = flattenTreeFilesWithPath(tree);
-    if (files.length === 0) return;
-    setIndexFailCounts((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const f of files) {
-        if (next[f.relativePath] !== undefined) {
-          delete next[f.relativePath];
-          changed = true;
-        }
-      }
-      if (!changed) return prev;
-      dbSet("indexFailCounts", next);
-      return next;
-    });
-    setIndexProgress({ folderKey, folderName, files, minimized: false });
-  }
-
   async function handleAddFolder() {
     let dirHandle, tree, folderId, sizeBytes;
     if (supportsDirectoryPicker()) {
@@ -847,7 +684,6 @@ function App() {
       return next;
     });
     refreshStorageEstimate();
-    trackIndexingProgress(key, dirHandle.name, tree);
   }
 
   async function handleReconnect(dirHandle) {
@@ -912,7 +748,6 @@ function App() {
           saveFolderList(next);
           return next;
         });
-        trackIndexingProgress(key, target.dirHandle.name, tree);
       } else {
         const granted = (await target.dirHandle.requestPermission({ mode: "read" })) === "granted";
         if (!granted) return;
@@ -931,7 +766,6 @@ function App() {
           saveFolderList(next);
           return next;
         });
-        trackIndexingProgress(key, target.dirHandle.name, tree);
       }
       refreshStorageEstimate();
     } catch (err) {
@@ -1101,14 +935,6 @@ function App() {
     setPendingReopen(null);
   }
 
-  // Clicking a search result: open it like any other file, then jump to
-  // the matching text once it's loaded (see pendingFindRef, consumed in
-  // onPagesInit above).
-  function openSearchResult(fileHandle, term) {
-    pendingFindRef.current = term;
-    selectFile(fileHandle);
-  }
-
   // Button-click handler for the "Reopen [name]" banner — the click itself
   // is the user gesture requestPermission needs, unlike the silent
   // queryPermission check on launch.
@@ -1135,12 +961,6 @@ function App() {
   const showTabs = tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
-  const indexDoneSet = indexProgress
-    ? new Set(indexProgress.files.filter((f) => textIndex[f.relativePath]).map((f) => f.relativePath))
-    : null;
-  const visibleFailedNames = Object.entries(indexFailCounts)
-    .filter(([name, count]) => count >= 3 && !dismissedIndexFailures.has(name))
-    .map(([name]) => name);
 
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
@@ -1163,29 +983,6 @@ function App() {
           doneSet={copyProgress.doneSet}
           onCancel={() => copyControllerRef.current?.abort()}
         />
-      )}
-      {indexProgress && !indexProgress.minimized && (
-        <CopyProgressModal
-          title="Indexing for search"
-          folderName={indexProgress.folderName}
-          files={indexProgress.files}
-          doneSet={indexDoneSet}
-          actionLabel="indexed"
-          onCancel={() => {
-            cancelledIndexFolderKeysRef.current.add(indexProgress.folderKey);
-            setIndexProgress(null);
-          }}
-          onBackground={() => setIndexProgress((p) => (p ? { ...p, minimized: true } : p))}
-        />
-      )}
-      {indexProgress?.minimized && (
-        <button
-          className="index-progress-pill"
-          onClick={() => setIndexProgress((p) => (p ? { ...p, minimized: false } : p))}
-        >
-          <span className="spinner" />
-          Indexing… {indexDoneSet.size}/{indexProgress.files.length}
-        </button>
       )}
       {modePickerOpen && selectedHandle && (
         <AnnotationModePicker
@@ -1422,20 +1219,6 @@ function App() {
               </button>
             </div>
           )}
-          {visibleFailedNames.length > 0 && (
-            <div className="error-banner">
-              <span>
-                Couldn't index {visibleFailedNames.length} file{visibleFailedNames.length === 1 ? "" : "s"} after 3
-                tries: {visibleFailedNames.join(", ")}
-              </span>
-              <button
-                aria-label="Dismiss"
-                onClick={() => setDismissedIndexFailures((prev) => new Set([...prev, ...visibleFailedNames]))}
-              >
-                <IconX size={16} />
-              </button>
-            </div>
-          )}
           {globalSearch.trim() && pdf && (
             <div className="back-to-results-banner">
               <button className="cb-btn" onClick={backToResults}>
@@ -1460,7 +1243,7 @@ function App() {
               </span>
             </div>
           ) : globalSearch.trim() && !pdf ? (
-            <SearchResults query={globalSearch} folders={folders} textIndex={textIndex} onOpenResult={openSearchResult} />
+            <SearchResults query={globalSearch} folders={folders} onOpenResult={selectFile} />
           ) : !pdf ? (
             <div className="viewer-empty">
               {pendingReopen ? (
