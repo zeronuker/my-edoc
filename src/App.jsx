@@ -270,14 +270,38 @@ function App() {
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
         if (lastFileHandle) {
-          if ((await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
-            selectFile(lastFileHandle);
-          } else {
-            // Permission grant didn't survive (most often: the OS killed
-            // and reloaded the page in the background) — re-requesting it
-            // needs a user gesture, so offer a one-tap reopen instead of
-            // silently landing on the empty file browser.
-            setPendingReopen({ fileHandle: lastFileHandle, name: lastFileHandle.name });
+          // A handle round-tripped through IndexedDB is never === to a
+          // fresh scan's handle for the same file — isSameEntry is the
+          // only reliable identity check — so this confirms the file still
+          // belongs to a folder that's actually connected right now.
+          // Without it, a file whose folder was removed in a past session
+          // would keep resurfacing here forever: the same orphaned-document
+          // problem handleRemoveFolder already guards against live, just
+          // hit from the resume-on-launch path instead. Legacy (iPad/
+          // Android) folders are skipped — their handles aren't real
+          // FileSystemHandles and lastFileHandle is never one of theirs
+          // (legacy opens are never saved as lastFileHandle to begin with).
+          let stillConnected = false;
+          for (const f of loaded) {
+            if (!f.tree || f.dirHandle?.__legacy) continue;
+            for (const x of flattenTreeFileHandles(f.tree)) {
+              if (await x.handle.isSameEntry(lastFileHandle)) {
+                stillConnected = true;
+                break;
+              }
+            }
+            if (stillConnected) break;
+          }
+          if (stillConnected) {
+            if ((await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
+              selectFile(lastFileHandle);
+            } else {
+              // Permission grant didn't survive (most often: the OS killed
+              // and reloaded the page in the background) — re-requesting it
+              // needs a user gesture, so offer a one-tap reopen instead of
+              // silently landing on the empty file browser.
+              setPendingReopen({ fileHandle: lastFileHandle, name: lastFileHandle.name });
+            }
           }
         }
       }
