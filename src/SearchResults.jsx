@@ -32,15 +32,17 @@ function buildSnippets(text, query) {
 export default function SearchResults({ query, folders, textIndex, onOpenResult }) {
   const q = query.trim().toLowerCase();
   const files = folders.filter((f) => f.tree).flatMap((f) => flattenTreeFileHandles(f.tree));
-  const indexedNames = new Set(Object.keys(textIndex));
-  const pendingCount = files.filter((f) => !indexedNames.has(f.name)).length;
+  // textIndex is keyed by full path (not bare name) so two same-named files
+  // in different folders don't shadow each other — see fileSystem.js.
+  const indexedPaths = new Set(Object.keys(textIndex));
+  const pendingCount = files.filter((f) => !indexedPaths.has(f.relativePath)).length;
 
   const results = [];
-  for (const { name, handle } of files) {
+  for (const { name, handle, relativePath } of files) {
     const nameMatch = name.toLowerCase().includes(q);
-    const text = textIndex[name];
+    const text = textIndex[relativePath];
     const snippets = text ? buildSnippets(text, q) : [];
-    if (nameMatch || snippets.length) results.push({ name, handle, nameMatch, snippets });
+    if (nameMatch || snippets.length) results.push({ name, handle, relativePath, nameMatch, snippets });
   }
   results.sort((a, b) => Number(b.nameMatch) - Number(a.nameMatch) || b.snippets.length - a.snippets.length);
 
@@ -62,7 +64,11 @@ export default function SearchResults({ query, folders, textIndex, onOpenResult 
       <div className="search-results-list">
         {results.length === 0 && <p className="search-results-empty">No matches.</p>}
         {results.map((r) => (
-          <div key={r.name} className="search-result-file" onClick={() => onOpenResult(r.handle, query.trim())}>
+          <div
+            key={r.relativePath}
+            className="search-result-file"
+            onClick={() => onOpenResult(r.handle, query.trim())}
+          >
             <p className="search-result-file-name">
               {r.name}
               <span className="search-result-hit-count">

@@ -121,13 +121,25 @@ function App() {
   // persist across reload (same restriction lastFileHandle already has);
   // legacy opens still show up in the list for the current session.
   const [recentFiles, setRecentFiles] = useState([]);
-  // { [fileName]: extractedLowercaseText } — built lazily in the background
+  // { [relativePath]: extractedText } — built lazily in the background
   // (see the indexing effect below), persisted whole under one IndexedDB
-  // key like filePositions/recentFiles above.
+  // key like filePositions/recentFiles above. Keyed by full path, not bare
+  // filename, so two same-named files in different folders/subfolders
+  // don't collide and shadow each other's indexed content.
   // ponytail: no size cap, no indexing progress UI — bounded to run only
   // while no document is open (see pdfOpenRef) so it doesn't pile onto an
   // active reading session's memory footprint.
   const [textIndex, setTextIndex] = useState({});
+  // { [relativePath]: failedAttemptCount } — persisted the same way, so a file
+  // that keeps timing out/erroring stops being retried after 3 attempts
+  // (across reloads too, not just within one session) instead of eating a
+  // fresh 20s timeout every single pass. Cleared for a folder's files
+  // whenever that folder is re-added/refreshed (see trackIndexingProgress).
+  const [indexFailCounts, setIndexFailCounts] = useState({});
+  // Names dismissed from the "couldn't index" banner this session — doesn't
+  // clear indexFailCounts, just hides them from the banner until a fresh
+  // failure (or app reload) brings the list back.
+  const [dismissedIndexFailures, setDismissedIndexFailures] = useState(() => new Set());
   const indexingRef = useRef(false);
   // Mirrors `pdf` for the indexing loop below, which can't put `pdf`
   // itself in its effect deps without restarting the whole walk every
@@ -251,6 +263,7 @@ function App() {
 
       setRecentFiles((await dbGet("recentFiles")) || []);
       setTextIndex((await dbGet("textIndex")) || {});
+      setIndexFailCounts((await dbGet("indexFailCounts")) || {});
       setBookmarks((await dbGet("bookmarks")) || {});
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
 
@@ -305,26 +318,43 @@ function App() {
         const files = folders
           .filter((f) => f.tree)
           .flatMap((f) => flattenTreeFileHandles(f.tree).map((x) => ({ ...x, folderKey: f.key })));
-        for (const { name, handle, folderKey } of files) {
+        for (const { handle, relativePath, folderKey } of files) {
           if (cancelled) return;
-          if (textIndex[name]) continue;
+          if (textIndex[relativePath]) continue;
           if (cancelledIndexFolderKeysRef.current.has(folderKey)) continue;
+          if ((indexFailCounts[relativePath] || 0) >= 3) continue;
           while (pdfOpenRef.current && !cancelled) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
           if (cancelled) return;
           try {
             const file = await handle.getFile();
-            const text = await extractText(file);
+            // Same race-a-timeout shape as selectFile's doc-open path — pdf.js
+            // can hang indefinitely on a specific page/text-extraction call
+            // for a large or malformed PDF, and since this loop is strictly
+            // sequential (one file at a time), a single hung file would
+            // otherwise freeze indexing for every file behind it forever.
+            const text = await Promise.race([
+              extractText(file),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Indexing timed out")), 20000)),
+            ]);
             if (cancelled) return;
             setTextIndex((prev) => {
-              const next = { ...prev, [name]: text };
+              const next = { ...prev, [relativePath]: text };
               dbSet("textIndex", next);
               return next;
             });
           } catch {
-            // Unreadable, corrupt, or password-protected (skipPassword) —
-            // leave unindexed; filename search still works for it.
+            // Unreadable, corrupt, password-protected (skipPassword), or
+            // timed out — leave unindexed; filename search still works for
+            // it. Counted so a file that fails 3 times stops being retried
+            // (see the skip check above) instead of eating a fresh 20s
+            // timeout on every future pass.
+            setIndexFailCounts((prev) => {
+              const next = { ...prev, [relativePath]: (prev[relativePath] || 0) + 1 };
+              dbSet("indexFailCounts", next);
+              return next;
+            });
           }
         }
       } finally {
@@ -676,12 +706,16 @@ function App() {
   // near-instantly — there's no real per-file work to show progress on.
   // This paces a reveal of the same CopyProgressModal iPad/Android's real
   // per-file copy uses, purely so desktop gets the same visual experience
-  // for Add/Refresh folder. Duration scales with file count (sqrt, capped
-  // at 4s) so a huge folder doesn't drag the fake wait out forever; reveals
-  // happen in a fixed ~60 ticks rather than one state update per file, so
-  // it doesn't spam re-renders on a folder with thousands of files. Throws
-  // an AbortError (matching copyFolderFiles' real-cancel shape) on Cancel,
-  // so callers can share the same catch-and-bail handling.
+  // for Add/Refresh folder. Each tick holds for TICK_MS before advancing —
+  // long enough for the checkmark and CopyProgressModal's smooth-scroll to
+  // actually be visible; an earlier version paced by a ~4s total duration
+  // instead, which for a folder in the thousands of files meant updates
+  // faster than the eye (or the scroll animation) could register, reading
+  // as frozen rather than ticking. Tick count scales with sqrt(file count),
+  // capped so a huge folder still wraps up in a few seconds rather than
+  // genuinely one-by-one. Throws an AbortError (matching copyFolderFiles'
+  // real-cancel shape) on Cancel, so callers can share the same catch-and-
+  // bail handling.
   async function simulateScanProgress(tree, title, folderName) {
     const files = flattenTreeFilesWithPath(tree);
     const total = files.length;
@@ -690,16 +724,15 @@ function App() {
     copyControllerRef.current = controller;
     setCopyProgress({ title, folderName, files, doneSet: new Set(), actionLabel: "scanned" });
     try {
-      const duration = Math.min(4000, Math.max(400, 400 + 40 * Math.sqrt(total)));
-      const ticks = Math.min(total, 60);
-      const perTick = duration / ticks;
+      const TICK_MS = 140;
+      const ticks = Math.min(total, Math.min(50, Math.max(4, Math.round(6 * Math.sqrt(total)))));
       for (let t = 1; t <= ticks; t++) {
         await new Promise((resolve, reject) => {
-          const id = setTimeout(resolve, perTick);
+          const id = setTimeout(resolve, TICK_MS);
           controller.signal.addEventListener("abort", () => {
             clearTimeout(id);
             reject(new DOMException("Aborted", "AbortError"));
-          });
+          }, { once: true });
         });
         const doneCount = Math.round((t / ticks) * total);
         setCopyProgress((p) =>
@@ -717,12 +750,26 @@ function App() {
   // indexing itself (the effect above already does that for every folder,
   // this just visually follows one of them); doneSet for rendering is
   // derived live from textIndex, not stored here. A fresh call always
-  // clears any earlier cancellation for this folder key, since re-adding/
-  // refreshing is a deliberate new attempt.
+  // clears any earlier cancellation for this folder key, and resets its
+  // files' fail-attempt counts, since re-adding/refreshing is a deliberate
+  // new attempt — matches how the cancellation itself already resets here.
   function trackIndexingProgress(folderKey, folderName, tree) {
     cancelledIndexFolderKeysRef.current.delete(folderKey);
     const files = flattenTreeFilesWithPath(tree);
     if (files.length === 0) return;
+    setIndexFailCounts((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const f of files) {
+        if (next[f.relativePath] !== undefined) {
+          delete next[f.relativePath];
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      dbSet("indexFailCounts", next);
+      return next;
+    });
     setIndexProgress({ folderKey, folderName, files, minimized: false });
   }
 
@@ -874,7 +921,12 @@ function App() {
     }
   }
 
+  // Closes the open document if it (or a subfolder containing it) belongs
+  // to the folder being removed — otherwise it'd stay open, orphaned, with
+  // no folder backing it. Looked up from the pre-removal `folders` closure
+  // since the file has to still be in the tree being removed to match.
   function handleRemoveFolder(key) {
+    const removedFolder = folders.find((f) => f.key === key);
     setFolders((prev) => {
       const target = prev.find((f) => f.key === key);
       if (target?.folderId) deleteLegacyFolderFiles(target.folderId);
@@ -883,6 +935,16 @@ function App() {
       return next;
     });
     refreshStorageEstimate();
+    if (
+      removedFolder?.tree &&
+      selectedHandle &&
+      flattenTreeFileHandles(removedFolder.tree).some((f) => f.handle === selectedHandle)
+    ) {
+      setPdf(null);
+      setSelectedHandle(null);
+      setError(null);
+      setPendingReopen(null);
+    }
   }
 
   function handleDragOver(e) {
@@ -1050,8 +1112,11 @@ function App() {
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
   const indexDoneSet = indexProgress
-    ? new Set(indexProgress.files.filter((f) => textIndex[f.name]).map((f) => f.relativePath))
+    ? new Set(indexProgress.files.filter((f) => textIndex[f.relativePath]).map((f) => f.relativePath))
     : null;
+  const visibleFailedNames = Object.entries(indexFailCounts)
+    .filter(([name, count]) => count >= 3 && !dismissedIndexFailures.has(name))
+    .map(([name]) => name);
 
   return (
     <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
@@ -1329,6 +1394,20 @@ function App() {
             <div className="error-banner">
               <span>{error}</span>
               <button aria-label="Dismiss" onClick={() => setError(null)}>
+                <IconX size={16} />
+              </button>
+            </div>
+          )}
+          {visibleFailedNames.length > 0 && (
+            <div className="error-banner">
+              <span>
+                Couldn't index {visibleFailedNames.length} file{visibleFailedNames.length === 1 ? "" : "s"} after 3
+                tries: {visibleFailedNames.join(", ")}
+              </span>
+              <button
+                aria-label="Dismiss"
+                onClick={() => setDismissedIndexFailures((prev) => new Set([...prev, ...visibleFailedNames]))}
+              >
                 <IconX size={16} />
               </button>
             </div>

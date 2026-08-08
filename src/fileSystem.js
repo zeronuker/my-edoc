@@ -159,16 +159,22 @@ export function flattenTreeFilesWithPath(tree) {
   return out;
 }
 
-// Flat list of a tree's file leaves with their handles — for background
-// work (e.g. text indexing) that needs to actually read each file, unlike
-// flattenTreeFiles above which is display-only.
+// Flat list of a tree's file leaves with their handles and relativePath —
+// for background work (e.g. text indexing) that needs to actually read
+// each file, unlike flattenTreeFiles above which is display-only.
+// relativePath (not just name) matters here: textIndex/indexFailCounts are
+// keyed by it so two same-named files in different folders/subfolders
+// don't collide and shadow each other.
 export function flattenTreeFileHandles(tree) {
   const out = [];
-  function walk(node) {
-    if (node.kind === "file") out.push({ name: node.name, handle: node.handle });
-    else node.children.forEach(walk);
+  function walk(node, prefix) {
+    if (node.kind === "file") {
+      out.push({ name: node.name, relativePath: prefix + node.name, handle: node.handle });
+      return;
+    }
+    for (const child of node.children) walk(child, `${prefix}${node.name}/`);
   }
-  walk(tree);
+  for (const child of tree.children) walk(child, "");
   return out;
 }
 
