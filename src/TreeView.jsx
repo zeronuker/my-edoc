@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { dbGet, dbSet } from "./db.js";
+import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey } from "./treeOverlay.js";
 
 function FolderIcon() {
   return (
@@ -155,18 +156,101 @@ function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onR
   );
 }
 
-function Node({ node, path, onSelectFile, selectedHandle, actions, expandedPaths, onToggleOpen }) {
+// Which third (or half, for files) of a row the pointer is over — "before"/
+// "after" reorder this node among its current siblings, "inside" (folders
+// only) nests the dragged node inside this one instead.
+function computeDropZone(e, isFolder, isRoot) {
+  if (isRoot) return "inside";
+  if (!isFolder) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return e.clientY - rect.top < rect.height / 2 ? "before" : "after";
+  }
+  const rect = e.currentTarget.getBoundingClientRect();
+  const ratio = (e.clientY - rect.top) / rect.height;
+  if (ratio < 0.25) return "before";
+  if (ratio > 0.75) return "after";
+  return "inside";
+}
+
+function Node({
+  node,
+  index,
+  path,
+  onSelectFile,
+  selectedHandle,
+  actions,
+  expandedPaths,
+  onToggleOpen,
+  onHide,
+  onDropNode,
+  dragKeyRef,
+  dropTarget,
+  setDropTarget,
+}) {
+  const isRoot = node.parentKey === null;
+  const isFolder = node.kind === "directory";
+  const zone = dropTarget?.key === node.key ? dropTarget.zone : null;
+
+  function handleDragStart(e) {
+    e.stopPropagation();
+    dragKeyRef.current = node.key;
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragEnd() {
+    dragKeyRef.current = null;
+    setDropTarget(null);
+  }
+
+  function handleDragOver(e) {
+    if (!dragKeyRef.current || dragKeyRef.current === node.key) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget({ key: node.key, zone: computeDropZone(e, isFolder, isRoot) });
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const draggedKey = dragKeyRef.current;
+    dragKeyRef.current = null;
+    setDropTarget(null);
+    if (!draggedKey || draggedKey === node.key) return;
+    const dropZone = computeDropZone(e, isFolder, isRoot);
+    if (dropZone === "inside") {
+      onDropNode(draggedKey, node.key, node.children.length);
+    } else if (node.parentKey !== null) {
+      onDropNode(draggedKey, node.parentKey, dropZone === "before" ? index : index + 1);
+    }
+  }
+
   if (node.kind === "file") {
     const isSelected = node.handle === selectedHandle;
     return (
       <div
-        className={`tree-file${isSelected ? " selected" : ""}`}
+        className={`tree-file${isSelected ? " selected" : ""}${zone ? ` drop-${zone}` : ""}`}
         onClick={() => onSelectFile(node.handle)}
         title={node.name}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         <span className="tree-chevron" />
         <FileIcon />
         <span className="tree-label">{node.name}</span>
+        <button
+          className="tree-hide-btn"
+          title={`Remove "${node.name}" from view`}
+          aria-label={`Remove "${node.name}" from view`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onHide(node);
+          }}
+        >
+          ×
+        </button>
       </div>
     );
   }
@@ -175,25 +259,53 @@ function Node({ node, path, onSelectFile, selectedHandle, actions, expandedPaths
 
   return (
     <div className="tree-folder">
-      <div className="tree-folder-label" onClick={() => onToggleOpen(path)} title={node.name}>
+      <div
+        className={`tree-folder-label${zone ? ` drop-${zone}` : ""}`}
+        onClick={() => onToggleOpen(path)}
+        title={node.name}
+        draggable={!isRoot}
+        onDragStart={isRoot ? undefined : handleDragStart}
+        onDragEnd={isRoot ? undefined : handleDragEnd}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <span className="tree-chevron">{isOpen ? "▾" : "▸"}</span>
         <FolderIcon />
         <span className="tree-label">{node.name}</span>
+        {!isRoot && (
+          <button
+            className="tree-hide-btn"
+            title={`Remove "${node.name}" from view`}
+            aria-label={`Remove "${node.name}" from view`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onHide(node);
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
       {/* Root folders only (actions is undefined for nested subfolders) — its
           own line so the name above never shifts based on chip/menu width. */}
       {actions && <div className="tree-folder-meta">{actions}</div>}
       {isOpen && (
         <div className="tree-children">
-          {node.children.map((child) => (
+          {node.children.map((child, childIndex) => (
             <Node
-              key={child.name + child.kind}
+              key={child.key}
               node={child}
+              index={childIndex}
               path={`${path}/${child.name}`}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               expandedPaths={expandedPaths}
               onToggleOpen={onToggleOpen}
+              onHide={onHide}
+              onDropNode={onDropNode}
+              dragKeyRef={dragKeyRef}
+              dropTarget={dropTarget}
+              setDropTarget={setDropTarget}
             />
           ))}
         </div>
@@ -209,6 +321,7 @@ export default function TreeView({
   onRemoveFolder,
   onRefreshFolder,
   refreshingKeys,
+  onFilesRemovedFromView,
 }) {
   // Only one folder's actions menu open at a time.
   const [openActionsKey, setOpenActionsKey] = useState(null);
@@ -216,6 +329,15 @@ export default function TreeView({
   // Guards the persist-effect below from firing (with the empty default
   // above) before the saved set has loaded, which would otherwise clobber it.
   const expandedLoadedRef = useRef(false);
+
+  // Hide/reorder/move layer — see treeOverlay.js. Purely virtual: never
+  // touches the real folders on disk, only how they're displayed here.
+  const [overlay, setOverlay] = useState(emptyOverlay);
+  const overlayLoadedRef = useRef(false);
+  // Set (not state) so a drag reads the same value it started with even
+  // through the many dragover events fired mid-drag.
+  const dragKeyRef = useRef(null);
+  const [dropTarget, setDropTarget] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -230,6 +352,19 @@ export default function TreeView({
     dbSet("expandedFolders", [...expandedPaths]);
   }, [expandedPaths]);
 
+  useEffect(() => {
+    (async () => {
+      const saved = await dbGet("treeOverlay");
+      if (saved) setOverlay(saved);
+      overlayLoadedRef.current = true;
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!overlayLoadedRef.current) return;
+    dbSet("treeOverlay", overlay);
+  }, [overlay]);
+
   const toggleOpen = (path) => {
     setExpandedPaths((prev) => {
       const next = new Set(prev);
@@ -239,22 +374,54 @@ export default function TreeView({
     });
   };
 
+  const displayFolders = useMemo(() => applyOverlay(folders, overlay), [folders, overlay]);
+
+  function handleHide(node) {
+    setOverlay((prev) => ({ ...prev, hidden: [...prev.hidden, node.key] }));
+    onFilesRemovedFromView(collectFileHandles(node));
+  }
+
+  function handleDropNode(draggedKey, targetParentKey, index) {
+    const nodesByKey = flattenByKey(displayFolders);
+    const targetParent = nodesByKey.get(targetParentKey);
+    if (!targetParent) return;
+    // Refuse to drop a folder into itself or one of its own descendants.
+    let cur = targetParent;
+    while (cur) {
+      if (cur.key === draggedKey) return;
+      cur = cur.parentKey ? nodesByKey.get(cur.parentKey) : null;
+    }
+    const siblingKeys = targetParent.children.map((c) => c.key).filter((k) => k !== draggedKey);
+    siblingKeys.splice(index, 0, draggedKey);
+    setOverlay((prev) => ({
+      ...prev,
+      moves: { ...prev.moves, [draggedKey]: targetParentKey },
+      order: { ...prev.order, [targetParentKey]: siblingKeys },
+    }));
+  }
+
   if (!folders.length) return null;
 
   return (
     <div className="tree-view">
       <div className="tree-rows">
-        {folders.map(
+        {displayFolders.map(
           (folder) =>
             folder.tree && (
               <Node
                 key={folder.key}
                 node={folder.tree}
+                index={0}
                 path={folder.tree.name}
                 onSelectFile={onSelectFile}
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}
                 onToggleOpen={toggleOpen}
+                onHide={handleHide}
+                onDropNode={handleDropNode}
+                dragKeyRef={dragKeyRef}
+                dropTarget={dropTarget}
+                setDropTarget={setDropTarget}
                 actions={
                   <FolderActions
                     folder={folder}

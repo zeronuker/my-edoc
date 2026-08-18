@@ -805,6 +805,18 @@ function App() {
     }
   }
 
+  // Mirrors handleRemoveFolder's close-if-open check above, for the
+  // individual-file/folder "remove from view" action instead of removing an
+  // entire connected folder.
+  function handleFilesRemovedFromView(handles) {
+    if (selectedHandle && handles.includes(selectedHandle)) {
+      setPdf(null);
+      setSelectedHandle(null);
+      setError(null);
+      setPendingReopen(null);
+    }
+  }
+
   function handleDragOver(e) {
     e.preventDefault();
   }
@@ -1174,6 +1186,7 @@ function App() {
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
               refreshingKeys={refreshingKeys}
+              onFilesRemovedFromView={handleFilesRemovedFromView}
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the
                 corner as the tree scrolls underneath it. */}

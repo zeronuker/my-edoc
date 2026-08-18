@@ -1300,6 +1300,43 @@ html,
   background: var(--cb-surface-3);
 }
 
+.tree-hide-btn {
+  flex-shrink: 0;
+  opacity: 0;
+  background: none;
+  border: none;
+  color: var(--cb-ink-dim);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.tree-folder-label:hover .tree-hide-btn,
+.tree-file:hover .tree-hide-btn {
+  opacity: 1;
+}
+
+.tree-hide-btn:hover {
+  color: var(--cb-mint);
+}
+
+/* Drag-and-drop reorder/move indicators — a line where the dragged node
+   will land as a sibling, or a filled background when dropping it inside
+   the hovered folder instead. */
+.tree-folder-label.drop-before,
+.tree-file.drop-before {
+  box-shadow: inset 0 2px 0 var(--cb-mint);
+}
+
+.tree-folder-label.drop-after,
+.tree-file.drop-after {
+  box-shadow: inset 0 -2px 0 var(--cb-mint);
+}
+
+.tree-folder-label.drop-inside {
+  background: rgba(103, 197, 165, 0.18);
+}
+
 /* Second line under the folder name — chip on the left, kebab menu
    pinned on the right, so neither ever shifts the name above. */
 .tree-folder-meta {
