@@ -229,7 +229,10 @@ function Node({
     return (
       <div
         className={`tree-file${isSelected ? " selected" : ""}${zone ? ` drop-${zone}` : ""}`}
-        onClick={() => onSelectFile(node.handle)}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          onSelectFile(node.handle);
+        }}
         title={node.name}
         draggable
         onDragStart={handleDragStart}
@@ -244,6 +247,7 @@ function Node({
           className="tree-hide-btn"
           title={`Remove "${node.name}" from view`}
           aria-label={`Remove "${node.name}" from view`}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
             onHide(node);
