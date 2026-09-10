@@ -416,7 +416,7 @@ export default function TreeView({
                 key={folder.key}
                 node={folder.tree}
                 index={0}
-                path={folder.tree.name}
+                path={folder.key}
                 onSelectFile={onSelectFile}
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}

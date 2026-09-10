@@ -140,6 +140,11 @@ function App() {
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
+  // Bumped on every selectFile call; an in-flight call whose token no longer
+  // matches has been superseded by a newer one (e.g. a fast double-click)
+  // and must not apply its result — otherwise the older call's later-settling
+  // load can overwrite state a newer, already-resolved call already set.
+  const loadTokenRef = useRef(0);
   const [globalSearch, setGlobalSearch] = useState("");
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
@@ -326,13 +331,13 @@ function App() {
   // without it, this effect would fire with the previous file's still-current
   // page/scale and clobber the new file's saved position before restore runs.
   useEffect(() => {
-    if (!selectedHandle || restoringRef.current) return;
+    if (!selectedHandle || !pdf || restoringRef.current) return;
     (async () => {
       const all = (await dbGet("filePositions")) || {};
       all[selectedHandle.name] = { page: currentPage, scale, numPages };
       await dbSet("filePositions", all);
     })();
-  }, [selectedHandle, currentPage, scale, numPages]);
+  }, [selectedHandle, pdf, currentPage, scale, numPages]);
 
   // Drive the pdf.js viewer from React state/events instead of rendering
   // pages ourselves — see PdfViewer.jsx.
@@ -868,6 +873,7 @@ function App() {
       );
       if (!proceed) return;
     }
+    const token = ++loadTokenRef.current;
     setSelectedHandle(fileHandle);
     setError(null);
     setPendingReopen(null);
@@ -896,18 +902,22 @@ function App() {
         loadDocument(file, { onPasswordPrompt: () => clearTimeout(timeoutId) }),
         timeout,
       ]);
+      // A newer selectFile call has since taken over — drop this stale
+      // result instead of overwriting the newer call's already-applied state.
+      if (loadTokenRef.current !== token) return;
       const positions = (await dbGet("filePositions")) || {};
       pendingRestoreRef.current = positions[fileHandle.name] || null;
       setPdf(doc);
       if (!fileHandle.__legacy) await dbSet("lastFileHandle", fileHandle);
       addToRecent(fileHandle);
     } catch (err) {
+      if (loadTokenRef.current !== token) return;
       console.error(err);
       setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
       setPdf(null);
       restoringRef.current = false;
     } finally {
-      setLoading(false);
+      if (loadTokenRef.current === token) setLoading(false);
     }
   }
 
