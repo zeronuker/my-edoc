@@ -431,6 +431,16 @@ html,
     display: none;
   }
 
+  /* The button sits near the toolbar's right edge on mobile (order: 6,
+     just before night-reading-toggle), but .dropdown-menu always grows
+     from left: 0 of its trigger. Anchoring it to the trigger's right
+     edge instead keeps it inside the viewport instead of spilling past
+     100vw and forcing horizontal scroll to reach it. */
+  .annotate .dropdown-menu {
+    left: auto;
+    right: 0;
+  }
+
   /* Percent readout drops — just the two magnifying glasses and the
      fit/rotate chevron remain. */
   .zoom > span {
