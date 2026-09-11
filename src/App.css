@@ -275,25 +275,115 @@ html,
   gap: 4px;
 }
 
-/* Zoom in/out, the view-options chevron, and the page prev/next chevrons
-   never got the flat-icon treatment the other toolbar buttons (bookmark,
-   annotate, night reading) have — they were bare <button> elements
-   rendering the browser's default grey chrome. Invisible on desktop where
-   they stay content-sized, but blown up into a visible grey box by the
-   44px touch-target rule below. Reset them to match. */
-.zoom button {
-  background: none;
-  border: none;
-  color: inherit;
-  padding: 0;
-  cursor: pointer;
-}
-
 .zoom,
 .annotate {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Zoom out/in + the percentage share one bordered pill, same border/
+   radius language as bookmark/annotate/night-reading's boxed icons —
+   the zoom group used to be bare, unboxed text+buttons, the only
+   toolbar control with no box around it. No fixed height: buttons stay
+   32px by default and grow to 44px under the pointer:coarse touch-target
+   rule below like every other toolbar icon; overflow:hidden just clips
+   their square corners to the pill's rounded ones at whatever size that
+   ends up being. */
+.zoom-pill {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  overflow: hidden;
+}
+
+.zoom-pill button,
+.zoom-more {
+  background: none;
+  border: none;
+  color: var(--cb-ink);
+  padding: 0;
+  cursor: pointer;
+}
+
+.zoom-pill button {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.zoom-pill button:hover {
+  background: var(--cb-surface-3);
+}
+
+.zoom-seg-div {
+  width: 1px;
+  align-self: stretch;
+  background: var(--cb-line-2);
+  flex-shrink: 0;
+}
+
+.zoom-pct {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  padding: 0 4px;
+  color: var(--cb-ink-2);
+}
+
+.zoom-pct-sep {
+  color: var(--cb-ink-dim);
+  margin-left: 1px;
+}
+
+.zoom-input {
+  width: 3.2ch;
+  background: none;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  text-align: center;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+
+.zoom-input::-webkit-outer-spin-button,
+.zoom-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.zoom-input:focus {
+  outline: none;
+  color: var(--cb-mint);
+}
+
+/* The view-options chevron (fit width/page, rotate) — same boxed
+   treatment as the pill next to it, matching every other toolbar
+   icon-button rather than the bare default chrome it had before. */
+.zoom-more {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+}
+
+.zoom-more:hover,
+.zoom-more[aria-expanded="true"] {
+  background: var(--cb-surface-3);
+  border-color: var(--cb-mint);
+  color: var(--cb-mint);
 }
 
 /* Desktop: plain native select, full text label — .view-mode-native shown,
@@ -412,12 +502,6 @@ html,
   .annotate .dropdown-menu {
     left: auto;
     right: 0;
-  }
-
-  /* Percent readout drops — just the two magnifying glasses and the
-     fit/rotate chevron remain. */
-  .zoom > span {
-    display: none;
   }
 
   .zoom {

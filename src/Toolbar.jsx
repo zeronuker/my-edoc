@@ -16,6 +16,7 @@ import {
   IconEdit,
 } from "@tabler/icons-react";
 import SearchBar from "./SearchBar.jsx";
+import { MIN_SCALE, MAX_SCALE } from "./PdfViewer.jsx";
 
 const ANNOTATE_TOOLS = [
   { tool: "highlight", label: "Highlight" },
@@ -79,6 +80,11 @@ export default function Toolbar({
   const annotateMenu = useDropdown();
   const viewModeMenu = useDropdown();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  // Holds the raw typed string while the zoom field is being edited, so
+  // intermediate keystrokes (e.g. "1" of "150") aren't clamped to
+  // MIN_SCALE and re-rendered mid-typing. Committed to the pdfViewer (and
+  // cleared, falling back to the live scale) on blur/Enter.
+  const [zoomDraft, setZoomDraft] = useState(null);
 
   const activeToolLabel = ANNOTATE_TOOLS.find((t) => t.tool === annotationTool)?.label ?? "Annotate";
 
@@ -139,14 +145,41 @@ export default function Toolbar({
         <span className="toolbar-divider" aria-hidden="true" />
 
         <span className="zoom dropdown" ref={viewMenu.ref}>
-          <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
-            <IconZoomOut size={16} />
-          </button>
-          <span>{Math.round(scale * 100)}%</span>
-          <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
-            <IconZoomIn size={16} />
-          </button>
+          <span className="zoom-pill">
+            <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
+              <IconZoomOut size={15} />
+            </button>
+            <span className="zoom-seg-div" aria-hidden="true" />
+            <span className="zoom-pct">
+              <input
+                type="number"
+                className="zoom-input"
+                value={zoomDraft ?? Math.round(scale * 100)}
+                aria-label="Zoom percentage"
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setZoomDraft(e.target.value)}
+                onBlur={() => {
+                  if (zoomDraft !== null) {
+                    const pct = Number(zoomDraft);
+                    if (pdfViewer && pct > 0) {
+                      pdfViewer.currentScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pct / 100));
+                    }
+                    setZoomDraft(null);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.target.blur();
+                }}
+              />
+              <span className="zoom-pct-sep">%</span>
+            </span>
+            <span className="zoom-seg-div" aria-hidden="true" />
+            <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
+              <IconZoomIn size={15} />
+            </button>
+          </span>
           <button
+            className="zoom-more"
             aria-label="More view options"
             aria-expanded={viewMenu.open}
             onClick={() => viewMenu.setOpen((v) => !v)}

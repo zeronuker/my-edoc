@@ -652,6 +652,7 @@ export const CHANGELOG = [
       "FIX: The annotate dropdown grew from its trigger's left edge, which sits near the toolbar's right edge on mobile, spilling the menu past the screen edge and forcing horizontal scroll to reach it; anchored to the trigger's right edge instead.",
       'IMP: Settings icon moves into the top bar on iPad landscape while the sidebar/tree is open, matching the mobile placement; falls back to the toolbar row once the tree is closed and the top bar collapses, so it is never lost.',
       'IMP: Prev/next and the page counter moved out of the toolbar into a floating pill anchored to the bottom-center of the viewer, reachable without opening the toolbar.',
+      'IMP: Zoom out/in and the percentage now share one bordered pill matching the bookmark/annotate/night-reading icon style, instead of bare unboxed text and buttons; the percentage is a real editable field — type a number and press Enter to jump straight to that zoom level (also now shown and editable on mobile, where it used to be hidden).',
     ],
   },
 ]

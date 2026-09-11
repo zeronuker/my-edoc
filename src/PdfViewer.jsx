@@ -20,8 +20,8 @@ export const SPREAD_MODE_BY_VIEW = {
   "two-up": SpreadMode.ODD,
 };
 
-const MIN_SCALE = 0.25;
-const MAX_SCALE = 5;
+export const MIN_SCALE = 0.25;
+export const MAX_SCALE = 5;
 
 // Touch gestures: tap zones (single/two-up) to flip a page, horizontal
 // swipe (two-up only) to flip a spread, pinch (all modes) to zoom.
