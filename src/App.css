@@ -281,8 +281,7 @@ html,
    rendering the browser's default grey chrome. Invisible on desktop where
    they stay content-sized, but blown up into a visible grey box by the
    44px touch-target rule below. Reset them to match. */
-.zoom button,
-.page-nav button {
+.zoom button {
   background: none;
   border: none;
   color: inherit;
@@ -290,16 +289,11 @@ html,
   cursor: pointer;
 }
 
-.page-nav,
 .zoom,
 .annotate {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.page-nav input {
-  width: 50px;
 }
 
 /* Desktop: plain native select, full text label — .view-mode-native shown,
@@ -340,20 +334,6 @@ html,
   display: none;
 }
 
-/* Desktop: plain "invisible wrapper" (display:contents) so the input and
-   "/ total" text flow straight into .page-nav's own gap, pixel-identical
-   to before this existed. Toggle/close stay hidden — same two-class
-   specificity reasoning as search above. Mobile (below) turns this into
-   a real flex container that swaps toggle <-> input+total+close. */
-.page-jump {
-  display: contents;
-}
-
-.toolbar .page-jump-toggle,
-.toolbar .page-jump-close {
-  display: none;
-}
-
 /* Invisible wiring at every width — children flow directly into .toolbar's
    row as if these wrappers weren't there. The grouping only mattered while
    mobile forced two separate rows; now that view mode, annotate and search
@@ -372,18 +352,11 @@ html,
     display: none;
   }
 
-  /* Visual reorder only (flex `order`, not a DOM/JSX change) — search
-     moves next to page-nav instead of trailing after the tools group.
-     Scoped to this media query so desktop's order is untouched (default
-     order:0, DOM order). Search is a high-frequency action in a document
-     viewer, unlike the occasional-use tools (bookmark/annotate/night) it
-     used to sit alongside. */
+  /* Visual reorder only (flex `order`, not a DOM/JSX change). Scoped to
+     this media query so desktop's order is untouched (default order:0,
+     DOM order). */
   .view-mode-select {
     order: 1;
-  }
-
-  .page-nav {
-    order: 2;
   }
 
   .search-wrap {
@@ -408,8 +381,8 @@ html,
 
   /* Bookmark/night reading (32px base, desktop-shared) land on the same
      30px size as everything else that's mobile-only styled (annotate,
-     search, page-nav). Topbar's sidebar/settings icons stay at .icon-btn's
-     32px base — same size as each other and as desktop. */
+     search). Topbar's sidebar/settings icons stay at .icon-btn's 32px
+     base — same size as each other and as desktop. */
   .bookmark-toggle,
   .night-reading-toggle {
     width: 30px;
@@ -451,85 +424,15 @@ html,
     gap: 4px;
   }
 
-  .page-jump {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  /* .page-nav button {border:none} (class+type) outranks a plain single
-     class, so this needs two-class specificity to keep its border. */
-  .page-nav .page-jump-toggle,
-  .page-nav .page-jump-close {
-    width: 30px;
-    height: 30px;
-    border: 1px solid var(--cb-line-2);
-    border-radius: var(--cb-radius-sm);
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Defensive fix: give the prev/next chevrons the same bordered box as
-     the jump-to-page icon so all three controls share identical framing.
-     Couldn't pin down a real cause for the reported unevenness (measured
-     symmetric under every scenario tested), so instead of guessing again,
-     remove anything that could visually read as asymmetric regardless of
-     the actual cause. */
-  .page-nav > button {
-    width: 30px;
-    height: 30px;
-    border: 1px solid var(--cb-line-2);
-    border-radius: var(--cb-radius-sm);
-    justify-content: center;
-  }
-
-  .page-jump:not(.open) input,
-  .page-jump:not(.open) .page-jump-total,
-  .page-jump:not(.open) .page-jump-close {
-    display: none;
-  }
-
-  .page-jump:not(.open) .page-jump-toggle {
-    display: flex;
-  }
-
-  .page-jump.open .page-jump-toggle {
-    display: none;
-  }
-
-  .page-jump.open .page-jump-close {
-    display: flex;
-  }
-
-  /* When either expandable control (search, jump-to-page) is open, hide
-     everything outside the page-nav cluster instead of letting it wrap to
-     a 2nd line — avoids the toolbar changing height and shifting the PDF
-     content underneath it. Page-nav's own prev/next chevrons (and the
-     jump-to-page control itself) stay, since they're the same cluster the
-     user's actively working in; view mode, zoom, bookmark, annotate and
-     night reading aren't in use while search/page-jump has focus. */
-  .toolbar:has(.page-jump.open) .view-mode-select,
-  .toolbar:has(.page-jump.open) .zoom,
-  .toolbar:has(.page-jump.open) .bookmark-toggle,
-  .toolbar:has(.page-jump.open) .annotate,
-  .toolbar:has(.page-jump.open) .night-reading-toggle,
-  .toolbar:has(.page-jump.open) .search-wrap,
+  /* When search is open, hide everything else in the row instead of
+     letting it wrap to a 2nd line — avoids the toolbar changing height
+     and shifting the PDF content underneath it. */
   .toolbar:has(.search-wrap.open) .view-mode-select,
   .toolbar:has(.search-wrap.open) .zoom,
   .toolbar:has(.search-wrap.open) .bookmark-toggle,
   .toolbar:has(.search-wrap.open) .annotate,
   .toolbar:has(.search-wrap.open) .night-reading-toggle {
     display: none;
-  }
-
-  /* Narrower page input to claw back width for the nav row — button size
-     itself isn't trimmed here since the pointer:coarse rule below already
-     floors every toolbar button/select at 44px on touch devices, so
-     padding tweaks on those would be a no-op there. */
-  .page-nav input {
-    width: 30px;
-    padding: 2px;
-    text-align: center;
   }
 
   /* Custom dropdown menu (same pattern as zoom options / annotate) instead
@@ -716,6 +619,36 @@ html,
   }
 }
 
+/* Same one-copy-per-breakpoint split used for settings above (max-width:
+   880px), but keyed on pointer:coarse instead of width: iPad landscape is
+   already past 880px and desktop-styled, which put settings in the
+   scrolling toolbar row rather than the persistent top bar. Move it back
+   up top there too — but only while the top bar is actually showing
+   (sidebar/tree open). Closing the tree still collapses the top bar to
+   nothing as usual, so settings falls back to its normal home in the
+   toolbar row instead of disappearing along with it. */
+@media (pointer: coarse) and (min-width: 881px) {
+  .toolbar .settings-toggle {
+    display: none;
+  }
+
+  .toolbar-divider:has(+ .settings-toggle) {
+    display: none;
+  }
+
+  .topbar:not(.collapsed) .settings-toggle {
+    display: inline-flex;
+  }
+
+  .topbar.collapsed ~ .app-row .toolbar .settings-toggle {
+    display: inline-flex;
+  }
+
+  .topbar.collapsed ~ .app-row .toolbar .toolbar-divider:has(+ .settings-toggle) {
+    display: block;
+  }
+}
+
 .toolbar-divider {
   align-self: stretch;
   width: 1px;
@@ -780,7 +713,6 @@ html,
 }
 
 @media (max-width: 880px) {
-  .page-nav,
   .zoom {
     gap: 10px;
   }
@@ -799,6 +731,11 @@ html,
   .toolbar select {
     min-width: 44px;
     min-height: 44px;
+  }
+
+  .page-pill button {
+    width: 44px;
+    height: 44px;
   }
 
   .tree-icon-btn {
@@ -899,6 +836,96 @@ html,
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* Prev/next + page counter, floating over the viewer instead of living in
+   the scrolling toolbar row — anchored to .main (position:relative), not
+   the viewport, so it centers over the document rather than the whole
+   window (which would drift off-center whenever the sidebar is open).
+   env(safe-area-inset-bottom) clears the home-gesture bar on notched
+   phones. */
+.page-pill {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  background: color-mix(in srgb, var(--cb-surface-2) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--cb-line-2);
+  border-radius: 999px;
+  box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.45);
+}
+
+.page-pill button {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--cb-ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.page-pill button:hover {
+  background: var(--cb-surface-3);
+  color: var(--cb-mint);
+}
+
+.page-pill button:disabled {
+  color: var(--cb-line-2);
+  cursor: default;
+}
+
+.page-pill button:disabled:hover {
+  background: none;
+}
+
+.page-pill-count {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 0 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.page-pill-count input {
+  width: 3ch;
+  background: none;
+  border: none;
+  color: var(--cb-mint);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: right;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+
+.page-pill-count input::-webkit-outer-spin-button,
+.page-pill-count input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.page-pill-count input:focus {
+  outline: none;
+}
+
+.page-pill-total {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cb-ink-dim);
 }
 
 .empty-illustration {

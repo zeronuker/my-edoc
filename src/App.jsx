@@ -34,6 +34,8 @@ import {
   IconSettings,
   IconSearch,
   IconArrowLeft,
+  IconChevronLeft,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import TreeView from "./TreeView.jsx";
 import SearchResults from "./SearchResults.jsx";
@@ -1218,7 +1220,6 @@ function App() {
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
             scale={scale}
-            currentPage={currentPage}
             numPages={numPages}
             pdfViewer={viewerApi?.pdfViewer}
             eventBus={viewerApi?.eventBus}
@@ -1336,6 +1337,43 @@ function App() {
               )}
             </div>
           ) : null}
+          {pdf && !loading && viewMode !== "continuous" && (
+            <div className="page-pill">
+              <button
+                aria-label="Previous page"
+                disabled={currentPage <= 1}
+                onClick={() => viewerApi?.pdfViewer?.previousPage()}
+              >
+                <IconChevronLeft size={16} />
+              </button>
+              <span className="page-pill-count">
+                <input
+                  type="number"
+                  min={1}
+                  max={numPages}
+                  value={currentPage}
+                  aria-label="Current page"
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    if (viewerApi?.pdfViewer && n >= 1 && n <= numPages) {
+                      viewerApi.pdfViewer.currentPageNumber = n;
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === "Escape") e.target.blur();
+                  }}
+                />
+                <span className="page-pill-total">/ {numPages || "-"}</span>
+              </span>
+              <button
+                aria-label="Next page"
+                disabled={!numPages || currentPage >= numPages}
+                onClick={() => viewerApi?.pdfViewer?.nextPage()}
+              >
+                <IconChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </main>
       </div>
     </div>

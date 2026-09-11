@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   IconLayoutSidebar,
-  IconChevronLeft,
-  IconChevronRight,
   IconChevronDown,
   IconZoomIn,
   IconZoomOut,
@@ -16,7 +14,6 @@ import {
   IconSearch,
   IconX,
   IconEdit,
-  IconHash,
 } from "@tabler/icons-react";
 import SearchBar from "./SearchBar.jsx";
 
@@ -61,7 +58,6 @@ export default function Toolbar({
   viewMode,
   setViewMode,
   scale,
-  currentPage,
   numPages,
   pdfViewer,
   eventBus,
@@ -83,7 +79,6 @@ export default function Toolbar({
   const annotateMenu = useDropdown();
   const viewModeMenu = useDropdown();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [mobilePageJumpOpen, setMobilePageJumpOpen] = useState(false);
 
   const activeToolLabel = ANNOTATE_TOOLS.find((t) => t.tool === annotationTool)?.label ?? "Annotate";
 
@@ -141,61 +136,6 @@ export default function Toolbar({
           </span>
         </span>
 
-        {viewMode !== "continuous" && (
-          <span className="page-nav">
-            <button
-              aria-label="Previous page"
-              disabled={currentPage <= 1}
-              onClick={() => pdfViewer?.previousPage()}
-            >
-              <IconChevronLeft size={16} />
-            </button>
-            <span className={`page-jump${mobilePageJumpOpen ? " open" : ""}`}>
-              <button
-                className="page-jump-toggle"
-                aria-label="Jump to page"
-                onClick={() => {
-                  setMobilePageJumpOpen(true);
-                  setMobileSearchOpen(false);
-                }}
-              >
-                <IconHash size={14} />
-              </button>
-              <input
-                type="number"
-                min={1}
-                max={numPages}
-                value={currentPage}
-                aria-label="Current page"
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === "Escape") {
-                    e.target.blur();
-                    setMobilePageJumpOpen(false);
-                  }
-                }}
-              />
-              <span className="page-jump-total">/ {numPages || "-"}</span>
-              <button
-                className="page-jump-close"
-                aria-label="Close page jump"
-                onClick={() => setMobilePageJumpOpen(false)}
-              >
-                <IconX size={14} />
-              </button>
-            </span>
-            <button
-              aria-label="Next page"
-              disabled={!numPages || currentPage >= numPages}
-              onClick={() => pdfViewer?.nextPage()}
-            >
-              <IconChevronRight size={16} />
-            </button>
-          </span>
-        )}
         <span className="toolbar-divider" aria-hidden="true" />
 
         <span className="zoom dropdown" ref={viewMenu.ref}>
@@ -334,10 +274,7 @@ export default function Toolbar({
           <button
             className="search-toggle"
             aria-label="Search"
-            onClick={() => {
-              setMobileSearchOpen(true);
-              setMobilePageJumpOpen(false);
-            }}
+            onClick={() => setMobileSearchOpen(true)}
           >
             <IconSearch size={16} />
           </button>
