@@ -265,7 +265,10 @@ function Node({
     <div className="tree-folder">
       <div
         className={`tree-folder-label${zone ? ` drop-${zone}` : ""}`}
-        onClick={() => onToggleOpen(path)}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return;
+          onToggleOpen(path);
+        }}
         title={node.name}
         draggable={!isRoot}
         onDragStart={isRoot ? undefined : handleDragStart}
@@ -281,6 +284,7 @@ function Node({
             className="tree-hide-btn"
             title={`Remove "${node.name}" from view`}
             aria-label={`Remove "${node.name}" from view`}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               onHide(node);
