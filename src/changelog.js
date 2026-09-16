@@ -647,13 +647,20 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.3', date: 'Sep 2026', current: true, title: 'Floating page pill & mobile toolbar fixes',
+    v: 'v10.3', date: 'Sep 2026', title: 'Floating page pill & mobile toolbar fixes',
     notes: [
       "FIX: The annotate dropdown grew from its trigger's left edge, which sits near the toolbar's right edge on mobile, spilling the menu past the screen edge and forcing horizontal scroll to reach it; anchored to the trigger's right edge instead.",
       'IMP: Settings icon moves into the top bar on iPad landscape while the sidebar/tree is open, matching the mobile placement; falls back to the toolbar row once the tree is closed and the top bar collapses, so it is never lost.',
       'IMP: Prev/next and the page counter moved out of the toolbar into a floating pill anchored to the bottom-center of the viewer, reachable without opening the toolbar.',
       'IMP: Zoom out/in and the percentage now share one bordered pill matching the bookmark/annotate/night-reading icon style, instead of bare unboxed text and buttons; the percentage is a real editable field — type a number and press Enter to jump straight to that zoom level (also now shown and editable on mobile, where it used to be hidden).',
       'FIX: Folder rows needed two clicks to expand/collapse — same drag-vs-click swallowing bug fixed on file rows previously, just never applied to folders; toggle now fires on pointerdown like file selection already did.',
+    ],
+  },
+  {
+    v: 'v10.4', date: 'Sep 2026', current: true, title: 'PDF link tap & hit-box fixes',
+    notes: [
+      'FIX: On touch devices a tap on a chapter link inside a PDF was treated as a page-flip gesture, so it flipped to the next/previous page instead of following the link; taps landing on a link now skip the flip.',
+      "FIX: Clicking a table-of-contents row navigated to the chapter above it at low zoom — the global border-box reset pulled pdf.js's 9px page border inside the declared page size, shrinking the rendered canvas 18px while the invisible link boxes kept the full size. The two drifted ~3% apart down the page, which on ~9px TOC rows at 55% zoom is a two-row error; zooming in only masked it, since the 18px never scales.",
     ],
   },
 ]
