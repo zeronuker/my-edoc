@@ -70,6 +70,7 @@ function attachTouchGestures(el, pdfViewer, viewMode) {
     }
     singleStart = null;
     if (e.pointerType !== "touch" || !wasSingle || !start) return;
+    if (e.target.closest("a")) return;
 
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
