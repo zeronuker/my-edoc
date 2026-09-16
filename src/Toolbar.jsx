@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   IconLayoutSidebar,
-  IconChevronLeft,
-  IconChevronRight,
   IconChevronDown,
   IconZoomIn,
   IconZoomOut,
@@ -16,9 +14,9 @@ import {
   IconSearch,
   IconX,
   IconEdit,
-  IconHash,
 } from "@tabler/icons-react";
 import SearchBar from "./SearchBar.jsx";
+import { MIN_SCALE, MAX_SCALE } from "./PdfViewer.jsx";
 
 const ANNOTATE_TOOLS = [
   { tool: "highlight", label: "Highlight" },
@@ -61,7 +59,6 @@ export default function Toolbar({
   viewMode,
   setViewMode,
   scale,
-  currentPage,
   numPages,
   pdfViewer,
   eventBus,
@@ -83,7 +80,11 @@ export default function Toolbar({
   const annotateMenu = useDropdown();
   const viewModeMenu = useDropdown();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [mobilePageJumpOpen, setMobilePageJumpOpen] = useState(false);
+  // Holds the raw typed string while the zoom field is being edited, so
+  // intermediate keystrokes (e.g. "1" of "150") aren't clamped to
+  // MIN_SCALE and re-rendered mid-typing. Committed to the pdfViewer (and
+  // cleared, falling back to the live scale) on blur/Enter.
+  const [zoomDraft, setZoomDraft] = useState(null);
 
   const activeToolLabel = ANNOTATE_TOOLS.find((t) => t.tool === annotationTool)?.label ?? "Annotate";
 
@@ -141,72 +142,44 @@ export default function Toolbar({
           </span>
         </span>
 
-        {viewMode !== "continuous" && (
-          <span className="page-nav">
-            <button
-              aria-label="Previous page"
-              disabled={currentPage <= 1}
-              onClick={() => pdfViewer?.previousPage()}
-            >
-              <IconChevronLeft size={16} />
-            </button>
-            <span className={`page-jump${mobilePageJumpOpen ? " open" : ""}`}>
-              <button
-                className="page-jump-toggle"
-                aria-label="Jump to page"
-                onClick={() => {
-                  setMobilePageJumpOpen(true);
-                  setMobileSearchOpen(false);
-                }}
-              >
-                <IconHash size={14} />
-              </button>
-              <input
-                type="number"
-                min={1}
-                max={numPages}
-                value={currentPage}
-                aria-label="Current page"
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === "Escape") {
-                    e.target.blur();
-                    setMobilePageJumpOpen(false);
-                  }
-                }}
-              />
-              <span className="page-jump-total">/ {numPages || "-"}</span>
-              <button
-                className="page-jump-close"
-                aria-label="Close page jump"
-                onClick={() => setMobilePageJumpOpen(false)}
-              >
-                <IconX size={14} />
-              </button>
-            </span>
-            <button
-              aria-label="Next page"
-              disabled={!numPages || currentPage >= numPages}
-              onClick={() => pdfViewer?.nextPage()}
-            >
-              <IconChevronRight size={16} />
-            </button>
-          </span>
-        )}
         <span className="toolbar-divider" aria-hidden="true" />
 
         <span className="zoom dropdown" ref={viewMenu.ref}>
-          <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
-            <IconZoomOut size={16} />
-          </button>
-          <span>{Math.round(scale * 100)}%</span>
-          <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
-            <IconZoomIn size={16} />
-          </button>
+          <span className="zoom-pill">
+            <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
+              <IconZoomOut size={15} />
+            </button>
+            <span className="zoom-seg-div" aria-hidden="true" />
+            <span className="zoom-pct">
+              <input
+                type="number"
+                className="zoom-input"
+                value={zoomDraft ?? Math.round(scale * 100)}
+                aria-label="Zoom percentage"
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setZoomDraft(e.target.value)}
+                onBlur={() => {
+                  if (zoomDraft !== null) {
+                    const pct = Number(zoomDraft);
+                    if (pdfViewer && pct > 0) {
+                      pdfViewer.currentScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pct / 100));
+                    }
+                    setZoomDraft(null);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.target.blur();
+                }}
+              />
+              <span className="zoom-pct-sep">%</span>
+            </span>
+            <span className="zoom-seg-div" aria-hidden="true" />
+            <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
+              <IconZoomIn size={15} />
+            </button>
+          </span>
           <button
+            className="zoom-more"
             aria-label="More view options"
             aria-expanded={viewMenu.open}
             onClick={() => viewMenu.setOpen((v) => !v)}
@@ -334,10 +307,7 @@ export default function Toolbar({
           <button
             className="search-toggle"
             aria-label="Search"
-            onClick={() => {
-              setMobileSearchOpen(true);
-              setMobilePageJumpOpen(false);
-            }}
+            onClick={() => setMobileSearchOpen(true)}
           >
             <IconSearch size={16} />
           </button>

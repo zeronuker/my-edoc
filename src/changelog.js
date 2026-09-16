@@ -641,9 +641,19 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.2', date: 'Aug 2026', current: true, title: 'Tree remove-from-view & drag-to-rearrange',
+    v: 'v10.2', date: 'Aug 2026', title: 'Tree remove-from-view & drag-to-rearrange',
     notes: [
       'NEW: A virtual overlay lets individual files and subfolders be hidden from the tree, or dragged to reorder/move between folders, without touching the real filesystem — and it survives Refresh since it is reapplied to every fresh scan.',
+    ],
+  },
+  {
+    v: 'v10.3', date: 'Sep 2026', current: true, title: 'Floating page pill & mobile toolbar fixes',
+    notes: [
+      "FIX: The annotate dropdown grew from its trigger's left edge, which sits near the toolbar's right edge on mobile, spilling the menu past the screen edge and forcing horizontal scroll to reach it; anchored to the trigger's right edge instead.",
+      'IMP: Settings icon moves into the top bar on iPad landscape while the sidebar/tree is open, matching the mobile placement; falls back to the toolbar row once the tree is closed and the top bar collapses, so it is never lost.',
+      'IMP: Prev/next and the page counter moved out of the toolbar into a floating pill anchored to the bottom-center of the viewer, reachable without opening the toolbar.',
+      'IMP: Zoom out/in and the percentage now share one bordered pill matching the bookmark/annotate/night-reading icon style, instead of bare unboxed text and buttons; the percentage is a real editable field — type a number and press Enter to jump straight to that zoom level (also now shown and editable on mobile, where it used to be hidden).',
+      'FIX: Folder rows needed two clicks to expand/collapse — same drag-vs-click swallowing bug fixed on file rows previously, just never applied to folders; toggle now fires on pointerdown like file selection already did.',
     ],
   },
 ]
