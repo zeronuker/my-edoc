@@ -120,16 +120,6 @@ export default function PdfViewer({ pdf, viewMode, onReady, nightReading }) {
     });
     linkService.setViewer(pdfViewer);
     pdfViewerRef.current = pdfViewer;
-    // The annotation layer can bake in its hit-box positions against the
-    // container's not-yet-settled initial size, drifting further out of
-    // sync with the text the further down the page a link sits — reassigning
-    // currentScaleValue forces pdf.js to redo that layout, the same as a
-    // manual zoom (which is why zooming in "fixes" it). Reassert it once
-    // pages first render, before the user has a chance to click a link.
-    eventBus.on("pagesloaded", () => {
-      const value = pdfViewer.currentScaleValue;
-      if (value) pdfViewer.currentScaleValue = value;
-    });
     onReady?.({ pdfViewer, eventBus, findController, linkService });
     // ponytail: construct exactly once per mount; onReady is only ever
     // called right here, so it deliberately isn't in the dep array.

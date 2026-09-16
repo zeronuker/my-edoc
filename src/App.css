@@ -876,6 +876,17 @@ html,
   background: var(--cb-surface-2);
 }
 
+/* pdf.js sizes .page against the CSS default content-box, with a 9px
+   transparent border sitting outside that size. The global `* { box-sizing:
+   border-box }` reset at the top of this file pulls the border inside
+   instead, shrinking the page content area - and so the canvas - by 18px,
+   while the text and annotation layers keep the full size. The two agree at
+   the top-left corner and drift ~3% apart going down, up to a full TOC row
+   by the bottom of the page, which lands link clicks on the wrong chapter. */
+.pdfViewer .page {
+  box-sizing: content-box;
+}
+
 /* hue-rotate(180deg) alongside the invert keeps hues roughly where they
    started (so a red highlight stays reddish instead of turning cyan) —
    only lightness effectively flips, closer to a real "night mode" than a
