@@ -230,10 +230,7 @@ function Node({
     return (
       <div
         className={`tree-file${isSelected ? " selected" : ""}${zone ? ` drop-${zone}` : ""}`}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          onSelectFile(node.handle);
-        }}
+        onClick={() => onSelectFile(node.handle)}
         title={node.name}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -244,6 +241,7 @@ function Node({
           aria-label="Drag to reorder"
           draggable
           onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
@@ -274,10 +272,7 @@ function Node({
     <div className="tree-folder">
       <div
         className={`tree-folder-label${zone ? ` drop-${zone}` : ""}`}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          onToggleOpen(path);
-        }}
+        onClick={() => onToggleOpen(path)}
         title={node.name}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -293,6 +288,7 @@ function Node({
               aria-label="Drag to reorder"
               draggable
               onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >

@@ -8,6 +8,7 @@ import {
   SpreadMode,
 } from "pdfjs-dist/web/pdf_viewer.mjs";
 import "pdfjs-dist/web/pdf_viewer.css";
+import { buildReadingFilter } from "./appHelpers.js";
 
 export const SCROLL_MODE_BY_VIEW = {
   single: ScrollMode.PAGE,
@@ -102,7 +103,7 @@ function attachTouchGestures(el, pdfViewer, viewMode) {
 // PDFFindController), instead of a hand-rolled canvas renderer — gets
 // text selection, find-and-highlight, and zoom presets for free, the
 // same engine Firefox's built-in PDF viewer uses.
-export default function PdfViewer({ pdf, viewMode, onReady, nightReading }) {
+export default function PdfViewer({ pdf, viewMode, onReady, readingTheme, readingBrightness, readingContrast }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const pdfViewerRef = useRef(null);
@@ -156,7 +157,11 @@ export default function PdfViewer({ pdf, viewMode, onReady, nightReading }) {
 
   return (
     <div className="viewer-area">
-      <div className={`pdf-viewer-container${nightReading ? " night-reading" : ""}`} ref={containerRef}>
+      <div
+        className="pdf-viewer-container"
+        style={{ "--reading-filter": buildReadingFilter(readingTheme, readingBrightness, readingContrast) }}
+        ref={containerRef}
+      >
         <div className="pdfViewer" ref={viewerRef} />
       </div>
     </div>

@@ -65,7 +65,9 @@ const DEFAULT_SETTINGS = {
   theme: "system",
   resumePosition: true,
   keepAwake: false,
-  nightReading: false,
+  readingTheme: "off",
+  readingBrightness: 100,
+  readingContrast: 100,
   autoHideSidebar: false,
 };
 
@@ -269,7 +271,11 @@ function App() {
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    dbSet("settings", settings);
+    // Debounced: the reading-theme brightness/contrast sliders fire this
+    // effect on every drag tick, and each dbSet opens a fresh IndexedDB
+    // connection (see db.js) — coalesce to one write per pause in dragging.
+    const timer = setTimeout(() => dbSet("settings", settings), 300);
+    return () => clearTimeout(timer);
   }, [settings]);
 
   useEffect(() => {
@@ -1021,8 +1027,12 @@ function App() {
             numPages={numPages}
             pdfViewer={viewerApi?.pdfViewer}
             eventBus={viewerApi?.eventBus}
-            nightReading={settings.nightReading}
-            onToggleNightReading={() => updateSettings({ nightReading: !settings.nightReading })}
+            readingTheme={settings.readingTheme}
+            onChangeReadingTheme={(readingTheme) => updateSettings({ readingTheme })}
+            readingBrightness={settings.readingBrightness}
+            onChangeReadingBrightness={(readingBrightness) => updateSettings({ readingBrightness })}
+            readingContrast={settings.readingContrast}
+            onChangeReadingContrast={(readingContrast) => updateSettings({ readingContrast })}
             isBookmarked={isBookmarked}
             onToggleBookmark={toggleBookmark}
             annotationTool={annotationTool}
@@ -1056,7 +1066,14 @@ function App() {
               or that internal viewer is torn down and pdf.js breaks on the
               next open. Loading/search-results/empty states are layered on
               top of it instead, same trick .viewer-empty already used. */}
-          <PdfViewer pdf={pdf} viewMode={viewMode} onReady={setViewerApi} nightReading={settings.nightReading} />
+          <PdfViewer
+            pdf={pdf}
+            viewMode={viewMode}
+            onReady={setViewerApi}
+            readingTheme={settings.readingTheme}
+            readingBrightness={settings.readingBrightness}
+            readingContrast={settings.readingContrast}
+          />
           {loading ? (
             <div className="viewer-empty">
               <span className="viewer-loading">

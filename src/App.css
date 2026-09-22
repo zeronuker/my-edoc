@@ -72,7 +72,7 @@ html,
 }
 
 .bookmark-toggle,
-.night-reading-toggle,
+.reading-theme-trigger,
 .annotate-tool {
   border: 1px solid var(--cb-line-2);
   border-radius: var(--cb-radius-sm);
@@ -82,7 +82,7 @@ html,
 }
 
 .bookmark-toggle,
-.night-reading-toggle {
+.reading-theme-trigger {
   width: 32px;
   height: 32px;
   justify-content: center;
@@ -91,7 +91,7 @@ html,
 
 /* Same treatment as the active sidebar tab: background fill + mint border,
    not just a color change, so "active" reads without relying on hue alone. */
-.night-reading-toggle.active,
+.reading-theme-trigger.active,
 .bookmark-toggle.active,
 .annotate-tool.active {
   background: var(--cb-surface-3);
@@ -465,16 +465,16 @@ html,
     order: 6;
   }
 
-  .night-reading-toggle {
+  .reading-theme {
     order: 7;
   }
 
-  /* Bookmark/night reading (32px base, desktop-shared) land on the same
+  /* Bookmark/reading-theme (32px base, desktop-shared) land on the same
      30px size as everything else that's mobile-only styled (annotate,
      search). Topbar's sidebar/settings icons stay at .icon-btn's 32px
      base — same size as each other and as desktop. */
   .bookmark-toggle,
-  .night-reading-toggle {
+  .reading-theme-trigger {
     width: 30px;
     height: 30px;
   }
@@ -494,12 +494,12 @@ html,
     display: none;
   }
 
-  /* The button sits near the toolbar's right edge on mobile (order: 6,
-     just before night-reading-toggle), but .dropdown-menu always grows
-     from left: 0 of its trigger. Anchoring it to the trigger's right
-     edge instead keeps it inside the viewport instead of spilling past
-     100vw and forcing horizontal scroll to reach it. */
-  .annotate .dropdown-menu {
+  /* Both buttons sit near the toolbar's right edge on mobile (order: 6-7),
+     but .dropdown-menu always grows from left: 0 of its trigger. Anchoring
+     it to the trigger's right edge instead keeps it inside the viewport
+     instead of spilling past 100vw and forcing horizontal scroll to reach it. */
+  .annotate .dropdown-menu,
+  .reading-theme .dropdown-menu {
     left: auto;
     right: 0;
   }
@@ -515,7 +515,7 @@ html,
   .toolbar:has(.search-wrap.open) .zoom,
   .toolbar:has(.search-wrap.open) .bookmark-toggle,
   .toolbar:has(.search-wrap.open) .annotate,
-  .toolbar:has(.search-wrap.open) .night-reading-toggle {
+  .toolbar:has(.search-wrap.open) .reading-theme {
     display: none;
   }
 
@@ -796,6 +796,33 @@ html,
   margin: 2px 0;
 }
 
+.reading-theme-sliders {
+  padding: 4px 8px 6px;
+  min-width: 170px;
+}
+
+.reading-theme-sliders label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--cb-ink-2);
+  margin: 8px 0 4px;
+}
+
+.reading-theme-sliders label:first-child {
+  margin-top: 0;
+}
+
+.reading-theme-slider-value {
+  color: var(--cb-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.reading-theme-sliders input[type="range"] {
+  width: 100%;
+  accent-color: var(--cb-mint);
+}
+
 @media (max-width: 880px) {
   .zoom {
     gap: 10px;
@@ -887,12 +914,14 @@ html,
   box-sizing: content-box;
 }
 
-/* hue-rotate(180deg) alongside the invert keeps hues roughly where they
-   started (so a red highlight stays reddish instead of turning cyan) —
-   only lightness effectively flips, closer to a real "night mode" than a
-   plain invert(1). */
-.pdf-viewer-container.night-reading canvas {
-  filter: invert(1) hue-rotate(180deg);
+/* --reading-filter is computed in PdfViewer.jsx (buildReadingFilter in
+   appHelpers.js) from the night/sepia preset plus the brightness/contrast
+   sliders, combined into one filter string — hue-rotate(180deg) alongside
+   the invert keeps hues roughly where they started on night (so a red
+   highlight stays reddish instead of turning cyan), only lightness
+   effectively flips, closer to a real "night mode" than a plain invert(1). */
+.pdf-viewer-container canvas {
+  filter: var(--reading-filter, none);
 }
 
 .error-banner {
@@ -995,7 +1024,7 @@ html,
 }
 
 .page-pill-count input {
-  width: 3ch;
+  width: 4ch;
   background: none;
   border: none;
   color: var(--cb-mint);

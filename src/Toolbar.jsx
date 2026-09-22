@@ -30,6 +30,12 @@ const VIEW_MODES = [
   { value: "two-up", label: "Two-page" },
 ];
 
+const READING_THEMES = [
+  { value: "off", label: "Off" },
+  { value: "night", label: "Night" },
+  { value: "sepia", label: "Sepia" },
+];
+
 // Closes whichever dropdown is open on an outside click or Escape — same
 // pattern as TreeView's FolderActions menu.
 function useDropdown() {
@@ -64,8 +70,12 @@ export default function Toolbar({
   eventBus,
   sidebarOpen,
   onToggleSidebar,
-  nightReading,
-  onToggleNightReading,
+  readingTheme,
+  onChangeReadingTheme,
+  readingBrightness,
+  onChangeReadingBrightness,
+  readingContrast,
+  onChangeReadingContrast,
   isBookmarked,
   onToggleBookmark,
   annotationTool,
@@ -79,6 +89,7 @@ export default function Toolbar({
   const viewMenu = useDropdown();
   const annotateMenu = useDropdown();
   const viewModeMenu = useDropdown();
+  const readingThemeMenu = useDropdown();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   // Holds the raw typed string while the zoom field is being edited, so
   // intermediate keystrokes (e.g. "1" of "150") aren't clamped to
@@ -292,15 +303,62 @@ export default function Toolbar({
         </span>
         <span className="toolbar-divider" aria-hidden="true" />
 
-        <button
-          className={`night-reading-toggle${nightReading ? " active" : ""}`}
-          aria-label={nightReading ? "Turn off night reading" : "Turn on night reading"}
-          aria-pressed={nightReading}
-          title="Night reading (invert page colors)"
-          onClick={onToggleNightReading}
-        >
-          <IconMoon size={16} />
-        </button>
+        <span className="reading-theme dropdown" ref={readingThemeMenu.ref}>
+          <button
+            className={`reading-theme-trigger${
+              readingTheme !== "off" || readingBrightness !== 100 || readingContrast !== 100 ? " active" : ""
+            }`}
+            aria-expanded={readingThemeMenu.open}
+            aria-label="Reading theme"
+            title="Reading theme"
+            onClick={() => readingThemeMenu.setOpen((v) => !v)}
+          >
+            <IconMoon size={16} />
+          </button>
+          {readingThemeMenu.open && (
+            <div className="dropdown-menu">
+              {READING_THEMES.map(({ value, label }) => (
+                <button
+                  key={value}
+                  className={readingTheme === value ? "active" : ""}
+                  onClick={() => {
+                    onChangeReadingTheme(value);
+                    readingThemeMenu.setOpen(false);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className="dropdown-sep" />
+              <div className="reading-theme-sliders">
+                <label>
+                  <span>Brightness</span>
+                  <span className="reading-theme-slider-value">{readingBrightness}%</span>
+                </label>
+                <input
+                  type="range"
+                  min={50}
+                  max={150}
+                  value={readingBrightness}
+                  aria-label="Reading brightness"
+                  onChange={(e) => onChangeReadingBrightness(Number(e.target.value))}
+                />
+                <label>
+                  <span>Contrast</span>
+                  <span className="reading-theme-slider-value">{readingContrast}%</span>
+                </label>
+                <input
+                  type="range"
+                  min={50}
+                  max={150}
+                  value={readingContrast}
+                  aria-label="Reading contrast"
+                  onChange={(e) => onChangeReadingContrast(Number(e.target.value))}
+                />
+              </div>
+            </div>
+          )}
+        </span>
         <span className="toolbar-divider" aria-hidden="true" />
 
         <span className={`search-wrap${mobileSearchOpen ? " open" : ""}`}>

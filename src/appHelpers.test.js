@@ -7,6 +7,7 @@ import {
   toggleBookmarkList,
   removeBookmarkFromList,
   toggleOutlinePath,
+  buildReadingFilter,
 } from "./appHelpers.js";
 
 test("formatBytes formats across units", () => {
@@ -54,4 +55,16 @@ test("toggleOutlinePath adds then removes a path", () => {
   const added = toggleOutlinePath([], "0-1");
   assert.deepEqual(added, ["0-1"]);
   assert.deepEqual(toggleOutlinePath(added, "0-1"), []);
+});
+
+test("buildReadingFilter combines preset and sliders", () => {
+  assert.equal(buildReadingFilter("off", 100, 100), "none");
+  assert.equal(buildReadingFilter("night", 100, 100), "invert(1) hue-rotate(180deg)");
+  assert.equal(buildReadingFilter("sepia", 100, 100), "sepia(0.7)");
+  assert.equal(buildReadingFilter("off", 120, 100), "brightness(120%)");
+  assert.equal(buildReadingFilter("off", 100, 80), "contrast(80%)");
+  assert.equal(
+    buildReadingFilter("night", 120, 80),
+    "invert(1) hue-rotate(180deg) brightness(120%) contrast(80%)"
+  );
 });

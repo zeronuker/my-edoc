@@ -49,3 +49,16 @@ export function removeBookmarkFromList(existing, page) {
 export function toggleOutlinePath(existing, path) {
   return existing.includes(path) ? existing.filter((p) => p !== path) : [...existing, path];
 }
+
+// Combines the night/sepia preset with the brightness/contrast sliders into
+// one CSS filter string for the canvas. Brightness/contrast only appear in
+// the string when they diverge from 100 (the neutral value), keeping the
+// common case (no sliders touched) at "none" or just the bare preset.
+export function buildReadingFilter(theme, brightness, contrast) {
+  const parts = [];
+  if (theme === "night") parts.push("invert(1)", "hue-rotate(180deg)");
+  else if (theme === "sepia") parts.push("sepia(0.7)");
+  if (brightness !== 100) parts.push(`brightness(${brightness}%)`);
+  if (contrast !== 100) parts.push(`contrast(${contrast}%)`);
+  return parts.length ? parts.join(" ") : "none";
+}
