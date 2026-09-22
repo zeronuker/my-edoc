@@ -56,6 +56,8 @@ export default function SearchBar({ eventBus }) {
           if (e.key === "Escape") {
             setQuery("");
             e.target.blur();
+          } else if (e.key === "Enter" && query) {
+            dispatchFind("again", { findPrevious: e.shiftKey });
           }
         }}
       />

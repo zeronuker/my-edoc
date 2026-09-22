@@ -17,7 +17,19 @@ export default function SearchResults({ query, folders, onOpenResult }) {
       <div className="search-results-list">
         {results.length === 0 && <p className="search-results-empty">No matches.</p>}
         {results.map((r, i) => (
-          <div key={i} className="search-result-file" onClick={() => onOpenResult(r.handle)}>
+          <div
+            key={i}
+            className="search-result-file"
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenResult(r.handle)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpenResult(r.handle);
+              }
+            }}
+          >
             <p className="search-result-file-name">{r.name}</p>
           </div>
         ))}

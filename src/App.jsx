@@ -7,7 +7,6 @@ import {
   buildTreeFromFileList,
   wrapDroppedFile,
   writeLegacyFiles,
-  buildLegacyManifest,
   reviveLegacyManifest,
   reviveInlineLegacyFolder,
   treeByteSize,
@@ -18,9 +17,17 @@ import {
 } from "./fileSystem.js";
 import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
-import { loadDocument } from "./edoc.js";
-import { getAnnotationMode, loadAnnotatedCopy, saveAnnotations } from "./annotations.js";
+import { getAnnotationMode, saveAnnotations } from "./annotations.js";
+import { usePdfDocument } from "./usePdfDocument.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
+import {
+  formatBytes,
+  folderListRecords,
+  nextRecentFiles,
+  toggleBookmarkList,
+  removeBookmarkFromList,
+  toggleOutlinePath,
+} from "./appHelpers.js";
 import { AnnotationEditorType } from "pdfjs-dist";
 import {
   IconX,
@@ -43,7 +50,7 @@ import OutlineView from "./OutlineView.jsx";
 import BookmarksView from "./BookmarksView.jsx";
 import RecentView from "./RecentView.jsx";
 import ThumbnailView from "./ThumbnailView.jsx";
-import PdfViewer, { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
+import PdfViewer from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import Settings from "./Settings.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
@@ -75,39 +82,12 @@ const ANNOTATION_EDITOR_MODE_BY_TOOL = {
   freetext: AnnotationEditorType.FREETEXT,
 };
 
-function formatBytes(bytes) {
-  if (bytes == null) return "";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let i = 0;
-  while (value >= 1024 && i < units.length - 1) {
-    value /= 1024;
-    i++;
-  }
-  return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
-}
-
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const onSplashFinish = useCallback(() => setShowSplash(false), []);
   const [folders, setFolders] = useState([]); // [{ key, dirHandle, tree, connectedAt, folderId }] — tree is null while pending permission; folderId only exists for legacy (OPFS-backed) folders
-  const [selectedHandle, setSelectedHandle] = useState(null);
-  const [pdf, setPdf] = useState(null);
-  // Two-page (or single-page on narrow screens) + fit-page is forced on
-  // every file open (see selectFile/onPagesInit below) — this initial
-  // value only matters before any file has been opened yet.
-  const [viewMode, setViewMode] = useState("two-up");
   const [isNarrow, setIsNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
-  const [scale, setScale] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  // Set when restoring the last-open file on launch finds the handle but
-  // the read permission grant didn't survive (e.g. the OS killed and
-  // reloaded the page in the background) — surfaces a one-tap "Reopen"
-  // banner instead of silently landing on the empty file browser.
-  const [pendingReopen, setPendingReopen] = useState(null);
   const [viewerApi, setViewerApi] = useState(null);
   // Phone starts with the drawer closed; iPad and desktop start with the
   // sidebar expanded, regardless of window width.
@@ -115,7 +95,6 @@ function App() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const update = useUpdate("edoc");
-  const [outline, setOutline] = useState(null);
   const [sidebarTab, setSidebarTab] = useState("folders");
   // [{ fileHandle, name, openedAt }], newest first — legacy (OPFS) handles
   // carry function properties IndexedDB can't clone, so only real handles
@@ -134,24 +113,36 @@ function App() {
   // null | "highlight" | "ink" | "freetext" — mirrored onto
   // pdfViewer.annotationEditorMode by the effect below.
   const [annotationTool, setAnnotationTool] = useState(null);
-  const [hasUnsavedAnnotations, setHasUnsavedAnnotations] = useState(false);
   const [modePickerOpen, setModePickerOpen] = useState(false);
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
   const [refreshingKeys, setRefreshingKeys] = useState(() => new Set());
   const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
-  const pendingRestoreRef = useRef(null);
-  const restoringRef = useRef(false);
-  // Bumped on every selectFile call; an in-flight call whose token no longer
-  // matches has been superseded by a newer one (e.g. a fast double-click)
-  // and must not apply its result — otherwise the older call's later-settling
-  // load can overwrite state a newer, already-resolved call already set.
-  const loadTokenRef = useRef(0);
   const [globalSearch, setGlobalSearch] = useState("");
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
   const initializedRef = useRef(false);
+
+  const {
+    pdf,
+    selectedHandle,
+    numPages,
+    currentPage,
+    scale,
+    viewMode,
+    setViewMode,
+    loading,
+    pendingReopen,
+    setPendingReopen,
+    outline,
+    hasUnsavedAnnotations,
+    setHasUnsavedAnnotations,
+    selectFile,
+    closeDocument,
+    clearDocument,
+    reopenLastFile,
+  } = usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, addToRecent, setError });
 
   // Restore last session: directory handles need a user gesture to
   // re-request permission in most browsers, so folders without it show
@@ -288,13 +279,6 @@ function App() {
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
-  // width-based default live, the same way opening a file does.
-  useEffect(() => {
-    if (!pdf) return;
-    setViewMode(isNarrow ? "single" : "two-up");
-  }, [isNarrow, pdf]);
-
   useEffect(() => {
     if (settings.theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = settings.theme;
@@ -327,77 +311,6 @@ function App() {
   function updateSettings(partial) {
     setSettings((prev) => ({ ...prev, ...partial }));
   }
-
-  // Per-file page/zoom memory, keyed by filename. restoringRef guards the
-  // window between picking a new file and pdfjs firing pagesinit for it —
-  // without it, this effect would fire with the previous file's still-current
-  // page/scale and clobber the new file's saved position before restore runs.
-  useEffect(() => {
-    if (!selectedHandle || !pdf || restoringRef.current) return;
-    (async () => {
-      const all = (await dbGet("filePositions")) || {};
-      all[selectedHandle.name] = { page: currentPage, scale, numPages };
-      await dbSet("filePositions", all);
-    })();
-  }, [selectedHandle, pdf, currentPage, scale, numPages]);
-
-  // Drive the pdf.js viewer from React state/events instead of rendering
-  // pages ourselves — see PdfViewer.jsx.
-  useEffect(() => {
-    if (!viewerApi) return;
-    const { eventBus } = viewerApi;
-    const onPageChanging = (e) => setCurrentPage(e.pageNumber);
-    const onScaleChanging = (e) => setScale(e.scale);
-    const onPagesInit = () => {
-      // pdf.js resets scrollMode/spreadMode to its own defaults (continuous,
-      // no spread) on every setDocument call, regardless of what they were
-      // set to before — reassert ours here so a same-viewMode reopen (e.g.
-      // two files on the same wide/narrow screen) doesn't silently fall back
-      // to continuous. The effect below only catches *changes* to viewMode.
-      viewerApi.pdfViewer.scrollMode = SCROLL_MODE_BY_VIEW[viewMode];
-      viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
-      // Fit-page always wins on open — per-file zoom memory below still
-      // gets written, but isn't read back here. Page position is.
-      viewerApi.pdfViewer.currentScaleValue = "page-fit";
-      const pending = pendingRestoreRef.current;
-      if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
-      pendingRestoreRef.current = null;
-      restoringRef.current = false;
-    };
-    eventBus.on("pagechanging", onPageChanging);
-    eventBus.on("scalechanging", onScaleChanging);
-    eventBus.on("pagesinit", onPagesInit);
-    return () => {
-      eventBus.off("pagechanging", onPageChanging);
-      eventBus.off("scalechanging", onScaleChanging);
-      eventBus.off("pagesinit", onPagesInit);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerApi, viewMode]);
-
-  useEffect(() => {
-    if (!viewerApi) return;
-    if (!pdf) {
-      setOutline(null);
-      // Closing a doc (search typing, back-to-results, a failed open) has
-      // to clear this the same way opening one does below — otherwise it's
-      // stuck at whatever it was, and the next selectFile call's own
-      // unsaved-annotations guard blocks silently on a stale true.
-      setHasUnsavedAnnotations(false);
-      setNumPages(0);
-      return;
-    }
-    viewerApi.pdfViewer.setDocument(pdf);
-    viewerApi.linkService.setDocument(pdf);
-    setNumPages(pdf.numPages);
-    pdf.getOutline().then((items) => setOutline(items?.length ? items : null));
-    // Tracks whether there are annotation edits not yet baked into a save
-    // (write-back or sidecar, see annotations.js) — drives the toolbar
-    // Save button's enabled state.
-    setHasUnsavedAnnotations(false);
-    pdf.annotationStorage.onSetModified = () => setHasUnsavedAnnotations(true);
-    pdf.annotationStorage.onResetModified = () => setHasUnsavedAnnotations(false);
-  }, [viewerApi, pdf]);
 
   useEffect(() => {
     // The editor UI manager (and so the annotationEditorMode setter) isn't
@@ -443,30 +356,14 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [viewerApi]);
 
-  useEffect(() => {
-    if (!viewerApi) return;
-    viewerApi.pdfViewer.scrollMode = SCROLL_MODE_BY_VIEW[viewMode];
-    viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
-  }, [viewerApi, viewMode]);
-
   // Saves the lightweight folder list only — real handles (Chromium)
   // structured-clone as-is, and legacy folders save their (already OPFS-
   // backed) manifest, not file bytes. Never call this expecting it to
   // write any file content; that only happens in writeLegacyFiles.
   function saveFolderList(next) {
-    const real = next.filter((f) => !f.dirHandle.__legacy);
-    dbSet("rootDirHandles", real.map((f) => ({ dirHandle: f.dirHandle, connectedAt: f.connectedAt })));
-
-    const legacy = next.filter((f) => f.dirHandle.__legacy);
-    dbSet(
-      "legacyFolders",
-      legacy.map((f) => ({
-        id: f.folderId,
-        connectedAt: f.connectedAt,
-        manifest: buildLegacyManifest(f.tree),
-        sizeBytes: f.sizeBytes,
-      }))
-    );
+    const { real, legacy } = folderListRecords(next);
+    dbSet("rootDirHandles", real);
+    dbSet("legacyFolders", legacy);
   }
 
   // De-dupes by filename (same key filePositions uses) and caps at 10, most
@@ -474,10 +371,7 @@ function App() {
   // recentFiles state comment above for why.
   function addToRecent(fileHandle) {
     setRecentFiles((prev) => {
-      const next = [
-        { fileHandle, name: fileHandle.name, openedAt: Date.now() },
-        ...prev.filter((e) => e.name !== fileHandle.name),
-      ].slice(0, 10);
+      const next = nextRecentFiles(prev, fileHandle);
       dbSet(
         "recentFiles",
         next.filter((e) => !e.fileHandle.__legacy)
@@ -502,16 +396,12 @@ function App() {
 
   function toggleBookmark() {
     if (!selectedHandle) return;
-    updateBookmarks(selectedHandle.name, (existing) =>
-      existing.some((b) => b.page === currentPage)
-        ? existing.filter((b) => b.page !== currentPage)
-        : [...existing, { page: currentPage, createdAt: Date.now() }].sort((a, b) => a.page - b.page)
-    );
+    updateBookmarks(selectedHandle.name, (existing) => toggleBookmarkList(existing, currentPage));
   }
 
   function removeBookmark(page) {
     if (!selectedHandle) return;
-    updateBookmarks(selectedHandle.name, (existing) => existing.filter((b) => b.page !== page));
+    updateBookmarks(selectedHandle.name, (existing) => removeBookmarkFromList(existing, page));
   }
 
   // Same read-modify-write shape as updateBookmarks, one entry per outline
@@ -520,8 +410,7 @@ function App() {
     if (!selectedHandle) return;
     setOutlineExpanded((prev) => {
       const name = selectedHandle.name;
-      const existing = prev[name] || [];
-      const nextPaths = existing.includes(path) ? existing.filter((p) => p !== path) : [...existing, path];
+      const nextPaths = toggleOutlinePath(prev[name] || [], path);
       const next = { ...prev };
       if (nextPaths.length) next[name] = nextPaths;
       else delete next[name];
@@ -536,8 +425,13 @@ function App() {
   // current even if nothing changed since the last save.
   async function performAnnotationSave(mode) {
     if (!selectedHandle || !pdf) return;
-    await saveAnnotations(selectedHandle, pdf, mode);
-    setHasUnsavedAnnotations(false);
+    try {
+      await saveAnnotations(selectedHandle, pdf, mode);
+      setHasUnsavedAnnotations(false);
+    } catch (err) {
+      console.error(err);
+      setError(`Couldn't save annotations on "${selectedHandle.name}": ${err.message}`);
+    }
   }
 
   // Legacy (Safari/OPFS) files have no real filesystem handle to write
@@ -805,10 +699,7 @@ function App() {
       selectedHandle &&
       flattenTreeFileHandles(removedFolder.tree).some((f) => f.handle === selectedHandle)
     ) {
-      setPdf(null);
-      setSelectedHandle(null);
-      setError(null);
-      setPendingReopen(null);
+      clearDocument();
     }
   }
 
@@ -817,10 +708,7 @@ function App() {
   // entire connected folder.
   function handleFilesRemovedFromView(handles) {
     if (selectedHandle && handles.includes(selectedHandle)) {
-      setPdf(null);
-      setSelectedHandle(null);
-      setError(null);
-      setPendingReopen(null);
+      clearDocument();
     }
   }
 
@@ -865,81 +753,12 @@ function App() {
     }
   }
 
-  async function selectFile(fileHandle) {
-    // Switching files abandons whatever's in the current document's
-    // annotationStorage — confirm rather than silently losing drawn/typed
-    // edits the user hasn't saved yet.
-    if (hasUnsavedAnnotations) {
-      const proceed = window.confirm(
-        `You have unsaved annotations on "${selectedHandle?.name}". Switch files and discard them?`
-      );
-      if (!proceed) return;
-    }
-    const token = ++loadTokenRef.current;
-    setSelectedHandle(fileHandle);
-    setError(null);
-    setPendingReopen(null);
-    closeSidebarIfAutoHide();
-    setLoading(true);
-    // Two-page (or single-page on narrow screens) + fit-page is the
-    // default on every open; manually switching view mode only sticks
-    // for the file currently open.
-    setViewMode(isNarrow ? "single" : "two-up");
-    restoringRef.current = true;
-    try {
-      // A sidecar copy (see annotations.js) holds this file's saved
-      // annotations when its mode is "sidecar" — load that instead of the
-      // original so they carry across sessions; the original is only ever
-      // touched in "writeback" mode.
-      const file = (await loadAnnotatedCopy(fileHandle.name)) || (await fileHandle.getFile());
-      let timeoutId;
-      const timeout = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
-      });
-      // A password prompt blocks the JS thread for as long as the user takes
-      // to answer it — cancel the load timeout the instant one appears, or
-      // it'd fire the moment the thread frees up regardless of how long ago
-      // the 15s actually elapsed.
-      const doc = await Promise.race([
-        loadDocument(file, { onPasswordPrompt: () => clearTimeout(timeoutId) }),
-        timeout,
-      ]);
-      // A newer selectFile call has since taken over — drop this stale
-      // result instead of overwriting the newer call's already-applied state.
-      if (loadTokenRef.current !== token) return;
-      const positions = (await dbGet("filePositions")) || {};
-      pendingRestoreRef.current = positions[fileHandle.name] || null;
-      setPdf(doc);
-      if (!fileHandle.__legacy) await dbSet("lastFileHandle", fileHandle);
-      addToRecent(fileHandle);
-    } catch (err) {
-      if (loadTokenRef.current !== token) return;
-      console.error(err);
-      setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
-      setPdf(null);
-      restoringRef.current = false;
-    } finally {
-      if (loadTokenRef.current === token) setLoading(false);
-    }
-  }
-
   // Any edit to the global search field, while a document is open, closes
   // it — clearing the field this way lands on the blank state rather than
   // restoring whatever was open before search started, matching the rest
   // of the main pane always reflecting the field's current value.
   function handleGlobalSearchChange(value) {
-    if (pdf) {
-      if (
-        hasUnsavedAnnotations &&
-        !window.confirm(`You have unsaved annotations on "${selectedHandle?.name}". Discard them?`)
-      ) {
-        return;
-      }
-      setPdf(null);
-      setSelectedHandle(null);
-      setError(null);
-      setPendingReopen(null);
-    }
+    if (pdf && !closeDocument()) return;
     setGlobalSearch(value);
   }
 
@@ -947,28 +766,7 @@ function App() {
   // search hit — closes the doc without touching the query, so the results
   // list (recomputed from the still-populated field) reappears.
   function backToResults() {
-    if (
-      hasUnsavedAnnotations &&
-      !window.confirm(`You have unsaved annotations on "${selectedHandle?.name}". Discard them?`)
-    ) {
-      return;
-    }
-    setPdf(null);
-    setSelectedHandle(null);
-    setError(null);
-    setPendingReopen(null);
-  }
-
-  // Button-click handler for the "Reopen [name]" banner — the click itself
-  // is the user gesture requestPermission needs, unlike the silent
-  // queryPermission check on launch.
-  async function reopenLastFile() {
-    const { fileHandle } = pendingReopen;
-    if ((await fileHandle.requestPermission({ mode: "read" })) === "granted") {
-      selectFile(fileHandle);
-    } else {
-      setPendingReopen(null);
-    }
+    closeDocument();
   }
 
   const pendingFolders = folders.filter((f) => !f.tree);
@@ -1046,7 +844,7 @@ function App() {
               <input
                 type="text"
                 className="global-search-input"
-                placeholder="Search files and content…"
+                placeholder="Search filenames…"
                 value={globalSearch}
                 onChange={(e) => handleGlobalSearchChange(e.target.value)}
               />

@@ -1,12 +1,13 @@
 {
   "name": "edoc",
   "private": true,
-  "version": "10.3.0",
+  "version": "10.5.0",
   "type": "module",
   "scripts": {
     "dev": "node brand-kit/scripts/write-build-info.mjs && vite",
     "build": "node brand-kit/scripts/write-build-info.mjs && vite build",
     "lint": "oxlint",
+    "test": "node --test",
     "preview": "vite preview",
     "brand:fonts": "node brand-kit/scripts/download-fonts.mjs",
     "brand:icons": "node brand-kit/scripts/generate-brand-icons.mjs"

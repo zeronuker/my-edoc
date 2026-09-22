@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
 import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey } from "./treeOverlay.js";
 
@@ -234,12 +235,20 @@ function Node({
           onSelectFile(node.handle);
         }}
         title={node.name}
-        draggable
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
+        <span
+          className="tree-drag-handle"
+          title="Drag to reorder"
+          aria-label="Drag to reorder"
+          draggable
+          onPointerDown={(e) => e.stopPropagation()}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <IconGripVertical size={12} />
+        </span>
         <span className="tree-chevron" />
         <FileIcon />
         <span className="tree-label">{node.name}</span>
@@ -270,9 +279,6 @@ function Node({
           onToggleOpen(path);
         }}
         title={node.name}
-        draggable={!isRoot}
-        onDragStart={isRoot ? undefined : handleDragStart}
-        onDragEnd={isRoot ? undefined : handleDragEnd}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
@@ -280,18 +286,31 @@ function Node({
         <FolderIcon />
         <span className="tree-label">{node.name}</span>
         {!isRoot && (
-          <button
-            className="tree-hide-btn"
-            title={`Remove "${node.name}" from view`}
-            aria-label={`Remove "${node.name}" from view`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              onHide(node);
-            }}
-          >
-            ×
-          </button>
+          <>
+            <span
+              className="tree-drag-handle"
+              title="Drag to reorder"
+              aria-label="Drag to reorder"
+              draggable
+              onPointerDown={(e) => e.stopPropagation()}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <IconGripVertical size={12} />
+            </span>
+            <button
+              className="tree-hide-btn"
+              title={`Remove "${node.name}" from view`}
+              aria-label={`Remove "${node.name}" from view`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onHide(node);
+              }}
+            >
+              ×
+            </button>
+          </>
         )}
       </div>
       {/* Root folders only (actions is undefined for nested subfolders) — its

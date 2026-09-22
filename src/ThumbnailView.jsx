@@ -37,6 +37,7 @@ function Thumbnail({ pdf, pageNumber, isActive, onSelect }) {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      page.cleanup();
       if (!cancelled) setRendered(true);
     }
 

@@ -1443,8 +1443,19 @@ html,
   line-height: 1;
 }
 
+.tree-drag-handle {
+  flex-shrink: 0;
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  color: var(--cb-ink-dim);
+  cursor: grab;
+}
+
 .tree-folder-label:hover .tree-hide-btn,
-.tree-file:hover .tree-hide-btn {
+.tree-file:hover .tree-hide-btn,
+.tree-folder-label:hover .tree-drag-handle,
+.tree-file:hover .tree-drag-handle {
   opacity: 1;
 }
 

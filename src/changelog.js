@@ -657,10 +657,24 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.4', date: 'Sep 2026', current: true, title: 'PDF link tap & hit-box fixes',
+    v: 'v10.4', date: 'Sep 2026', title: 'PDF link tap & hit-box fixes',
     notes: [
       'FIX: On touch devices a tap on a chapter link inside a PDF was treated as a page-flip gesture, so it flipped to the next/previous page instead of following the link; taps landing on a link now skip the flip.',
       "FIX: Clicking a table-of-contents row navigated to the chapter above it at low zoom — the global border-box reset pulled pdf.js's 9px page border inside the declared page size, shrinking the rendered canvas 18px while the invisible link boxes kept the full size. The two drifted ~3% apart down the page, which on ~9px TOC rows at 55% zoom is a two-row error; zooming in only masked it, since the 18px never scales.",
+    ],
+  },
+  {
+    v: 'v10.5', date: 'Sep 2026', current: true, title: 'Code review pass: memory leak, save-fail, drag-reorder & more',
+    notes: [
+      "FIX: Switching or closing a PDF never freed the previous document's worker-side heap (fonts, decoded bitmaps, render streams), leaking for as long as the tab stayed open; now destroyed the moment it's replaced or closed.",
+      "FIX: A failed annotation save (revoked file permission, disk full) failed completely silently; now surfaces through the existing error banner instead of an unhandled rejection.",
+      'FIX: Dragging a file or folder row to reorder it first fired a full file-select — and, with unsaved annotations open, a disruptive discard-confirm — before the drag gesture even registered; dragging now starts from a dedicated grip handle instead of the whole row.',
+      'FIX: Global search placeholder still read "Search files and content…" though content search was removed; now "Search filenames…".',
+      'IMP: oxlint no longer lints the vendored pdf.worker.mjs bundle (57k lines of noise).',
+      'IMP: Document search advances to the next match on Enter (Shift+Enter for previous); global search results are keyboard-navigable.',
+      'IMP: Page thumbnails release their render cache after drawing instead of holding it for the life of the session.',
+      'NEW: Automated tests (node --test) covering the tree-overlay hide/move/reorder logic and file-list tree building.',
+      "IMP: Split App.jsx's document-loading/switching logic into its own usePdfDocument hook, and pulled pure helpers (byte formatting, bookmark/recent-list updates) into appHelpers.js — same behavior, smaller file.",
     ],
   },
 ]
