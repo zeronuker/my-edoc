@@ -1456,9 +1456,17 @@ html,
   padding-left: 16px;
 }
 
-.tree-folder-label:hover,
-.tree-file:hover {
-  background: var(--cb-surface-3);
+/* Gated to real hover devices — on touch, a plain tap first triggers a
+   simulated :hover state (to support hover-styled sites built mouse-first)
+   and only a second tap actually clicks, so an untapped :hover rule here
+   makes every row need two taps to open. Touch has no hover to fake, so it
+   skips this and the reveal rules below entirely; the always-visible
+   opacity:1 fallback further down takes over for hide-btn/drag-handle. */
+@media (hover: hover) {
+  .tree-folder-label:hover,
+  .tree-file:hover {
+    background: var(--cb-surface-3);
+  }
 }
 
 .tree-hide-btn {
@@ -1481,15 +1489,25 @@ html,
   cursor: grab;
 }
 
-.tree-folder-label:hover .tree-hide-btn,
-.tree-file:hover .tree-hide-btn,
-.tree-folder-label:hover .tree-drag-handle,
-.tree-file:hover .tree-drag-handle {
-  opacity: 1;
+@media (hover: hover) {
+  .tree-folder-label:hover .tree-hide-btn,
+  .tree-file:hover .tree-hide-btn,
+  .tree-folder-label:hover .tree-drag-handle,
+  .tree-file:hover .tree-drag-handle {
+    opacity: 1;
+  }
+
+  .tree-hide-btn:hover {
+    color: var(--cb-mint);
+  }
 }
 
-.tree-hide-btn:hover {
-  color: var(--cb-mint);
+/* No hover to reveal these on touch — show them plainly instead. */
+@media (hover: none) {
+  .tree-hide-btn,
+  .tree-drag-handle {
+    opacity: 1;
+  }
 }
 
 /* Drag-and-drop reorder/move indicators — a line where the dragged node
