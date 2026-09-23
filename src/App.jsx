@@ -293,8 +293,15 @@ function App() {
   // Wake Lock only holds while the tab is visible — the browser releases
   // it automatically on hide, so re-acquire on visibilitychange instead
   // of trying to fight that.
+  //
+  // While reading, this only kicks in if the user opted into "Keep screen
+  // awake" — a comfort preference. While a legacy-folder copy is running
+  // (copyProgress), it's unconditional instead: there's no resume
+  // checkpoint if the screen locks and iOS later reclaims the tab (see
+  // writeLegacyFiles in fileSystem.js), so an interrupted copy costs a
+  // full redo of however many files were left, not just an inconvenience.
   useEffect(() => {
-    if (!settings.keepAwake || !pdf) return;
+    if (!copyProgress && (!settings.keepAwake || !pdf)) return;
     let lock = null;
     const acquire = async () => {
       try {
@@ -312,7 +319,7 @@ function App() {
       document.removeEventListener("visibilitychange", onVisibility);
       lock?.release();
     };
-  }, [settings.keepAwake, pdf]);
+  }, [settings.keepAwake, pdf, copyProgress]);
 
   function updateSettings(partial) {
     setSettings((prev) => ({ ...prev, ...partial }));
