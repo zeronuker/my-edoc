@@ -1418,6 +1418,18 @@ html,
   color: var(--cb-ink);
 }
 
+/* Folders get a subtle resting tint (one step up from the panel background,
+   same step below the existing hover color) plus a brighter icon, so a row
+   reads as "folder" vs "file" at a glance instead of only by its icon
+   shape — files stay plain. */
+.tree-folder-label {
+  background: var(--cb-surface-2);
+}
+
+.tree-folder-label .tree-icon {
+  color: var(--cb-ink);
+}
+
 .tree-chevron {
   flex-shrink: 0;
   width: 10px;
@@ -1455,8 +1467,14 @@ html,
   padding-bottom: 52px;
 }
 
+/* Vertical guide line tracking each nesting level, like a code editor's
+   file tree — helps place a deeply-nested row (e.g. country/part/file
+   under Civil Aviation Regulation) without losing track of which folder
+   it belongs to. */
 .tree-children {
-  padding-left: 16px;
+  padding-left: 14px;
+  margin-left: 6px;
+  border-left: 1px solid var(--cb-line);
 }
 
 /* Gated to real hover devices — on touch, a plain tap first triggers a
