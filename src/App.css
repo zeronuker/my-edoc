@@ -1404,13 +1404,12 @@ html,
 .tree-folder-label,
 .tree-file {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
   cursor: pointer;
   user-select: none;
   padding: 3px 4px;
   border-radius: var(--cb-radius-sm);
-  white-space: nowrap;
   text-align: left;
   color: var(--cb-ink-2);
 }
@@ -1425,30 +1424,34 @@ html,
   font-size: 10px;
   text-align: center;
   color: var(--cb-ink-dim);
+  margin-top: 2px;
 }
 
 .tree-icon {
   flex-shrink: 0;
   color: var(--cb-ink-dim);
+  margin-top: 1px;
 }
 
 .tree-label {
   flex: 1 1 auto;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
-/* Long names overflow rather than truncate — this scrolls instead.
-   Scoped to just the rows (not .tree-controls above them), so the search
-   box and sort dropdown stay put. flex + min-height:0 bounds this to the
-   space actually available (rather than growing to content height), so
-   the horizontal scrollbar sits at a fixed spot at the bottom of the
-   panel instead of trailing after however many rows are expanded.
-   padding-bottom clears .add-folder-fab, floating in the same corner —
-   otherwise the last row(s) of a long tree end up behind it. */
+/* Long names wrap to a second line instead of scrolling sideways — see
+   .tree-label above. flex + min-height:0 bounds this to the space actually
+   available (rather than growing to content height), so vertical scroll
+   sits at a fixed spot at the bottom of the panel instead of trailing
+   after however many rows are expanded. padding-bottom clears
+   .add-folder-fab, floating in the same corner — otherwise the last
+   row(s) of a long tree end up behind it. */
 .tree-rows {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 52px;
 }
 
@@ -1461,7 +1464,7 @@ html,
    and only a second tap actually clicks, so an untapped :hover rule here
    makes every row need two taps to open. Touch has no hover to fake, so it
    skips this and the reveal rules below entirely; the always-visible
-   opacity:1 fallback further down takes over for hide-btn/drag-handle. */
+   opacity:1 fallback further down takes over for the hide button. */
 @media (hover: hover) {
   .tree-folder-label:hover,
   .tree-file:hover {
@@ -1478,6 +1481,7 @@ html,
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
+  margin-top: 2px;
 }
 
 .tree-drag-handle {
@@ -1485,6 +1489,7 @@ html,
   opacity: 0;
   display: flex;
   align-items: center;
+  margin-top: 2px;
   color: var(--cb-ink-dim);
   cursor: grab;
 }
@@ -1502,10 +1507,12 @@ html,
   }
 }
 
-/* No hover to reveal these on touch — show them plainly instead. */
+/* No hover to reveal the hide button on touch — show it plainly instead.
+   The drag-handle stays hidden: reordering is native HTML5 drag-and-drop,
+   which touch browsers (iOS Safari confirmed) don't trigger from a finger
+   at all, so showing it on touch would just be a control that does nothing. */
 @media (hover: none) {
-  .tree-hide-btn,
-  .tree-drag-handle {
+  .tree-hide-btn {
     opacity: 1;
   }
 }

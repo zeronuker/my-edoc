@@ -82,8 +82,15 @@ function attachTouchGestures(el, pdfViewer, viewMode) {
     if (enableSwipe && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       dx < 0 ? pdfViewer.nextPage() : pdfViewer.previousPage();
     } else if (enableTap && Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 300) {
+      // Outer 25% on each side flips; the middle 50% is a dead zone so a tap
+      // meant for reading/selecting text near the center doesn't also turn
+      // the page. Same split for single- and two-page view: el is the live
+      // reading-pane width, so this already accounts for the sidebar being
+      // open or closed without any extra handling.
       const tapX = e.clientX - el.getBoundingClientRect().left;
-      tapX > el.clientWidth / 2 ? pdfViewer.nextPage() : pdfViewer.previousPage();
+      const ratio = tapX / el.clientWidth;
+      if (ratio < 0.25) pdfViewer.previousPage();
+      else if (ratio > 0.75) pdfViewer.nextPage();
     }
   }
 
