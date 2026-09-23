@@ -176,6 +176,30 @@ html,
   }
 }
 
+/* Phone specifically (real UA check, .is-phone from IS_MOBILE — see
+   App.jsx), not just narrow width: an iPad in portrait is also under
+   880px but keeps the topbar copy as-is. On a phone the toolbar row
+   already has more headroom than the topbar does, so the sidebar toggle
+   moves there instead — same treatment as desktop above, just gated by
+   device type rather than viewport width. Settings stays in the topbar
+   either way, unlike on desktop. */
+.app.is-phone .topbar .sidebar-toggle {
+  display: none;
+}
+
+.app.is-phone .toolbar .sidebar-toggle {
+  display: inline-flex;
+}
+
+.app.is-phone .toolbar .sidebar-toggle + .toolbar-divider {
+  display: block;
+}
+
+/* No extra padding needed here — BrandBanner already carries its own
+   20px left padding (see brand-kit/component/BrandBanner.jsx), which is
+   plenty of edge breathing room once the toggle's own 8px margin is gone
+   from beside it. Adding more would just double up the inset. */
+
 @media (max-width: 880px) {
   .sidebar-backdrop {
     display: block;
@@ -342,7 +366,7 @@ html,
 }
 
 .zoom-input {
-  width: 3.2ch;
+  width: 4ch;
   background: none;
   border: none;
   color: inherit;

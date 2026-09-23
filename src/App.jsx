@@ -791,7 +791,7 @@ function App() {
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
-    <div className="app" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div className={`app${IS_MOBILE ? " is-phone" : ""}`} onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt ready={!showSplash} update={update} />
       {settingsOpen && (
