@@ -1641,13 +1641,21 @@ html,
 }
 
 /* Badge + kebab menu, inline on the folder's own name row (after the
-   label, before the row's own drag-handle/hide-btn slot). */
+   label, before the row's own drag-handle/hide-btn slot). margin-left:
+   auto pins it flush right regardless of how much space the name takes,
+   same as the drag-handle/hide-btn group on a subfolder's own row.
+   margin-top: 2px matches the row's own icon/hide-btn/drag-handle offset
+   (the row aligns to the top for 2-line-wrapped names, so everything
+   sitting beside a single-line name needs the same nudge down to read
+   as level with the text instead of pinned above it). */
 .tree-folder-actions {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
+  margin-left: auto;
+  margin-top: 2px;
 }
 
 .tree-updated-chip {
@@ -1700,7 +1708,7 @@ html,
 .tree-kebab {
   font-size: 16px;
   letter-spacing: -1px;
-  padding: 0 6px;
+  padding: 0 2px 0 6px;
 }
 
 /* Fixed spot on the row, always — the chip/name can vary in length
