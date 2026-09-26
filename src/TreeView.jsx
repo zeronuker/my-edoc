@@ -3,6 +3,27 @@ import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
 import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey } from "./treeOverlay.js";
 
+// One color per nesting depth (root, then each level under it), cycling
+// back to the start past the 5th level. A file has no depth-color of its
+// own — it takes its parent folder's color, tinted toward white so the
+// folder above it still reads as the "full strength" version.
+const LEVEL_COLORS = [
+  "hsl(210 65% 68%)",
+  "hsl(174 60% 58%)",
+  "hsl(140 45% 60%)",
+  "hsl(38 70% 62%)",
+  "hsl(10 65% 65%)",
+];
+
+function folderLevelColor(depth) {
+  return LEVEL_COLORS[depth % LEVEL_COLORS.length];
+}
+
+function fileLevelColor(depth) {
+  const parent = LEVEL_COLORS[(depth - 1) % LEVEL_COLORS.length];
+  return `color-mix(in srgb, ${parent} 50%, white)`;
+}
+
 function FolderIcon() {
   return (
     <svg className="tree-icon" viewBox="0 0 16 16" width="14" height="14" fill="none">
@@ -26,6 +47,7 @@ export function FileIcon() {
         strokeLinejoin="round"
       />
       <path d="M9.5 1.5v3h3" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+      <path d="M5 8.2h6M5 10.4h6M5 12.6h3.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
     </svg>
   );
 }
@@ -328,6 +350,7 @@ function Node({
         title={node.name}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        style={{ "--level-color": fileLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FileIcon />
@@ -370,6 +393,7 @@ function Node({
         title={node.name}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        style={{ "--level-color": folderLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FolderIcon />

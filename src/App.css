@@ -1472,8 +1472,12 @@ html,
   background: var(--cb-surface-2);
 }
 
-.tree-folder-label .tree-icon {
-  color: var(--cb-ink);
+.tree-folder-label > .tree-icon {
+  color: var(--level-color, var(--cb-ink));
+}
+
+.tree-file > .tree-icon {
+  color: var(--level-color, var(--cb-ink-dim));
 }
 
 .tree-chevron {
@@ -1549,7 +1553,8 @@ html,
   position: absolute;
   left: 0;
   width: 1px;
-  background: var(--cb-line);
+  background: var(--level-color, var(--cb-line));
+  opacity: 0.6;
 }
 
 .tree-rail-line-full { top: -3px; bottom: -3px; }
@@ -1562,7 +1567,8 @@ html,
   top: 50%;
   width: 8px;
   height: 1px;
-  background: var(--cb-line);
+  background: var(--level-color, var(--cb-line));
+  opacity: 0.6;
 }
 
 /* Gated to real hover devices — on touch, a plain tap first triggers a
