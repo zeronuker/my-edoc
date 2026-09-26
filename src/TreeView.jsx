@@ -121,11 +121,11 @@ function RefreshIcon() {
   );
 }
 
-// "updated just now" / "updated 5 minutes ago" / "updated 3 hours ago" /
-// "updated 2 days ago" / "updated 4 months ago" / "updated 1 year ago",
-// from a connectedAt epoch-ms timestamp (null if never successfully
-// connected/refreshed yet). Months/years are approximate (30/365 days).
-export function formatRelativeTime(ms) {
+// "just now" / "5 minutes ago" / "3 hours ago" / "2 days ago" /
+// "4 months ago" / "1 year ago", from an epoch-ms timestamp (null if never
+// successfully connected/refreshed/opened yet). Months/years are
+// approximate (30/365 days).
+export function relativeTimeLabel(ms) {
   if (!ms) return null;
   const diff = Date.now() - ms;
   const minute = 60000;
@@ -134,7 +134,7 @@ export function formatRelativeTime(ms) {
   const month = day * 30;
   const year = day * 365;
 
-  if (diff < minute) return "updated just now";
+  if (diff < minute) return "just now";
 
   let value, unit;
   if (diff < hour) {
@@ -153,7 +153,26 @@ export function formatRelativeTime(ms) {
     value = Math.floor(diff / year);
     unit = "year";
   }
-  return `updated ${value} ${unit}${value === 1 ? "" : "s"} ago`;
+  return `${value} ${unit}${value === 1 ? "" : "s"} ago`;
+}
+
+// "updated " + relativeTimeLabel — used where the timestamp appears on its
+// own with no other word to give it context (e.g. RecentView's "opened"
+// list still reads this as a plain relative time).
+export function formatRelativeTime(ms) {
+  const label = relativeTimeLabel(ms);
+  return label && `updated ${label}`;
+}
+
+const SHORT_UNIT = { minute: "m", hour: "h", day: "d", month: "mo", year: "y" };
+
+// "just now" / "5m ago" / "3h ago" / "2d ago" / "4mo ago" / "1y ago" — same
+// timestamp, condensed so it can share a row with the item count.
+function shortRelativeTime(ms) {
+  const label = relativeTimeLabel(ms);
+  if (!label || label === "just now") return label;
+  const [value, unit] = label.split(" ");
+  return `${value}${SHORT_UNIT[unit.replace(/s$/, "")]} ago`;
 }
 
 // Chip + a single "more actions" (⋮) button that reveals Refresh/Remove in
@@ -179,15 +198,20 @@ function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onR
     };
   }, [isOpen, onClose]);
 
-  const updated = formatRelativeTime(folder.connectedAt);
+  const updated = shortRelativeTime(folder.connectedAt);
+  const itemCount = collectFileHandles(folder.tree).length;
 
   return (
     <span className="tree-folder-actions" ref={wrapRef}>
-      {updated && (
-        <span className="tree-updated-chip" title={new Date(folder.connectedAt).toLocaleString()}>
-          {updated}
-        </span>
-      )}
+      <span className="tree-updated-chip" title={folder.connectedAt ? new Date(folder.connectedAt).toLocaleString() : undefined}>
+        {itemCount} item{itemCount === 1 ? "" : "s"}
+        {updated && (
+          <>
+            <span className="tree-updated-dot">·</span>
+            {updated}
+          </>
+        )}
+      </span>
       <button
         className={`tree-icon-btn tree-kebab${isRefreshing ? " spinning" : ""}`}
         title="More actions"
@@ -309,6 +333,8 @@ function Node({
         onDrop={handleDrop}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
+        <FileIcon />
+        <TreeLabel name={node.name} />
         <span
           className="tree-drag-handle"
           title="Drag to reorder"
@@ -321,8 +347,6 @@ function Node({
         >
           <IconGripVertical size={12} />
         </span>
-        <FileIcon />
-        <TreeLabel name={node.name} />
         <button
           className="tree-hide-btn"
           title={`Remove "${node.name}" from view`}

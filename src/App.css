@@ -1666,6 +1666,10 @@ html,
   white-space: nowrap;
 }
 
+.tree-updated-dot {
+  margin: 0 4px;
+}
+
 .tree-icon-btn {
   flex-shrink: 0;
   display: flex;
