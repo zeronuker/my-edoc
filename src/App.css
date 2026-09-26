@@ -1711,6 +1711,20 @@ html,
   padding: 0 2px 0 6px;
 }
 
+/* The generic 44px touch-target bump (@media (pointer: coarse) above)
+   applies to every .tree-icon-btn, this kebab included — on a touch
+   phone that blows this one icon up to 44x44px, throwing off its
+   position next to the badge and the row's own text. This row is
+   already a full-width tap target for opening/closing the folder (same
+   as a subfolder's hide-btn, which gets no such bump either), so this
+   icon can stay at its own compact size here. */
+@media (pointer: coarse) {
+  .tree-folder-actions .tree-kebab {
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
 /* Fixed spot on the row, always — the chip/name can vary in length
    without ever shifting this button. */
 .tree-kebab-menu {
