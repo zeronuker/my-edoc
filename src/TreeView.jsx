@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
 import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey } from "./treeOverlay.js";
@@ -28,6 +28,76 @@ export function FileIcon() {
       <path d="M9.5 1.5v3h3" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
     </svg>
   );
+}
+
+// One guide-rail cell per ancestor level, plus this row's own corner
+// (├ with more siblings below, └ for the last one) — see .tree-rail in
+// App.css for how these render as one continuous line rather than a
+// dashed one. ancestorsLast[i] is whether ancestor level i+1 has no more
+// siblings coming (so its passthrough lane should stay blank instead of
+// carrying a line past this row).
+function TreeRail({ ancestorsLast, isLast }) {
+  return (
+    <span className="tree-rail">
+      {ancestorsLast.map((ancestorIsLast, i) => (
+        <span className="tree-rail-cell" key={i}>
+          {!ancestorIsLast && <span className="tree-rail-line-full" />}
+        </span>
+      ))}
+      <span className="tree-rail-cell">
+        <span className="tree-rail-line-top" />
+        {!isLast && <span className="tree-rail-line-bottom" />}
+        <span className="tree-rail-horiz" />
+      </span>
+    </span>
+  );
+}
+
+// Binary-searches the longest "head…tail" form of `name` that still fits
+// within 2 lines at the label's actual current width, replacing the middle
+// with "…" only when the full name doesn't fit — keeps both the start and
+// the extension visible instead of just truncating the end, which is what
+// actually differs between two files that share a long common prefix.
+// Re-measures on resize (sidebar collapse/expand, phone rotation, ...).
+function TreeLabel({ name }) {
+  const ref = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    function fit() {
+      el.textContent = name;
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 16;
+      const maxHeight = lineHeight * 2 + 1;
+      const overflow = () => el.scrollHeight - maxHeight;
+      if (overflow() <= 0) return;
+
+      function build(budget) {
+        if (budget >= name.length) return name;
+        const headLen = Math.ceil(budget * 0.55);
+        const tailLen = budget - headLen;
+        return name.slice(0, headLen) + "…" + (tailLen > 0 ? name.slice(name.length - tailLen) : "");
+      }
+
+      let lo = 0;
+      let hi = name.length;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi + 1) / 2);
+        el.textContent = build(mid);
+        if (overflow() <= 0) lo = mid;
+        else hi = mid - 1;
+      }
+      el.textContent = build(lo);
+    }
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [name]);
+
+  return <span className="tree-label" ref={ref} />;
 }
 
 function RefreshIcon() {
@@ -177,6 +247,9 @@ function Node({
   node,
   index,
   path,
+  depth,
+  ancestorsLast,
+  isLast,
   onSelectFile,
   selectedHandle,
   actions,
@@ -235,6 +308,7 @@ function Node({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
+        {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <span
           className="tree-drag-handle"
           title="Drag to reorder"
@@ -247,9 +321,8 @@ function Node({
         >
           <IconGripVertical size={12} />
         </span>
-        <span className="tree-chevron" />
         <FileIcon />
-        <span className="tree-label">{node.name}</span>
+        <TreeLabel name={node.name} />
         <button
           className="tree-hide-btn"
           title={`Remove "${node.name}" from view`}
@@ -277,9 +350,9 @@ function Node({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <span className="tree-chevron">{isOpen ? "▾" : "▸"}</span>
+        {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FolderIcon />
-        <span className="tree-label">{node.name}</span>
+        <TreeLabel name={node.name} />
         {!isRoot && (
           <>
             <span
@@ -320,6 +393,9 @@ function Node({
               node={child}
               index={childIndex}
               path={`${path}/${child.name}`}
+              depth={depth + 1}
+              ancestorsLast={[...ancestorsLast, isLast]}
+              isLast={childIndex === node.children.length - 1}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               expandedPaths={expandedPaths}
@@ -429,13 +505,16 @@ export default function TreeView({
     <div className="tree-view">
       <div className="tree-rows">
         {displayFolders.map(
-          (folder) =>
+          (folder, folderIndex) =>
             folder.tree && (
               <Node
                 key={folder.key}
                 node={folder.tree}
-                index={0}
+                index={folderIndex}
                 path={folder.key}
+                depth={0}
+                ancestorsLast={[]}
+                isLast={folderIndex === displayFolders.length - 1}
                 onSelectFile={onSelectFile}
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}

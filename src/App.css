@@ -948,6 +948,28 @@ html,
   filter: var(--reading-filter, none);
 }
 
+/* Search-match highlighting (pdf.js's PDFFindController) lives in the text
+   layer, not the canvas, so the filter above never touches it — pdf.js's
+   default colors are tuned for a plain white page and went murky on Night's
+   dark one. pdf.js sets --highlight-bg-color/--highlight-selected-bg-color
+   directly on each ".textLayer .highlight" span (see pdf_viewer.css), so
+   the override needs to match that same span, not just an ancestor, or
+   pdf.js's own declaration on the span wins regardless of our specificity. */
+.pdf-viewer-container[data-reading-theme="off"] .textLayer .highlight {
+  --highlight-bg-color: rgb(170 204 40 / 0.45);
+  --highlight-selected-bg-color: rgb(214 62 142 / 0.45);
+}
+
+.pdf-viewer-container[data-reading-theme="sepia"] .textLayer .highlight {
+  --highlight-bg-color: rgb(214 158 0 / 0.45);
+  --highlight-selected-bg-color: rgb(150 99 224 / 0.45);
+}
+
+.pdf-viewer-container[data-reading-theme="night"] .textLayer .highlight {
+  --highlight-bg-color: rgb(255 176 32 / 0.45);
+  --highlight-selected-bg-color: rgb(56 199 246 / 0.45);
+}
+
 .error-banner {
   display: flex;
   align-items: center;
@@ -1429,10 +1451,10 @@ html,
 .tree-file {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
   user-select: none;
-  padding: 3px 4px;
+  padding: 3px 4px 3px 3px;
   border-radius: var(--cb-radius-sm);
   text-align: left;
   color: var(--cb-ink-2);
@@ -1491,14 +1513,56 @@ html,
   padding-bottom: 52px;
 }
 
-/* Vertical guide line tracking each nesting level, like a code editor's
-   file tree — helps place a deeply-nested row (e.g. country/part/file
-   under Civil Aviation Regulation) without losing track of which folder
-   it belongs to. */
-.tree-children {
-  padding-left: 14px;
-  margin-left: 6px;
-  border-left: 1px solid var(--cb-line);
+/* .tree-children itself carries no indent of its own anymore — every row
+   sits at the same one-step position regardless of how deep it's nested
+   (a subfolder's name lines up with its own files, not shifted right of
+   them). See .tree-rail below for the per-row guide line that shows
+   what's nested under what instead. */
+
+/* Per-row guide rail, drawn before the icon on anything nested — one
+   8px lane per ancestor level, holding either a plain passthrough line
+   (an ancestor branch continuing below) or this row's own corner (├ for
+   a row with more siblings after it, └ for the last one). Real 1px
+   lines rather than characters so they render as one unbroken line
+   instead of a dashed one: each line inset -3px past its own cell's
+   top/bottom (matching the row's own 3px padding) so one row's line
+   touches the next row's exactly at the padding seam. The very first
+   lane starts flush with the parent's own icon (no leading margin
+   anywhere in this chain), so a line drops from directly under the
+   folder it belongs to instead of some arbitrary distance to its right;
+   deeper lanes stack one 8px step at a time from there. */
+.tree-rail {
+  display: flex;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+.tree-rail-cell {
+  position: relative;
+  width: 8px;
+  flex-shrink: 0;
+}
+
+.tree-rail-line-full,
+.tree-rail-line-top,
+.tree-rail-line-bottom {
+  position: absolute;
+  left: 0;
+  width: 1px;
+  background: var(--cb-line);
+}
+
+.tree-rail-line-full { top: -3px; bottom: -3px; }
+.tree-rail-line-top { top: -3px; height: calc(50% + 3px); }
+.tree-rail-line-bottom { top: 50%; bottom: -3px; }
+
+.tree-rail-horiz {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 8px;
+  height: 1px;
+  background: var(--cb-line);
 }
 
 /* Gated to real hover devices — on touch, a plain tap first triggers a
@@ -1577,9 +1641,12 @@ html,
 }
 
 /* Second line under the folder name — chip on the left, kebab menu
-   pinned on the right, so neither ever shifts the name above. */
+   pinned on the right, so neither ever shifts the name above. Root
+   folders never have a rail (no ancestor above them), so this only
+   needs to clear the icon: row's own left padding (3px) + icon (14px)
+   + gap (4px). */
 .tree-folder-meta {
-  padding: 0 4px 3px 20px;
+  padding: 0 4px 3px 21px;
 }
 
 .tree-folder-actions {
