@@ -166,13 +166,15 @@ export function formatRelativeTime(ms) {
 
 const SHORT_UNIT = { minute: "m", hour: "h", day: "d", month: "mo", year: "y" };
 
-// "just now" / "5m ago" / "3h ago" / "2d ago" / "4mo ago" / "1y ago" — same
-// timestamp, condensed so it can share a row with the item count.
-function shortRelativeTime(ms) {
+// "now" / "5m" / "3h" / "2d" / "4mo" / "1y" — same timestamp, condensed to
+// fit a small badge on the folder's own name row (exact time is still in
+// the badge's title tooltip).
+function badgeTime(ms) {
   const label = relativeTimeLabel(ms);
-  if (!label || label === "just now") return label;
+  if (!label) return null;
+  if (label === "just now") return "now";
   const [value, unit] = label.split(" ");
-  return `${value}${SHORT_UNIT[unit.replace(/s$/, "")]} ago`;
+  return `${value}${SHORT_UNIT[unit.replace(/s$/, "")]}`;
 }
 
 // Chip + a single "more actions" (⋮) button that reveals Refresh/Remove in
@@ -198,20 +200,15 @@ function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onR
     };
   }, [isOpen, onClose]);
 
-  const updated = shortRelativeTime(folder.connectedAt);
-  const itemCount = collectFileHandles(folder.tree).length;
+  const updated = badgeTime(folder.connectedAt);
 
   return (
     <span className="tree-folder-actions" ref={wrapRef}>
-      <span className="tree-updated-chip" title={folder.connectedAt ? new Date(folder.connectedAt).toLocaleString() : undefined}>
-        {itemCount} item{itemCount === 1 ? "" : "s"}
-        {updated && (
-          <>
-            <span className="tree-updated-dot">·</span>
-            {updated}
-          </>
-        )}
-      </span>
+      {updated && (
+        <span className="tree-updated-badge" title={new Date(folder.connectedAt).toLocaleString()}>
+          {updated}
+        </span>
+      )}
       <button
         className={`tree-icon-btn tree-kebab${isRefreshing ? " spinning" : ""}`}
         title="More actions"
@@ -377,6 +374,7 @@ function Node({
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FolderIcon />
         <TreeLabel name={node.name} />
+        {actions}
         {!isRoot && (
           <>
             <span
@@ -406,9 +404,6 @@ function Node({
           </>
         )}
       </div>
-      {/* Root folders only (actions is undefined for nested subfolders) — its
-          own line so the name above never shifts based on chip/menu width. */}
-      {actions && <div className="tree-folder-meta">{actions}</div>}
       {isOpen && (
         <div className="tree-children">
           {node.children.map((child, childIndex) => (

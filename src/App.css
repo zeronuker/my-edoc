@@ -1640,22 +1640,14 @@ html,
   background: rgba(103, 197, 165, 0.18);
 }
 
-/* Second line under the folder name — chip on the left, kebab menu
-   pinned on the right, so neither ever shifts the name above. Root
-   folders never have a rail (no ancestor above them), so this only
-   needs to clear the icon: row's own left padding (3px) + icon (14px)
-   + gap (4px). */
-.tree-folder-meta {
-  padding: 0 4px 3px 21px;
-}
-
+/* Badge + kebab menu, inline on the folder's own name row (after the
+   label, before the row's own drag-handle/hide-btn slot). */
 .tree-folder-actions {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 4px;
-  width: 100%;
+  flex-shrink: 0;
 }
 
 .tree-updated-chip {
@@ -1666,8 +1658,17 @@ html,
   white-space: nowrap;
 }
 
-.tree-updated-dot {
-  margin: 0 4px;
+/* Compact "2d" / "4mo" badge — exact date/time is in its title tooltip. */
+.tree-updated-badge {
+  flex-shrink: 0;
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  color: var(--cb-ink-dim);
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line);
+  border-radius: var(--cb-radius-sm);
+  padding: 1px 5px;
+  white-space: nowrap;
 }
 
 .tree-icon-btn {
