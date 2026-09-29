@@ -701,6 +701,9 @@ export const CHANGELOG = [
       "FIX: Tapping or drawing near the page edges with an annotation tool active flipped the page instead, since the touch page-turn gesture had no awareness an annotation tool was selected.",
       "IMP: Search results now show each file's folder path, so same-named files in different folders are distinguishable.",
       "IMP: The 15s PDF-load safety timer is now cancelled as soon as loading settles, instead of only when a password prompt appears.",
+      "IMP: Settings (and the changelog you're reading right now) now loads on demand instead of being in the app's initial download.",
+      "IMP: Scrolling past a page thumbnail before it finishes rendering now actually cancels that render, instead of letting it finish for a thumbnail nobody's looking at anymore.",
+      "DEP: Removed dead code and tidied a few lint warnings turned up by the review; no user-visible change.",
     ],
   },
 ]
