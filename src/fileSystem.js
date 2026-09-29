@@ -90,7 +90,7 @@ export function pickFolderLegacy() {
   });
 }
 
-export function buildTreeFromFileList(fileList) {
+export function buildTreeFromFileList(fileList, folderId = null) {
   const files = [...fileList].filter((f) => f.name.toLowerCase().endsWith(".pdf"));
   if (files.length === 0) return null;
 
@@ -114,12 +114,15 @@ export function buildTreeFromFileList(fileList) {
     }
     // relativePath (path within the picked root, e.g. "Work/Q1.pdf") is
     // the OPFS lookup key — see writeLegacyFiles/buildLegacyManifest below.
+    // Also stashed on the handle itself (folderId alongside it) so a Recent
+    // Files entry opened straight from this fresh pick can still be saved
+    // and looked back up in OPFS after the app restarts.
     const relativePath = parts.slice(1).join("/");
     parent.children.push({
       name: file.name,
       kind: "file",
       relativePath,
-      handle: permissiveHandle(file.name, { getFile: async () => file, file }),
+      handle: permissiveHandle(file.name, { getFile: async () => file, file, folderId, relativePath }),
     });
   }
 
@@ -222,6 +225,13 @@ export function buildLegacyManifest(tree) {
   return walk(tree);
 }
 
+// Rebuilds a single legacy file's handle from its OPFS address — used both
+// by reviveLegacyManifest below and by App.jsx to bring back a Recent Files
+// entry that was saved as {folderId, relativePath} instead of a live handle.
+export function reviveLegacyFileHandle(folderId, name, relativePath) {
+  return permissiveHandle(name, { getFile: () => readLegacyFile(folderId, relativePath), folderId, relativePath });
+}
+
 // Rebuilds the buildTreeFromFileList shape from a saved manifest, wiring
 // each file's getFile() to read its bytes back out of OPFS on demand.
 export function reviveLegacyManifest(folderId, manifest) {
@@ -231,7 +241,7 @@ export function reviveLegacyManifest(folderId, manifest) {
         name: node.name,
         kind: "file",
         relativePath: node.relativePath,
-        handle: permissiveHandle(node.name, { getFile: () => readLegacyFile(folderId, node.relativePath) }),
+        handle: reviveLegacyFileHandle(folderId, node.name, node.relativePath),
       };
     }
     return { name: node.name, kind: "directory", children: node.children.map(walk) };

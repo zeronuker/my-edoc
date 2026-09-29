@@ -1,4 +1,4 @@
-import { formatRelativeTime, FileIcon } from "./TreeView.jsx";
+import { FileIcon } from "./TreeView.jsx";
 
 // Flat list of recently opened files, newest first — separate from
 // TreeView's folder tree so a deep file is one click away without hunting
@@ -17,7 +17,6 @@ export default function RecentView({ recentFiles, onSelectFile, selectedHandle }
           <span className="tree-chevron" />
           <FileIcon />
           <span className="tree-label">{entry.name}</span>
-          <span className="tree-updated-chip">{formatRelativeTime(entry.openedAt)}</span>
         </div>
       ))}
     </div>

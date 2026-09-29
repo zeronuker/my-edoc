@@ -435,7 +435,11 @@ export default function TreeView({
                 key={folder.key}
                 node={folder.tree}
                 index={0}
-                path={folder.key}
+                // ponytail: folder.key is a fresh random id every load, so
+                // expand-state must key off the folder name instead to
+                // survive a reload/reupload. Two root folders sharing a
+                // name will share expand-state; fine until that's reported.
+                path={folder.tree.name}
                 onSelectFile={onSelectFile}
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}

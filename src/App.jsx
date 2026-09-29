@@ -8,6 +8,7 @@ import {
   wrapDroppedFile,
   writeLegacyFiles,
   reviveLegacyManifest,
+  reviveLegacyFileHandle,
   reviveInlineLegacyFolder,
   treeByteSize,
   flattenTreeFiles,
@@ -218,7 +219,14 @@ function App() {
       if (legacyNeedsResave) saveFolderList(loaded);
       refreshStorageEstimate();
 
-      setRecentFiles((await dbGet("recentFiles")) || []);
+      const savedRecent = (await dbGet("recentFiles")) || [];
+      setRecentFiles(
+        savedRecent.map((e) =>
+          e.legacy
+            ? { name: e.name, openedAt: e.openedAt, fileHandle: reviveLegacyFileHandle(e.folderId, e.name, e.relativePath) }
+            : e
+        )
+      );
       setBookmarks((await dbGet("bookmarks")) || {});
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
       // One-time cleanup: content search (and the indexed text it stored
@@ -229,7 +237,18 @@ function App() {
 
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
-        if (lastFileHandle) {
+        if (lastFileHandle?.legacy) {
+          // Legacy (iPad/Android) files are saved as an OPFS address rather
+          // than a live handle (see usePdfDocument.js) — "still connected"
+          // just means that folder hasn't been removed since, and there's
+          // no permission grant to lose, so no reconnect prompt is needed.
+          const stillConnected = loaded.some((f) => f.folderId === lastFileHandle.folderId);
+          if (stillConnected) {
+            selectFile(
+              reviveLegacyFileHandle(lastFileHandle.folderId, lastFileHandle.name, lastFileHandle.relativePath)
+            );
+          }
+        } else if (lastFileHandle) {
           // A handle round-tripped through IndexedDB is never === to a
           // fresh scan's handle for the same file — isSameEntry is the
           // only reliable identity check — so this confirms the file still
@@ -237,10 +256,7 @@ function App() {
           // Without it, a file whose folder was removed in a past session
           // would keep resurfacing here forever: the same orphaned-document
           // problem handleRemoveFolder already guards against live, just
-          // hit from the resume-on-launch path instead. Legacy (iPad/
-          // Android) folders are skipped — their handles aren't real
-          // FileSystemHandles and lastFileHandle is never one of theirs
-          // (legacy opens are never saved as lastFileHandle to begin with).
+          // hit from the resume-on-launch path instead.
           let stillConnected = false;
           for (const f of loaded) {
             if (!f.tree || f.dirHandle?.__legacy) continue;
@@ -380,14 +396,24 @@ function App() {
   }
 
   // De-dupes by filename (same key filePositions uses) and caps at 10, most
-  // recent first. Only real (non-legacy) handles get persisted — see the
-  // recentFiles state comment above for why.
+  // recent first. Real handles are saved as-is; legacy (OPFS-backed) handles
+  // can't be cloned into IndexedDB directly, so their {folderId, relativePath}
+  // OPFS address is saved instead and turned back into a working handle on
+  // load (see reviveLegacyFileHandle). A dropped file with no folderId (drag
+  // straight from the OS, never added as a folder) has no OPFS copy to look
+  // up later, so it's left out — same as it always has been.
   function addToRecent(fileHandle) {
     setRecentFiles((prev) => {
       const next = nextRecentFiles(prev, fileHandle);
       dbSet(
         "recentFiles",
-        next.filter((e) => !e.fileHandle.__legacy)
+        next
+          .map((e) => {
+            if (!e.fileHandle.__legacy) return e;
+            if (!e.fileHandle.folderId) return null;
+            return { name: e.name, openedAt: e.openedAt, legacy: true, folderId: e.fileHandle.folderId, relativePath: e.fileHandle.relativePath };
+          })
+          .filter(Boolean)
       );
       return next;
     });
@@ -566,13 +592,13 @@ function App() {
       }
     } else {
       const fileList = await pickFolderLegacy();
-      tree = buildTreeFromFileList(fileList);
+      folderId = crypto.randomUUID();
+      tree = buildTreeFromFileList(fileList, folderId);
       if (!tree) {
         setError("No PDF files found in that folder.");
         return;
       }
       dirHandle = tree.handle;
-      folderId = crypto.randomUUID();
       sizeBytes = treeByteSize(tree);
 
       const estimate = await getStorageEstimate();
@@ -635,12 +661,12 @@ function App() {
         } catch {
           return; // cancelled — leave the existing copy as-is
         }
-        const tree = buildTreeFromFileList(fileList);
+        const newFolderId = crypto.randomUUID();
+        const tree = buildTreeFromFileList(fileList, newFolderId);
         if (!tree) {
           setError("No PDF files found in that folder.");
           return;
         }
-        const newFolderId = crypto.randomUUID();
         const sizeBytes = treeByteSize(tree);
         try {
           await copyFolderFiles(newFolderId, tree, "Refreshing folder", target.dirHandle.name);

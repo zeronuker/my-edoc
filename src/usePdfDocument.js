@@ -174,7 +174,20 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       const positions = (await dbGet("filePositions")) || {};
       pendingRestoreRef.current = positions[fileHandle.name] || null;
       setPdf(doc);
-      if (!fileHandle.__legacy) await dbSet("lastFileHandle", fileHandle);
+      // Real handles clone into IndexedDB as-is; legacy (OPFS-backed) ones
+      // don't (function properties), so their OPFS address is saved instead
+      // and turned back into a working handle on the next launch — same
+      // trick recentFiles uses, see App.jsx's load effect.
+      if (!fileHandle.__legacy) {
+        await dbSet("lastFileHandle", fileHandle);
+      } else if (fileHandle.folderId) {
+        await dbSet("lastFileHandle", {
+          legacy: true,
+          name: fileHandle.name,
+          folderId: fileHandle.folderId,
+          relativePath: fileHandle.relativePath,
+        });
+      }
       addToRecent(fileHandle);
     } catch (err) {
       if (loadTokenRef.current !== token) return;
