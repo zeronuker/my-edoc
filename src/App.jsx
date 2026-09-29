@@ -21,6 +21,8 @@ import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { getAnnotationMode, saveAnnotations } from "./annotations.js";
 import { usePdfDocument } from "./usePdfDocument.js";
 import { useTreeOverlay } from "./useTreeOverlay.js";
+import { useWakeLock } from "./useWakeLock.js";
+import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { collectFileHandles } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
@@ -316,36 +318,13 @@ function App() {
     else document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
 
-  // Wake Lock only holds while the tab is visible — the browser releases
-  // it automatically on hide, so re-acquire on visibilitychange instead
-  // of trying to fight that.
-  //
   // While reading, this only kicks in if the user opted into "Keep screen
   // awake" — a comfort preference. While a legacy-folder copy is running
   // (copyProgress), it's unconditional instead: there's no resume
   // checkpoint if the screen locks and iOS later reclaims the tab (see
   // writeLegacyFiles in fileSystem.js), so an interrupted copy costs a
   // full redo of however many files were left, not just an inconvenience.
-  useEffect(() => {
-    if (!copyProgress && (!settings.keepAwake || !pdf)) return;
-    let lock = null;
-    const acquire = async () => {
-      try {
-        lock = await navigator.wakeLock?.request("screen");
-      } catch {
-        // ignore — e.g. permission denied or unsupported
-      }
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") acquire();
-    };
-    acquire();
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      lock?.release();
-    };
-  }, [settings.keepAwake, pdf, copyProgress]);
+  useWakeLock(!!copyProgress || (settings.keepAwake && !!pdf));
 
   function updateSettings(partial) {
     setSettings((prev) => ({ ...prev, ...partial }));
@@ -372,28 +351,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewerApi, pdf, annotationTool]);
 
-  // Keyboard shortcuts: arrows/PageUp/PageDown for paging, +/- for zoom,
-  // Ctrl/Cmd+F to focus search. Skipped while typing in a field (except
-  // Ctrl/Cmd+F, which has no risk of colliding with normal typing).
-  useEffect(() => {
-    function onKeyDown(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        document.getElementById("doc-search-input")?.focus();
-        return;
-      }
-      const tag = e.target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if (!viewerApi) return;
-      const { pdfViewer } = viewerApi;
-      if (e.key === "ArrowLeft" || e.key === "PageUp") pdfViewer.previousPage();
-      else if (e.key === "ArrowRight" || e.key === "PageDown") pdfViewer.nextPage();
-      else if (e.key === "+" || e.key === "=") pdfViewer.increaseScale();
-      else if (e.key === "-" || e.key === "_") pdfViewer.decreaseScale();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [viewerApi]);
+  useKeyboardShortcuts(viewerApi);
 
   // Saves the lightweight folder list only — real handles (Chromium)
   // structured-clone as-is, and legacy folders save their (already OPFS-
