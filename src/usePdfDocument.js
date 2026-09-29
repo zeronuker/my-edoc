@@ -150,13 +150,13 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     // for the file currently open.
     setViewMode(isNarrow ? "single" : "two-up");
     restoringRef.current = true;
+    let timeoutId;
     try {
       // A sidecar copy (see annotations.js) holds this file's saved
       // annotations when its mode is "sidecar" — load that instead of the
       // original so they carry across sessions; the original is only ever
       // touched in "writeback" mode.
       const file = (await loadAnnotatedCopy(fileHandle.name)) || (await fileHandle.getFile());
-      let timeoutId;
       const timeout = new Promise((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
       });
@@ -196,6 +196,7 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       setPdf(null);
       restoringRef.current = false;
     } finally {
+      clearTimeout(timeoutId);
       if (loadTokenRef.current === token) setLoading(false);
     }
   }
