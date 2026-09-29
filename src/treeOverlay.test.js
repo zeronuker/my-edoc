@@ -16,7 +16,7 @@ function makeFolders() {
 }
 
 test("makeNodeKey joins folder key and relative path", () => {
-  assert.equal(makeNodeKey("f1", "Sub/b.pdf"), "f1:Sub/b.pdf");
+  assert.equal(makeNodeKey("Root", "Sub/b.pdf"), "Root:Sub/b.pdf");
 });
 
 test("applyOverlay with emptyOverlay preserves the tree shape", () => {
@@ -27,7 +27,7 @@ test("applyOverlay with emptyOverlay preserves the tree shape", () => {
 
 test("applyOverlay hides a node and its descendants", () => {
   const folders = makeFolders();
-  const subKey = makeNodeKey("f1", "Sub");
+  const subKey = makeNodeKey("Root", "Sub");
   const [result] = applyOverlay(folders, { ...emptyOverlay, hidden: [subKey] });
   const names = result.tree.children.map((c) => c.name);
   assert.deepEqual(names, ["a.pdf"]);
@@ -40,8 +40,8 @@ test("applyOverlay moves a node to a different parent", () => {
       tree: dir("Root", [file("a.pdf"), dir("Sub", [])]),
     },
   ];
-  const aKey = makeNodeKey("f1", "a.pdf");
-  const subKey = makeNodeKey("f1", "Sub");
+  const aKey = makeNodeKey("Root", "a.pdf");
+  const subKey = makeNodeKey("Root", "Sub");
   const [result] = applyOverlay(folders, { ...emptyOverlay, moves: { [aKey]: subKey } });
   const sub = result.tree.children.find((c) => c.name === "Sub");
   assert.equal(sub.children.length, 1);
@@ -53,8 +53,8 @@ test("applyOverlay refuses a move that would nest a folder inside its own descen
   const folders = [
     { key: "f1", tree: dir("Root", [dir("Parent", [dir("Child", [])])]) },
   ];
-  const parentKey = makeNodeKey("f1", "Parent");
-  const childKey = makeNodeKey("f1", "Parent/Child");
+  const parentKey = makeNodeKey("Root", "Parent");
+  const childKey = makeNodeKey("Root", "Parent/Child");
   const [result] = applyOverlay(folders, { ...emptyOverlay, moves: { [parentKey]: childKey } });
   // Parent should still be a direct child of Root, not moved inside Child.
   const parent = result.tree.children.find((c) => c.name === "Parent");
@@ -65,9 +65,9 @@ test("applyOverlay refuses a move that would nest a folder inside its own descen
 
 test("applyOverlay orders children per the saved order list", () => {
   const folders = [{ key: "f1", tree: dir("Root", [file("b.pdf"), file("a.pdf")]) }];
-  const rootKey = makeNodeKey("f1", "");
-  const bKey = makeNodeKey("f1", "b.pdf");
-  const aKey = makeNodeKey("f1", "a.pdf");
+  const rootKey = makeNodeKey("Root", "");
+  const bKey = makeNodeKey("Root", "b.pdf");
+  const aKey = makeNodeKey("Root", "a.pdf");
   const [result] = applyOverlay(folders, { ...emptyOverlay, order: { [rootKey]: [aKey, bKey] } });
   assert.deepEqual(result.tree.children.map((c) => c.name), ["a.pdf", "b.pdf"]);
 });
@@ -75,13 +75,23 @@ test("applyOverlay orders children per the saved order list", () => {
 test("flattenByKey indexes every node in the tree by key", () => {
   const [result] = applyOverlay(makeFolders(), emptyOverlay);
   const map = flattenByKey([result]);
-  assert.ok(map.has(makeNodeKey("f1", "")));
-  assert.ok(map.has(makeNodeKey("f1", "Sub")));
-  assert.ok(map.has(makeNodeKey("f1", "Sub/b.pdf")));
+  assert.ok(map.has(makeNodeKey("Root", "")));
+  assert.ok(map.has(makeNodeKey("Root", "Sub")));
+  assert.ok(map.has(makeNodeKey("Root", "Sub/b.pdf")));
 });
 
 test("collectFileHandles gathers every leaf file under a node", () => {
   const [result] = applyOverlay(makeFolders(), emptyOverlay);
   const handles = collectFileHandles(result.tree).map((h) => h.name);
   assert.deepEqual(handles.sort(), ["a.pdf", "b.pdf"]);
+});
+
+test("applyOverlay survives folder.key changing across reloads, since it keys by folder name", () => {
+  const overlay = { ...emptyOverlay, hidden: [makeNodeKey("Root", "a.pdf")] };
+  const sessionOne = [{ key: "random-id-session-1", tree: dir("Root", [file("a.pdf"), file("b.pdf")]) }];
+  const sessionTwo = [{ key: "random-id-session-2", tree: dir("Root", [file("a.pdf"), file("b.pdf")]) }];
+  const [resultOne] = applyOverlay(sessionOne, overlay);
+  const [resultTwo] = applyOverlay(sessionTwo, overlay);
+  assert.deepEqual(resultOne.tree.children.map((c) => c.name), ["b.pdf"]);
+  assert.deepEqual(resultTwo.tree.children.map((c) => c.name), ["b.pdf"]);
 });

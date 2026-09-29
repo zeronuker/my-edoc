@@ -40,9 +40,16 @@ export function applyOverlay(folders, overlay) {
     return out;
   }
 
+  // Keyed by the folder's own name, not folder.key — folder.key is a fresh
+  // random id regenerated every app launch (see App.jsx's load effect), so
+  // a saved overlay keyed by it could never match on the next reload. The
+  // name is stable across reloads/re-adds instead, at the cost of two
+  // differently-connected folders sharing the same name also sharing
+  // overlay state — the same tradeoff already accepted for expand-state
+  // persistence (see TreeView.jsx).
   const rootByFolderKey = new Map();
   for (const folder of folders) {
-    if (folder.tree) rootByFolderKey.set(folder.key, clone(folder.tree, "", folder.key, null));
+    if (folder.tree) rootByFolderKey.set(folder.tree.name, clone(folder.tree, "", folder.tree.name, null));
   }
 
   // Reparent per saved moves, skipping anything that would create a cycle
@@ -93,7 +100,7 @@ export function applyOverlay(folders, overlay) {
   }
 
   return folders.map((folder) => {
-    const root = rootByFolderKey.get(folder.key);
+    const root = folder.tree ? rootByFolderKey.get(folder.tree.name) : undefined;
     return root ? { ...folder, tree: root } : folder;
   });
 }
