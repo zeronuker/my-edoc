@@ -28,7 +28,7 @@ export const MAX_SCALE = 5;
 // swipe (two-up only) to flip a spread, pinch (all modes) to zoom.
 // Continuous mode gets none of this — native scroll already does the
 // "swipe to move through the document" job.
-function attachTouchGestures(el, pdfViewer, viewMode) {
+function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
   const pointers = new Map();
   let pinchStartDist = null;
   let pinchStartScale = null;
@@ -76,8 +76,13 @@ function attachTouchGestures(el, pdfViewer, viewMode) {
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;
     const dt = Date.now() - start.time;
-    const enableSwipe = viewMode === "two-up";
-    const enableTap = viewMode !== "continuous";
+    // An annotation tool being active means taps/drags near the edges are
+    // meant for drawing/placing a note there, not turning the page — the
+    // same gesture that flips pages would otherwise fight with annotating
+    // near the margins.
+    const annotating = !!annotationTool;
+    const enableSwipe = viewMode === "two-up" && !annotating;
+    const enableTap = viewMode !== "continuous" && !annotating;
 
     if (enableSwipe && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       dx < 0 ? pdfViewer.nextPage() : pdfViewer.previousPage();
@@ -110,7 +115,15 @@ function attachTouchGestures(el, pdfViewer, viewMode) {
 // PDFFindController), instead of a hand-rolled canvas renderer — gets
 // text selection, find-and-highlight, and zoom presets for free, the
 // same engine Firefox's built-in PDF viewer uses.
-export default function PdfViewer({ pdf, viewMode, onReady, readingTheme, readingBrightness, readingContrast }) {
+export default function PdfViewer({
+  pdf,
+  viewMode,
+  onReady,
+  readingTheme,
+  readingBrightness,
+  readingContrast,
+  annotationTool,
+}) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const pdfViewerRef = useRef(null);
@@ -136,8 +149,8 @@ export default function PdfViewer({ pdf, viewMode, onReady, readingTheme, readin
 
   useEffect(() => {
     if (!pdfViewerRef.current) return;
-    return attachTouchGestures(containerRef.current, pdfViewerRef.current, viewMode);
-  }, [viewMode]);
+    return attachTouchGestures(containerRef.current, pdfViewerRef.current, viewMode, annotationTool);
+  }, [viewMode, annotationTool]);
 
   // pdf.js only resolves a named scale ("page-fit", "page-width", ...) into
   // an actual number on load — it doesn't re-fit when the container is

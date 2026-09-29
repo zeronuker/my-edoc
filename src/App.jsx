@@ -1116,6 +1116,7 @@ function App() {
             readingTheme={settings.readingTheme}
             readingBrightness={settings.readingBrightness}
             readingContrast={settings.readingContrast}
+            annotationTool={annotationTool}
           />
           {loading ? (
             <div className="viewer-empty">
