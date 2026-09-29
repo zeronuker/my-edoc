@@ -20,6 +20,8 @@ import { deleteLegacyFolderFiles } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { getAnnotationMode, saveAnnotations } from "./annotations.js";
 import { usePdfDocument } from "./usePdfDocument.js";
+import { useTreeOverlay } from "./useTreeOverlay.js";
+import { collectFileHandles } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
@@ -146,6 +148,11 @@ function App() {
     clearDocument,
     reopenLastFile,
   } = usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, addToRecent, setError });
+
+  // Shared between the sidebar tree (renders/edits it) and search (needs the
+  // same filtered/reordered view so a hidden file doesn't still show up as a
+  // result) — see useTreeOverlay.js.
+  const { displayFolders, hideNode, dropNode } = useTreeOverlay(folders.filter((f) => f.tree));
 
   // Restore last session: directory handles need a user gesture to
   // re-request permission in most browsers, so folders without it show
@@ -756,6 +763,13 @@ function App() {
     }
   }
 
+  // TreeView's × button — apply the overlay change, then close the doc if
+  // it (or something under it) was just hidden, same as removing a folder.
+  function handleHideNode(node) {
+    hideNode(node);
+    handleFilesRemovedFromView(collectFileHandles(node));
+  }
+
   function handleDragOver(e) {
     e.preventDefault();
   }
@@ -1039,13 +1053,14 @@ function App() {
               </div>
             )}
             <TreeView
-              folders={folders.filter((f) => f.tree)}
+              displayFolders={displayFolders}
               onSelectFile={selectFile}
               selectedHandle={selectedHandle}
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
               refreshingKeys={refreshingKeys}
-              onFilesRemovedFromView={handleFilesRemovedFromView}
+              onHide={handleHideNode}
+              onDropNode={dropNode}
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the
                 corner as the tree scrolls underneath it. */}
@@ -1126,7 +1141,7 @@ function App() {
               </span>
             </div>
           ) : globalSearch.trim() && !pdf ? (
-            <SearchResults query={globalSearch} folders={folders} onOpenResult={selectFile} />
+            <SearchResults query={globalSearch} folders={displayFolders} onOpenResult={selectFile} />
           ) : !pdf ? (
             <div className="viewer-empty">
               {pendingReopen ? (

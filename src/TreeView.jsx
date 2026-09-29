@@ -1,7 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
-import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey } from "./treeOverlay.js";
 
 // One color per nesting depth (root, then each level under it), cycling
 // back to the start past the 5th level. A file has no depth-color of its
@@ -457,13 +456,14 @@ function Node({
 }
 
 export default function TreeView({
-  folders,
+  displayFolders,
   onSelectFile,
   selectedHandle,
   onRemoveFolder,
   onRefreshFolder,
   refreshingKeys,
-  onFilesRemovedFromView,
+  onHide,
+  onDropNode,
 }) {
   // Only one folder's actions menu open at a time.
   const [openActionsKey, setOpenActionsKey] = useState(null);
@@ -472,10 +472,6 @@ export default function TreeView({
   // above) before the saved set has loaded, which would otherwise clobber it.
   const expandedLoadedRef = useRef(false);
 
-  // Hide/reorder/move layer — see treeOverlay.js. Purely virtual: never
-  // touches the real folders on disk, only how they're displayed here.
-  const [overlay, setOverlay] = useState(emptyOverlay);
-  const overlayLoadedRef = useRef(false);
   // Set (not state) so a drag reads the same value it started with even
   // through the many dragover events fired mid-drag.
   const dragKeyRef = useRef(null);
@@ -494,19 +490,6 @@ export default function TreeView({
     dbSet("expandedFolders", [...expandedPaths]);
   }, [expandedPaths]);
 
-  useEffect(() => {
-    (async () => {
-      const saved = await dbGet("treeOverlay");
-      if (saved) setOverlay(saved);
-      overlayLoadedRef.current = true;
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!overlayLoadedRef.current) return;
-    dbSet("treeOverlay", overlay);
-  }, [overlay]);
-
   const toggleOpen = (path) => {
     setExpandedPaths((prev) => {
       const next = new Set(prev);
@@ -516,33 +499,7 @@ export default function TreeView({
     });
   };
 
-  const displayFolders = useMemo(() => applyOverlay(folders, overlay), [folders, overlay]);
-
-  function handleHide(node) {
-    setOverlay((prev) => ({ ...prev, hidden: [...prev.hidden, node.key] }));
-    onFilesRemovedFromView(collectFileHandles(node));
-  }
-
-  function handleDropNode(draggedKey, targetParentKey, index) {
-    const nodesByKey = flattenByKey(displayFolders);
-    const targetParent = nodesByKey.get(targetParentKey);
-    if (!targetParent) return;
-    // Refuse to drop a folder into itself or one of its own descendants.
-    let cur = targetParent;
-    while (cur) {
-      if (cur.key === draggedKey) return;
-      cur = cur.parentKey ? nodesByKey.get(cur.parentKey) : null;
-    }
-    const siblingKeys = targetParent.children.map((c) => c.key).filter((k) => k !== draggedKey);
-    siblingKeys.splice(index, 0, draggedKey);
-    setOverlay((prev) => ({
-      ...prev,
-      moves: { ...prev.moves, [draggedKey]: targetParentKey },
-      order: { ...prev.order, [targetParentKey]: siblingKeys },
-    }));
-  }
-
-  if (!folders.length) return null;
+  if (!displayFolders.length) return null;
 
   return (
     <div className="tree-view">
@@ -566,8 +523,8 @@ export default function TreeView({
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}
                 onToggleOpen={toggleOpen}
-                onHide={handleHide}
-                onDropNode={handleDropNode}
+                onHide={onHide}
+                onDropNode={onDropNode}
                 dragKeyRef={dragKeyRef}
                 dropTarget={dropTarget}
                 setDropTarget={setDropTarget}
