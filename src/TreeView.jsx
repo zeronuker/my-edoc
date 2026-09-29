@@ -1,7 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
 import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey } from "./treeOverlay.js";
+
+// One color per nesting depth (root, then each level under it), cycling
+// back to the start past the 5th level. A file has no depth-color of its
+// own — it takes its parent folder's color, tinted toward white so the
+// folder above it still reads as the "full strength" version.
+const LEVEL_COLORS = [
+  "hsl(210 65% 68%)",
+  "hsl(174 60% 58%)",
+  "hsl(140 45% 60%)",
+  "hsl(38 70% 62%)",
+  "hsl(10 65% 65%)",
+];
+
+function folderLevelColor(depth) {
+  return LEVEL_COLORS[depth % LEVEL_COLORS.length];
+}
+
+function fileLevelColor(depth) {
+  const parent = LEVEL_COLORS[(depth - 1) % LEVEL_COLORS.length];
+  return `color-mix(in srgb, ${parent} 50%, white)`;
+}
 
 function FolderIcon() {
   return (
@@ -26,8 +47,79 @@ export function FileIcon() {
         strokeLinejoin="round"
       />
       <path d="M9.5 1.5v3h3" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+      <path d="M5 8.2h6M5 10.4h6M5 12.6h3.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
     </svg>
   );
+}
+
+// One guide-rail cell per ancestor level, plus this row's own corner
+// (├ with more siblings below, └ for the last one) — see .tree-rail in
+// App.css for how these render as one continuous line rather than a
+// dashed one. ancestorsLast[i] is whether ancestor level i+1 has no more
+// siblings coming (so its passthrough lane should stay blank instead of
+// carrying a line past this row).
+function TreeRail({ ancestorsLast, isLast }) {
+  return (
+    <span className="tree-rail">
+      {ancestorsLast.map((ancestorIsLast, i) => (
+        <span className="tree-rail-cell" key={i}>
+          {!ancestorIsLast && <span className="tree-rail-line-full" />}
+        </span>
+      ))}
+      <span className="tree-rail-cell">
+        <span className="tree-rail-line-top" />
+        {!isLast && <span className="tree-rail-line-bottom" />}
+        <span className="tree-rail-horiz" />
+      </span>
+    </span>
+  );
+}
+
+// Binary-searches the longest "head…tail" form of `name` that still fits
+// within 2 lines at the label's actual current width, replacing the middle
+// with "…" only when the full name doesn't fit — keeps both the start and
+// the extension visible instead of just truncating the end, which is what
+// actually differs between two files that share a long common prefix.
+// Re-measures on resize (sidebar collapse/expand, phone rotation, ...).
+function TreeLabel({ name }) {
+  const ref = useRef(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    function fit() {
+      el.textContent = name;
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 16;
+      const maxHeight = lineHeight * 2 + 1;
+      const overflow = () => el.scrollHeight - maxHeight;
+      if (overflow() <= 0) return;
+
+      function build(budget) {
+        if (budget >= name.length) return name;
+        const headLen = Math.ceil(budget * 0.55);
+        const tailLen = budget - headLen;
+        return name.slice(0, headLen) + "…" + (tailLen > 0 ? name.slice(name.length - tailLen) : "");
+      }
+
+      let lo = 0;
+      let hi = name.length;
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi + 1) / 2);
+        el.textContent = build(mid);
+        if (overflow() <= 0) lo = mid;
+        else hi = mid - 1;
+      }
+      el.textContent = build(lo);
+    }
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [name]);
+
+  return <span className="tree-label" ref={ref} />;
 }
 
 function RefreshIcon() {
@@ -51,11 +143,11 @@ function RefreshIcon() {
   );
 }
 
-// "updated just now" / "updated 5 minutes ago" / "updated 3 hours ago" /
-// "updated 2 days ago" / "updated 4 months ago" / "updated 1 year ago",
-// from a connectedAt epoch-ms timestamp (null if never successfully
-// connected/refreshed yet). Months/years are approximate (30/365 days).
-export function formatRelativeTime(ms) {
+// "just now" / "5 minutes ago" / "3 hours ago" / "2 days ago" /
+// "4 months ago" / "1 year ago", from an epoch-ms timestamp (null if never
+// successfully connected/refreshed/opened yet). Months/years are
+// approximate (30/365 days).
+export function relativeTimeLabel(ms) {
   if (!ms) return null;
   const diff = Date.now() - ms;
   const minute = 60000;
@@ -64,7 +156,7 @@ export function formatRelativeTime(ms) {
   const month = day * 30;
   const year = day * 365;
 
-  if (diff < minute) return "updated just now";
+  if (diff < minute) return "just now";
 
   let value, unit;
   if (diff < hour) {
@@ -83,7 +175,28 @@ export function formatRelativeTime(ms) {
     value = Math.floor(diff / year);
     unit = "year";
   }
-  return `updated ${value} ${unit}${value === 1 ? "" : "s"} ago`;
+  return `${value} ${unit}${value === 1 ? "" : "s"} ago`;
+}
+
+// "updated " + relativeTimeLabel — used where the timestamp appears on its
+// own with no other word to give it context (e.g. RecentView's "opened"
+// list still reads this as a plain relative time).
+export function formatRelativeTime(ms) {
+  const label = relativeTimeLabel(ms);
+  return label && `updated ${label}`;
+}
+
+const SHORT_UNIT = { minute: "m", hour: "h", day: "d", month: "mo", year: "y" };
+
+// "now" / "5m" / "3h" / "2d" / "4mo" / "1y" — same timestamp, condensed to
+// fit a small badge on the folder's own name row (exact time is still in
+// the badge's title tooltip).
+function badgeTime(ms) {
+  const label = relativeTimeLabel(ms);
+  if (!label) return null;
+  if (label === "just now") return "now";
+  const [value, unit] = label.split(" ");
+  return `${value}${SHORT_UNIT[unit.replace(/s$/, "")]}`;
 }
 
 // Chip + a single "more actions" (⋮) button that reveals Refresh/Remove in
@@ -109,12 +222,12 @@ function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onR
     };
   }, [isOpen, onClose]);
 
-  const updated = formatRelativeTime(folder.connectedAt);
+  const updated = badgeTime(folder.connectedAt);
 
   return (
     <span className="tree-folder-actions" ref={wrapRef}>
       {updated && (
-        <span className="tree-updated-chip" title={new Date(folder.connectedAt).toLocaleString()}>
+        <span className="tree-updated-badge" title={new Date(folder.connectedAt).toLocaleString()}>
           {updated}
         </span>
       )}
@@ -177,6 +290,9 @@ function Node({
   node,
   index,
   path,
+  depth,
+  ancestorsLast,
+  isLast,
   onSelectFile,
   selectedHandle,
   actions,
@@ -234,7 +350,11 @@ function Node({
         title={node.name}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        style={{ "--level-color": fileLevelColor(depth) }}
       >
+        {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
+        <FileIcon />
+        <TreeLabel name={node.name} />
         <span
           className="tree-drag-handle"
           title="Drag to reorder"
@@ -247,9 +367,6 @@ function Node({
         >
           <IconGripVertical size={12} />
         </span>
-        <span className="tree-chevron" />
-        <FileIcon />
-        <span className="tree-label">{node.name}</span>
         <button
           className="tree-hide-btn"
           title={`Remove "${node.name}" from view`}
@@ -276,10 +393,12 @@ function Node({
         title={node.name}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
+        style={{ "--level-color": folderLevelColor(depth) }}
       >
-        <span className="tree-chevron">{isOpen ? "▾" : "▸"}</span>
+        {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FolderIcon />
-        <span className="tree-label">{node.name}</span>
+        <TreeLabel name={node.name} />
+        {actions}
         {!isRoot && (
           <>
             <span
@@ -309,9 +428,6 @@ function Node({
           </>
         )}
       </div>
-      {/* Root folders only (actions is undefined for nested subfolders) — its
-          own line so the name above never shifts based on chip/menu width. */}
-      {actions && <div className="tree-folder-meta">{actions}</div>}
       {isOpen && (
         <div className="tree-children">
           {node.children.map((child, childIndex) => (
@@ -320,6 +436,9 @@ function Node({
               node={child}
               index={childIndex}
               path={`${path}/${child.name}`}
+              depth={depth + 1}
+              ancestorsLast={[...ancestorsLast, isLast]}
+              isLast={childIndex === node.children.length - 1}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
               expandedPaths={expandedPaths}
@@ -429,17 +548,20 @@ export default function TreeView({
     <div className="tree-view">
       <div className="tree-rows">
         {displayFolders.map(
-          (folder) =>
+          (folder, folderIndex) =>
             folder.tree && (
               <Node
                 key={folder.key}
                 node={folder.tree}
-                index={0}
+                index={folderIndex}
                 // ponytail: folder.key is a fresh random id every load, so
                 // expand-state must key off the folder name instead to
                 // survive a reload/reupload. Two root folders sharing a
                 // name will share expand-state; fine until that's reported.
                 path={folder.tree.name}
+                depth={0}
+                ancestorsLast={[]}
+                isLast={folderIndex === displayFolders.length - 1}
                 onSelectFile={onSelectFile}
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}

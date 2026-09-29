@@ -167,6 +167,7 @@ export default function PdfViewer({ pdf, viewMode, onReady, readingTheme, readin
       <div
         className="pdf-viewer-container"
         style={{ "--reading-filter": buildReadingFilter(readingTheme, readingBrightness, readingContrast) }}
+        data-reading-theme={readingTheme}
         ref={containerRef}
       >
         <div className="pdfViewer" ref={viewerRef} />
