@@ -176,6 +176,22 @@ export function flattenTreeFileHandles(tree) {
   return out;
 }
 
+// Same idea as flattenTreeFileHandles, but also carries each file's folder
+// path within the tree (empty string for a file at the root) — global
+// search uses this to disambiguate same-named files in different folders.
+export function flattenTreeFileHandlesWithPath(tree) {
+  const out = [];
+  function walk(node, prefix) {
+    if (node.kind === "file") {
+      out.push({ name: node.name, path: prefix.slice(0, -1), handle: node.handle });
+      return;
+    }
+    for (const child of node.children) walk(child, `${prefix}${node.name}/`);
+  }
+  for (const child of tree.children) walk(child, "");
+  return out;
+}
+
 // Writes every file in a freshly-picked legacy tree into its own OPFS
 // subdirectory (folderId) — this is the actual persisted copy. Called once
 // at connect time and once per refresh (into a *new* folderId — see

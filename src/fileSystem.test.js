@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildTreeFromFileList, wrapDroppedFile } from "./fileSystem.js";
+import { buildTreeFromFileList, flattenTreeFileHandlesWithPath, wrapDroppedFile } from "./fileSystem.js";
 
 function mockFile(webkitRelativePath) {
   const name = webkitRelativePath.split("/").pop();
@@ -34,4 +34,20 @@ test("wrapDroppedFile exposes a getFile() returning the original file", async ()
   const handle = wrapDroppedFile(file);
   assert.equal(handle.name, "dropped.pdf");
   assert.equal(await handle.getFile(), file);
+});
+
+test("flattenTreeFileHandlesWithPath leaves root-level files with an empty path", () => {
+  const tree = buildTreeFromFileList([mockFile("Lib/a.pdf")]);
+  const [file] = flattenTreeFileHandlesWithPath(tree);
+  assert.equal(file.name, "a.pdf");
+  assert.equal(file.path, "");
+});
+
+test("flattenTreeFileHandlesWithPath reports each nested file's folder path", () => {
+  const tree = buildTreeFromFileList([mockFile("Lib/a.pdf"), mockFile("Lib/Sub/b.pdf")]);
+  const files = flattenTreeFileHandlesWithPath(tree);
+  const a = files.find((f) => f.name === "a.pdf");
+  const b = files.find((f) => f.name === "b.pdf");
+  assert.equal(a.path, "");
+  assert.equal(b.path, "Sub");
 });

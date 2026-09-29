@@ -68,7 +68,17 @@ export default function ThumbnailView({ pdf, numPages, currentPage, onSelect }) 
   return (
     <div className="thumbnail-view">
       {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
-        <Thumbnail key={n} pdf={pdf} pageNumber={n} isActive={n === currentPage} onSelect={onSelect} />
+        // Keying by document identity too (not just page number) forces a
+        // fresh Thumbnail instance on document switch — otherwise a same-
+        // numbered page from the previous document's already-rendered
+        // canvas stays on screen instead of redrawing for the new one.
+        <Thumbnail
+          key={`${pdf.fingerprints?.[0] ?? ""}-${n}`}
+          pdf={pdf}
+          pageNumber={n}
+          isActive={n === currentPage}
+          onSelect={onSelect}
+        />
       ))}
     </div>
   );

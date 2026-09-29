@@ -1467,6 +1467,11 @@ html,
   margin-bottom: 4px;
 }
 
+.search-result-file-path {
+  font-size: 0.85em;
+  color: var(--cb-ink-dim);
+}
+
 .tree-folder-label,
 .tree-file {
   display: flex;

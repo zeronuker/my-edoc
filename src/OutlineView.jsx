@@ -14,7 +14,18 @@ function OutlineNode({ item, path, linkService, onNavigate, expandedKeys, onTogg
       linkService?.goToDestination(item.dest);
       onNavigate?.();
     } else if (item.url) {
-      window.open(item.url, "_blank", "noopener,noreferrer");
+      // Outline links come from the PDF itself — a hostile file could embed
+      // a javascript:/data: URI instead of a real address, so only ever
+      // open protocols that can't execute anything.
+      let parsed;
+      try {
+        parsed = new URL(item.url);
+      } catch {
+        return;
+      }
+      if (["http:", "https:", "mailto:"].includes(parsed.protocol)) {
+        window.open(item.url, "_blank", "noopener,noreferrer");
+      }
     }
   }
 

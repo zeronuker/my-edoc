@@ -1,10 +1,10 @@
-import { flattenTreeFileHandles } from "./fileSystem.js";
+import { flattenTreeFileHandlesWithPath } from "./fileSystem.js";
 
 // Full main-pane replacement while a global search query is active —
 // matches filenames only (no document content indexing).
 export default function SearchResults({ query, folders, onOpenResult }) {
   const q = query.trim().toLowerCase();
-  const files = folders.filter((f) => f.tree).flatMap((f) => flattenTreeFileHandles(f.tree));
+  const files = folders.filter((f) => f.tree).flatMap((f) => flattenTreeFileHandlesWithPath(f.tree));
   const results = files.filter((f) => f.name.toLowerCase().includes(q));
 
   return (
@@ -31,6 +31,7 @@ export default function SearchResults({ query, folders, onOpenResult }) {
             }}
           >
             <p className="search-result-file-name">{r.name}</p>
+            {r.path && <p className="search-result-file-path">{r.path}</p>}
           </div>
         ))}
       </div>
