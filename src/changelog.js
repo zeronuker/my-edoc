@@ -664,7 +664,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.5', date: 'Sep 2026', current: true, title: 'Code review pass: memory leak, save-fail, drag-reorder & more',
+    v: 'v10.5', date: 'Sep 2026', title: 'Code review pass: memory leak, save-fail, drag-reorder & more',
     notes: [
       "FIX: Switching or closing a PDF never freed the previous document's worker-side heap (fonts, decoded bitmaps, render streams), leaking for as long as the tab stayed open; now destroyed the moment it's replaced or closed.",
       "FIX: A failed annotation save (revoked file permission, disk full) failed completely silently; now surfaces through the existing error banner instead of an unhandled rejection.",
@@ -675,6 +675,20 @@ export const CHANGELOG = [
       'IMP: Page thumbnails release their render cache after drawing instead of holding it for the life of the session.',
       'NEW: Automated tests (node --test) covering the tree-overlay hide/move/reorder logic and file-list tree building.',
       "IMP: Split App.jsx's document-loading/switching logic into its own usePdfDocument hook, and pulled pure helpers (byte formatting, bookmark/recent-list updates) into appHelpers.js — same behavior, smaller file.",
+    ],
+  },
+  {
+    v: 'v10.6', date: 'Sep 2026', title: 'Persist folder expand-state and legacy Recent/resume files',
+    notes: [
+      "FIX: Folder expand/collapse state was keyed to a random id regenerated on every app launch, so the tree rendered fully collapsed after every restart; now keyed to the folder's name, which stays stable across reloads and folder re-adds.",
+      "FIX: iPad/Android (OPFS-backed) files were silently excluded from the Recent list and last-opened-file resume, since their handles carry function properties IndexedDB can't clone; their {folder, relative path} address is now saved instead and turned back into a working handle on the next launch.",
+      'IMP: Dropped the "updated X ago" chip from Recent tab rows — redundant now that the list is already sorted newest-first.',
+    ],
+  },
+  {
+    v: 'v10.7', date: 'Sep 2026', current: true, title: 'Clear all button for Recent tab',
+    notes: [
+      'NEW: "Clear all" button in the Recent tab wipes the list immediately, both in memory and in storage.',
     ],
   },
 ]
