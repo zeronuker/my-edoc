@@ -1,7 +1,7 @@
 {
   "name": "edoc",
   "private": true,
-  "version": "10.5.0",
+  "version": "10.7.0",
   "type": "module",
   "scripts": {
     "dev": "node brand-kit/scripts/write-build-info.mjs && vite",
