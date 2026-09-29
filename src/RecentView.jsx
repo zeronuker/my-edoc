@@ -3,10 +3,15 @@ import { FileIcon } from "./TreeView.jsx";
 // Flat list of recently opened files, newest first — separate from
 // TreeView's folder tree so a deep file is one click away without hunting
 // through folders.
-export default function RecentView({ recentFiles, onSelectFile, selectedHandle }) {
+export default function RecentView({ recentFiles, onSelectFile, selectedHandle, onClearAll }) {
   if (!recentFiles.length) return null;
   return (
     <div className="tree-view recent-view">
+      <div className="recent-header">
+        <button className="recent-clear-btn" onClick={onClearAll}>
+          Clear all
+        </button>
+      </div>
       {recentFiles.map((entry) => (
         <div
           key={entry.name + entry.openedAt}

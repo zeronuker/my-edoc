@@ -419,6 +419,11 @@ function App() {
     });
   }
 
+  function clearRecent() {
+    setRecentFiles([]);
+    dbSet("recentFiles", []);
+  }
+
   // Shared read-modify-write for one file's bookmark list — updater gets the
   // existing list (or []) and returns the new one; an empty result drops the
   // file's key entirely rather than persisting a stale empty array.
@@ -947,7 +952,12 @@ function App() {
           )}
           {activeTab === "recent" && (
             <div className="sidebar-tab-panel">
-              <RecentView recentFiles={recentFiles} onSelectFile={selectFile} selectedHandle={selectedHandle} />
+              <RecentView
+                recentFiles={recentFiles}
+                onSelectFile={selectFile}
+                selectedHandle={selectedHandle}
+                onClearAll={clearRecent}
+              />
             </div>
           )}
           {activeTab === "bookmarks" && (
