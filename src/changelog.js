@@ -686,9 +686,21 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.7', date: 'Sep 2026', current: true, title: 'Clear all button for Recent tab',
+    v: 'v10.7', date: 'Sep 2026', title: 'Clear all button for Recent tab',
     notes: [
       'NEW: "Clear all" button in the Recent tab wipes the list immediately, both in memory and in storage.',
+    ],
+  },
+  {
+    v: 'v10.8', date: 'Sep 2026', current: true, title: 'Second code review pass: hidden-file persistence, security, thumbnails',
+    notes: [
+      "FIX: Hiding, moving, or reordering files/folders in the tree was silently reset on every reload — folders got a fresh random id on every launch, so the saved overlay could never match it again. Now keyed by the folder's own name instead, the same fix already used for expand-state persistence.",
+      "FIX: Global search read the raw, unfiltered file list, so a file hidden from the tree still showed up (and opened) from search; search and the tree now share the same filtered view.",
+      "FIX: A PDF's table of contents could embed a javascript: link that ran unchecked; outline links are now limited to http/https/mailto.",
+      "FIX: Switching documents could leave the Pages panel showing a previous, different document's thumbnails for pages that hadn't redrawn yet.",
+      "FIX: Tapping or drawing near the page edges with an annotation tool active flipped the page instead, since the touch page-turn gesture had no awareness an annotation tool was selected.",
+      "IMP: Search results now show each file's folder path, so same-named files in different folders are distinguishable.",
+      "IMP: The 15s PDF-load safety timer is now cancelled as soon as loading settles, instead of only when a password prompt appears.",
     ],
   },
 ]
