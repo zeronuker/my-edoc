@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { RenderingCancelledException } from "pdfjs-dist";
 
 const THUMB_WIDTH = 100;
 
@@ -18,6 +19,7 @@ function Thumbnail({ pdf, pageNumber, isActive, onSelect }) {
     const el = wrapRef.current;
     if (!el) return;
     let cancelled = false;
+    let renderTask = null;
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries[0].isIntersecting) return;
@@ -36,13 +38,25 @@ function Thumbnail({ pdf, pageNumber, isActive, onSelect }) {
       if (cancelled || !canvas) return;
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      renderTask = page.render({ canvasContext: canvas.getContext("2d"), viewport });
+      try {
+        await renderTask.promise;
+      } catch (err) {
+        // Expected when the thumbnail scrolls out of view mid-render and
+        // gets cancelled below — anything else is a real render failure.
+        if (!(err instanceof RenderingCancelledException)) throw err;
+        return;
+      }
       page.cleanup();
       if (!cancelled) setRendered(true);
     }
 
     return () => {
       cancelled = true;
+      // Scrolled past before it finished rendering — stop the in-flight
+      // work instead of letting it keep running in the worker for a
+      // thumbnail nobody's looking at anymore.
+      renderTask?.cancel();
       observer.disconnect();
     };
   }, [pdf, pageNumber, rendered]);

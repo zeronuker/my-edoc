@@ -146,7 +146,7 @@ function RefreshIcon() {
 // "4 months ago" / "1 year ago", from an epoch-ms timestamp (null if never
 // successfully connected/refreshed/opened yet). Months/years are
 // approximate (30/365 days).
-export function relativeTimeLabel(ms) {
+function relativeTimeLabel(ms) {
   if (!ms) return null;
   const diff = Date.now() - ms;
   const minute = 60000;
@@ -175,14 +175,6 @@ export function relativeTimeLabel(ms) {
     unit = "year";
   }
   return `${value} ${unit}${value === 1 ? "" : "s"} ago`;
-}
-
-// "updated " + relativeTimeLabel — used where the timestamp appears on its
-// own with no other word to give it context (e.g. RecentView's "opened"
-// list still reads this as a plain relative time).
-export function formatRelativeTime(ms) {
-  const label = relativeTimeLabel(ms);
-  return label && `updated ${label}`;
 }
 
 const SHORT_UNIT = { minute: "m", hour: "h", day: "d", month: "mo", year: "y" };

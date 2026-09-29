@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import {
   pickFolder,
   scanDirectory,
@@ -55,7 +55,6 @@ import RecentView from "./RecentView.jsx";
 import ThumbnailView from "./ThumbnailView.jsx";
 import PdfViewer from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
-import Settings from "./Settings.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import AnnotationModePicker from "./AnnotationModePicker.jsx";
 import BrandBanner from "@brand/BrandBanner";
@@ -63,6 +62,10 @@ import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
 import { useUpdate } from "@brand/useUpdate";
 import "./App.css";
+
+// Lazy: pulls in the full changelog (see changelog.js) and its own render
+// path, neither needed on first paint — most sessions never open Settings.
+const Settings = lazy(() => import("./Settings.jsx"));
 
 const DEFAULT_SETTINGS = {
   theme: "system",
@@ -847,13 +850,15 @@ function App() {
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt ready={!showSplash} update={update} />
       {settingsOpen && (
-        <Settings
-          settings={settings}
-          onChange={updateSettings}
-          onClose={() => setSettingsOpen(false)}
-          update={update}
-          isMobile={IS_MOBILE}
-        />
+        <Suspense fallback={null}>
+          <Settings
+            settings={settings}
+            onChange={updateSettings}
+            onClose={() => setSettingsOpen(false)}
+            update={update}
+            isMobile={IS_MOBILE}
+          />
+        </Suspense>
       )}
       {copyProgress && (
         <CopyProgressModal
@@ -1125,7 +1130,6 @@ function App() {
               next open. Loading/search-results/empty states are layered on
               top of it instead, same trick .viewer-empty already used. */}
           <PdfViewer
-            pdf={pdf}
             viewMode={viewMode}
             onReady={setViewerApi}
             readingTheme={settings.readingTheme}

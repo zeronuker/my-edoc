@@ -85,7 +85,8 @@ function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
     const enableTap = viewMode !== "continuous" && !annotating;
 
     if (enableSwipe && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      dx < 0 ? pdfViewer.nextPage() : pdfViewer.previousPage();
+      if (dx < 0) pdfViewer.nextPage();
+      else pdfViewer.previousPage();
     } else if (enableTap && Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 300) {
       // Outer 25% on each side flips; the middle 50% is a dead zone so a tap
       // meant for reading/selecting text near the center doesn't also turn
@@ -116,7 +117,6 @@ function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
 // text selection, find-and-highlight, and zoom presets for free, the
 // same engine Firefox's built-in PDF viewer uses.
 export default function PdfViewer({
-  pdf,
   viewMode,
   onReady,
   readingTheme,
