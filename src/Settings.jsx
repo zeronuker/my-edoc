@@ -107,6 +107,16 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
           )}
         </div>
 
+        <div className="settings-row">
+          <label htmlFor="settings-disable-auto-update">Disable auto-update</label>
+          <input
+            id="settings-disable-auto-update"
+            type="checkbox"
+            checked={update.autoUpdateDisabled}
+            onChange={(e) => update.setAutoUpdateDisabled(e.target.checked)}
+          />
+        </div>
+
         <div className="settings-section-head">CHANGELOG</div>
 
         <Changelog changelog={CHANGELOG} />
