@@ -692,7 +692,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.8', date: 'Sep 2026', current: true, title: 'Second code review pass: hidden-file persistence, security, thumbnails',
+    v: 'v10.8', date: 'Sep 2026', title: 'Second code review pass: hidden-file persistence, security, thumbnails',
     notes: [
       "FIX: Hiding, moving, or reordering files/folders in the tree was silently reset on every reload — folders got a fresh random id on every launch, so the saved overlay could never match it again. Now keyed by the folder's own name instead, the same fix already used for expand-state persistence.",
       "FIX: Global search read the raw, unfiltered file list, so a file hidden from the tree still showed up (and opened) from search; search and the tree now share the same filtered view.",
@@ -704,6 +704,12 @@ export const CHANGELOG = [
       "IMP: Settings (and the changelog you're reading right now) now loads on demand instead of being in the app's initial download.",
       "IMP: Scrolling past a page thumbnail before it finishes rendering now actually cancels that render, instead of letting it finish for a thumbnail nobody's looking at anymore.",
       "DEP: Removed dead code and tidied a few lint warnings turned up by the review; no user-visible change.",
+    ],
+  },
+  {
+    v: 'v10.9', date: 'Oct 2026', current: true, title: 'Disable auto-update setting',
+    notes: [
+      "NEW: Settings → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
     ],
   },
 ]
