@@ -1173,7 +1173,7 @@ function App() {
               )}
             </div>
           ) : null}
-          {pdf && !loading && viewMode !== "continuous" && (
+          {pdf && !loading && (
             <div className="page-pill">
               <button
                 aria-label="Previous page"

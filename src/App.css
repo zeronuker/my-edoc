@@ -1024,9 +1024,9 @@ html,
   align-items: center;
   gap: 2px;
   padding: 5px;
-  background: color-mix(in srgb, var(--cb-surface-2) 88%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--cb-surface-2) 55%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: 1px solid var(--cb-line-2);
   border-radius: 999px;
   box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.45);
@@ -1845,7 +1845,7 @@ html,
 .tree-file.selected {
   background: rgba(216, 90, 48, 0.14);
   border-left: 3px solid #D85A30;
-  padding-left: 1px;
+  padding-left: 0;
   color: #F0997B;
 }
 

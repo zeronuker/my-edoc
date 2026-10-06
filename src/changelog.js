@@ -710,6 +710,8 @@ export const CHANGELOG = [
     v: 'v10.9', date: 'Oct 2026', current: true, title: 'Disable auto-update setting',
     notes: [
       "NEW: Settings → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
+      "IMP: The floating page pill now also shows in continuous scroll mode, and is more transparent (less opaque, lighter blur) so it covers less of the page behind it.",
+      "FIX: The selected file's tree guide line sat 1px right of its neighbours' because the selected row's border plus padding was 1px wider than a normal row's padding; the two now match.",
     ],
   },
 ]
