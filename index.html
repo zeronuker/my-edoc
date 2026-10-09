@@ -26,6 +26,15 @@
   <body>
     <div class="ios-top-edge" aria-hidden="true"></div>
     <div id="root"></div>
+    <script>
+      // Make the status-bar band match the top bar colour (brand token), so
+      // band + top-edge strip + top bar read as one.
+      (function () {
+        var c = getComputedStyle(document.documentElement).getPropertyValue('--cb-surface-1').trim();
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (c && m) m.setAttribute('content', c);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

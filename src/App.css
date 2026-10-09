@@ -2138,7 +2138,7 @@ html,
     position: fixed;
     top: 0; left: 0; right: 0;
     height: 12px;
-    background: var(--cb-surface-0);
+    background: var(--cb-surface-1);
     pointer-events: none;
     z-index: 99999;
   }
