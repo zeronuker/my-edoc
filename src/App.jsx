@@ -23,6 +23,7 @@ import { usePdfDocument } from "./usePdfDocument.js";
 import { useTreeOverlay } from "./useTreeOverlay.js";
 import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
+import { useTransitionAnim, ANIM_SPEED_MS } from "./useTransitionAnim.js";
 import { collectFileHandles } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
@@ -77,7 +78,12 @@ const DEFAULT_SETTINGS = {
   readingBrightness: 100,
   readingContrast: 100,
   autoHideSidebar: false,
+  animEnabled: true,
+  animStyle: "slide", // "slide" | "rise"
+  animSpeed: "normal", // "normal" | "slow" | "slower"
 };
+
+const SIDEBAR_TAB_ORDER = ["folders", "recent", "bookmarks", "outline", "pages"];
 
 // Keep in sync with the mobile-layout breakpoint in App.css. Drives the
 // drawer-vs-collapse CSS treatment and the single/two-page default — purely
@@ -317,6 +323,13 @@ function App() {
     if (settings.theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
+
+  // Animation speed for every transition (sidebar tabs, dialogs, sidebar
+  // slide). 0ms when animations are off, so everything becomes instant.
+  useEffect(() => {
+    const ms = settings.animEnabled === false ? 0 : ANIM_SPEED_MS[settings.animSpeed] || ANIM_SPEED_MS.normal;
+    document.documentElement.style.setProperty("--ed-dur", `${ms}ms`);
+  }, [settings.animEnabled, settings.animSpeed]);
 
   // While reading, this only kicks in if the user opted into "Keep screen
   // awake" — a comfort preference. While a legacy-folder copy is running
@@ -801,6 +814,7 @@ function App() {
   };
   const showTabs = tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
+  const sidebarAnim = useTransitionAnim(activeTab, SIDEBAR_TAB_ORDER, settings.animStyle);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -928,7 +942,7 @@ function App() {
             </div>
           )}
           {activeTab === "recent" && (
-            <div className="sidebar-tab-panel">
+            <div className={`sidebar-tab-panel ${sidebarAnim.className}`} style={sidebarAnim.style}>
               <RecentView
                 recentFiles={recentFiles}
                 onSelectFile={selectFile}
@@ -938,7 +952,7 @@ function App() {
             </div>
           )}
           {activeTab === "bookmarks" && (
-            <div className="sidebar-tab-panel">
+            <div className={`sidebar-tab-panel ${sidebarAnim.className}`} style={sidebarAnim.style}>
               <BookmarksView
                 bookmarks={currentBookmarks}
                 currentPage={currentPage}
@@ -951,7 +965,7 @@ function App() {
             </div>
           )}
           {activeTab === "outline" && (
-            <div className="sidebar-tab-panel">
+            <div className={`sidebar-tab-panel ${sidebarAnim.className}`} style={sidebarAnim.style}>
               <OutlineView
                 items={outline}
                 linkService={viewerApi?.linkService}
@@ -962,7 +976,7 @@ function App() {
             </div>
           )}
           {activeTab === "pages" && (
-            <div className="sidebar-tab-panel">
+            <div className={`sidebar-tab-panel ${sidebarAnim.className}`} style={sidebarAnim.style}>
               <ThumbnailView
                 pdf={pdf}
                 numPages={numPages}
@@ -977,7 +991,7 @@ function App() {
           {/* Kept mounted (just hidden) instead of unmounted on tab switch —
               TreeView's expanded-folder state is local to each Node, and
               unmounting it collapses the whole tree back to the root. */}
-          <div className="folders-panel" hidden={activeTab !== "folders"}>
+          <div className={`folders-panel ${sidebarAnim.className}`} style={sidebarAnim.style} hidden={activeTab !== "folders"}>
             {folders.length === 0 && <p className="folders-empty-hint">No folders yet — tap + to add one.</p>}
             {pendingFolders.length > 0 && (
               <div className="pending-folders">

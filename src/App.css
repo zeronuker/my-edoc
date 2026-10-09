@@ -172,7 +172,7 @@ html,
     height: 0;
     border-bottom: none;
     overflow: hidden;
-    transition: height 0.2s ease;
+    transition: height var(--ed-dur, 200ms) ease;
   }
 }
 
@@ -218,7 +218,7 @@ html,
     max-width: 320px;
     z-index: 50;
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    transition: transform var(--ed-dur, 200ms) ease;
   }
 
   .sidebar.open {
@@ -249,7 +249,7 @@ html,
    state. */
 @media (min-width: 881px) {
   .sidebar {
-    transition: width 0.2s ease, padding 0.2s ease;
+    transition: width var(--ed-dur, 200ms) ease, padding var(--ed-dur, 200ms) ease;
   }
 
   .sidebar:not(.open) {
@@ -1859,6 +1859,7 @@ html,
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(3px);
   z-index: 9998;
+  animation: ed-fade var(--ed-dur, 180ms) ease both;
 }
 
 .modal-dialog {
@@ -1874,6 +1875,7 @@ html,
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   padding: 24px 22px 20px;
   font-family: var(--cb-font-body);
+  animation: ed-pop var(--ed-dur, 180ms) ease both;
 }
 
 .update-dialog-header {
@@ -2144,4 +2146,21 @@ html,
   }
   /* Strip overlaps the topbar's own 6px top padding: 11px strip = 5px + 6px. */
   .app { padding-top: calc(env(safe-area-inset-top) + 5px); }
+}
+
+/* ── Transition animations ──────────────────────────────────────────────
+   Sidebar tab bodies slide / fade-rise in; dialogs zoom in softly. Duration
+   comes from --ed-dur (set from Settings → Animation; 0ms when off). */
+@keyframes ed-slide { from { opacity: 0; transform: translateX(calc(var(--dir, 1) * 36px)); } to { opacity: 1; transform: none; } }
+@keyframes ed-rise  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ed-pop   { from { opacity: 0; transform: translate(-50%, -47%) scale(0.97); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes ed-fade  { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ed-anim-slide { animation: ed-slide var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
+  .ed-anim-rise  { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-dialog, .modal-backdrop { animation: none; }
+  .sidebar, .topbar.collapsed { transition: none; }
 }

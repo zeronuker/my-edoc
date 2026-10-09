@@ -68,6 +68,47 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
           </div>
         )}
 
+        <div className="settings-section-head">ANIMATION</div>
+
+        <div className="settings-row">
+          <label htmlFor="settings-anim-enabled">Enable animations</label>
+          <input
+            id="settings-anim-enabled"
+            type="checkbox"
+            checked={settings.animEnabled !== false}
+            onChange={(e) => onChange({ animEnabled: e.target.checked })}
+          />
+        </div>
+
+        {settings.animEnabled !== false && (
+          <>
+            <div className="settings-row">
+              <label htmlFor="settings-anim-style">Transition style</label>
+              <select
+                id="settings-anim-style"
+                value={settings.animStyle === "rise" ? "rise" : "slide"}
+                onChange={(e) => onChange({ animStyle: e.target.value })}
+              >
+                <option value="slide">Slide</option>
+                <option value="rise">Fade rise</option>
+              </select>
+            </div>
+
+            <div className="settings-row">
+              <label htmlFor="settings-anim-speed">Speed</label>
+              <select
+                id="settings-anim-speed"
+                value={settings.animSpeed || "normal"}
+                onChange={(e) => onChange({ animSpeed: e.target.value })}
+              >
+                <option value="normal">Normal</option>
+                <option value="slow">Slow</option>
+                <option value="slower">Slower</option>
+              </select>
+            </div>
+          </>
+        )}
+
         <div className="settings-section-head">APP UPDATE</div>
 
         <div className="settings-row">

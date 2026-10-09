@@ -710,6 +710,7 @@ export const CHANGELOG = [
     v: 'v10.9', date: 'Oct 2026', current: true, title: 'Disable auto-update setting',
     notes: [
       "NEW: Settings → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
+      "NEW: Transition animations. Switching sidebar tabs (Folders, Recent, Bookmarks, Outline, Pages) now slides or fades in, and dialogs open with a soft zoom. Settings → Animation lets you turn animations on or off, pick a style (Slide or Fade rise) and a speed (Normal, Slow or Slower). Turning animations off — or enabling your device's Reduce Motion — makes everything switch instantly.",
       "IMP: The floating page pill now also shows in continuous scroll mode, and is more transparent (less opaque, lighter blur) so it covers less of the page behind it.",
       "FIX: The selected file's tree guide line sat 1px right of its neighbours' because the selected row's border plus padding was 1px wider than a normal row's padding; the two now match.",
       "FIX: iPadOS 27 drew a blur over the top of the installed app (a system effect, not an app element) while the app extended under the status bar. Removed the apple-mobile-web-app-capable / status-bar-style tags and added a permanent 11px top-edge strip in the top bar's colour; the status bar now blends into the top bar. Needs the Home Screen icon removed and re-added once to take effect.",
