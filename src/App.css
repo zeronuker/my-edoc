@@ -2137,11 +2137,10 @@ html,
     display: block;
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: 11px;
+    height: 12px;
     background: var(--cb-surface-0);
     pointer-events: none;
     z-index: 99999;
   }
-  /* Strip overlaps the topbar's own 6px top padding: 11px strip = 5px + 6px. */
-  .app { padding-top: calc(env(safe-area-inset-top) + 5px); }
+  .app { padding-top: calc(env(safe-area-inset-top) + 12px); }
 }
