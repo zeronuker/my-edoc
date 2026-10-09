@@ -112,6 +112,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsClosing, setSettingsClosing] = useState(false);
   const settingsCloseTimer = useRef(null);
+  const topbarRef = useRef(null);
   const update = useUpdate("edoc");
   const [sidebarTab, setSidebarTab] = useState("folders");
   // [{ fileHandle, name, openedAt }], newest first — legacy (OPFS) handles
@@ -325,6 +326,30 @@ function App() {
     if (settings.theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
+
+  // Measure the top bar's natural height into --topbar-h so collapsing it can
+  // animate (CSS can't transition height:auto). Re-measured when its contents or the window resize.
+  useEffect(() => {
+    const el = topbarRef.current;
+    if (!el) return undefined;
+    const measure = () => {
+      if (el.classList.contains("collapsed")) return;
+      el.style.height = "auto";
+      const h = el.offsetHeight;
+      el.style.height = "";
+      if (h) document.documentElement.style.setProperty("--topbar-h", `${h}px`);
+    };
+    measure();
+    // Re-measure whenever a child resizes (e.g. the banner finishing loading)
+    // or the window changes, so a stale height never gets locked in.
+    const ro = new ResizeObserver(measure);
+    Array.from(el.children).forEach((c) => ro.observe(c));
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
 
   // Animation speed for every transition (sidebar tabs, dialogs, sidebar
   // slide). 0ms when animations are off, so everything becomes instant.
@@ -873,7 +898,7 @@ function App() {
           onClose={() => setModePickerOpen(false)}
         />
       )}
-      <div className={`topbar${sidebarOpen ? "" : " collapsed"}`}>
+      <div ref={topbarRef} className={`topbar${sidebarOpen ? "" : " collapsed"}`}>
         <button
           className="icon-btn sidebar-toggle"
           onClick={() => setSidebarOpen((v) => !v)}

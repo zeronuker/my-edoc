@@ -168,11 +168,17 @@ html,
   /* Collapses along with the sidebar so the same toolbar button hides
      both at once — desktop only; the topbar is the mobile sidebar drawer's
      only entry point, so it must stay put there. */
+  .topbar {
+    /* --topbar-h is the measured natural height (App.jsx) — height:auto can't
+       be animated, so the collapse would snap instead of sliding. */
+    height: var(--topbar-h, auto);
+    overflow: hidden;
+    transition: height var(--ed-dur, 200ms) ease;
+  }
+
   .topbar.collapsed {
     height: 0;
     border-bottom: none;
-    overflow: hidden;
-    transition: height var(--ed-dur, 200ms) ease;
   }
 }
 
@@ -250,6 +256,14 @@ html,
 @media (min-width: 881px) {
   .sidebar {
     transition: width var(--ed-dur, 200ms) ease, padding var(--ed-dur, 200ms) ease;
+    will-change: width;
+  }
+
+  /* Keep the contents at their full width while the sidebar slides, so the
+     tree/tabs/search don't re-wrap and re-layout on every animation frame
+     (the cause of the stutter). 264 = 280px sidebar - 2 x 8px padding. */
+  .sidebar > * {
+    min-width: 264px;
   }
 
   .sidebar:not(.open) {
