@@ -2142,6 +2142,5 @@ html,
     pointer-events: none;
     z-index: 99999;
   }
-  /* Strip overlaps the topbar's own 6px top padding, so only 6px is added. */
-  .app { padding-top: calc(env(safe-area-inset-top) + 6px); }
+  .app { padding-top: calc(env(safe-area-inset-top) + 12px); }
 }
