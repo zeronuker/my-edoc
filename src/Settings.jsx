@@ -8,11 +8,11 @@ const APP_VERSION = currentVersion(CHANGELOG);
 
 // Same modal shell as UpdatePrompt.jsx (.modal-backdrop/.modal-dialog),
 // just with settings controls instead of an update notice.
-export default function Settings({ settings, onChange, onClose, update, isMobile }) {
+export default function Settings({ settings, onChange, onClose, update, isMobile, closing }) {
   return (
     <>
-      <div className="modal-backdrop" onClick={onClose} />
-      <div className="modal-dialog settings-dialog">
+      <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
+      <div className={`modal-dialog settings-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <span className="update-dialog-icon">⚙</span>
           <div>

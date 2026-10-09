@@ -110,6 +110,8 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(() => !IS_MOBILE);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsClosing, setSettingsClosing] = useState(false);
+  const settingsCloseTimer = useRef(null);
   const update = useUpdate("edoc");
   const [sidebarTab, setSidebarTab] = useState("folders");
   // [{ fileHandle, name, openedAt }], newest first — legacy (OPFS) handles
@@ -338,6 +340,28 @@ function App() {
   // writeLegacyFiles in fileSystem.js), so an interrupted copy costs a
   // full redo of however many files were left, not just an inconvenience.
   useWakeLock(!!copyProgress || (settings.keepAwake && !!pdf));
+
+  function openSettings() {
+    clearTimeout(settingsCloseTimer.current);
+    setSettingsClosing(false);
+    setSettingsOpen(true);
+  }
+
+  // Keep Settings mounted for one animation (reverse of its open zoom), then
+  // unmount. Skips the wait when animations are off or Reduce Motion is on.
+  function closeSettings() {
+    if (settingsClosing) return;
+    const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ed-dur")) || 0;
+    if (!ms || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setSettingsOpen(false);
+      return;
+    }
+    setSettingsClosing(true);
+    settingsCloseTimer.current = setTimeout(() => {
+      setSettingsOpen(false);
+      setSettingsClosing(false);
+    }, ms);
+  }
 
   function updateSettings(partial) {
     setSettings((prev) => ({ ...prev, ...partial }));
@@ -826,7 +850,8 @@ function App() {
           <Settings
             settings={settings}
             onChange={updateSettings}
-            onClose={() => setSettingsOpen(false)}
+            onClose={closeSettings}
+            closing={settingsClosing}
             update={update}
             isMobile={IS_MOBILE}
           />
@@ -861,7 +886,7 @@ function App() {
         <button
           className="icon-btn settings-toggle"
           style={{ marginLeft: "auto" }}
-          onClick={() => setSettingsOpen(true)}
+          onClick={openSettings}
           aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
         >
           {/* Gear's teeth-and-ring shape is optically lighter than the
@@ -1075,7 +1100,7 @@ function App() {
             hasUnsavedAnnotations={hasUnsavedAnnotations}
             onSaveAnnotations={handleSaveAnnotations}
             onChangeAnnotationMode={handleChangeAnnotationMode}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={openSettings}
             settingsUpdateAvailable={update.needRefresh}
           />
           {error && (

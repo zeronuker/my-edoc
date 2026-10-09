@@ -160,18 +160,21 @@ export default function PdfViewer({
   useEffect(() => {
     if (!pdfViewerRef.current || !containerRef.current) return;
     const pdfViewer = pdfViewerRef.current;
-    let raf = null;
+    // Trailing debounce: the sidebar/topbar slide resizes this container on
+    // every frame, and recomputing the scale (a full pdf.js re-layout) each
+    // time made the animation stutter. Wait until the resizing settles.
+    let timer = null;
     const observer = new ResizeObserver(() => {
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
         const value = pdfViewer.currentScaleValue;
         if (value && isNaN(value)) pdfViewer.currentScaleValue = value;
-      });
+      }, 150);
     });
     observer.observe(containerRef.current);
     return () => {
       observer.disconnect();
-      if (raf) cancelAnimationFrame(raf);
+      clearTimeout(timer);
     };
   }, []);
 
