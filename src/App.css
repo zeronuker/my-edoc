@@ -2127,3 +2127,20 @@ html,
   color: var(--cb-mint);
 }
 
+
+/* iPadOS 27 adds a blur over the top of an installed web app when nothing
+   fixed sits at the very top edge. A permanent opaque strip (WebKit ignores
+   strips <= 10px) prevents it; the padding keeps the app clear of the strip. */
+.ios-top-edge { display: none; }
+@media (display-mode: standalone) {
+  .ios-top-edge {
+    display: block;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 12px;
+    background: var(--cb-surface-0);
+    pointer-events: none;
+    z-index: 99999;
+  }
+  .app { padding-top: calc(env(safe-area-inset-top) + 12px); }
+}
