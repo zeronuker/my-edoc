@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { animDurationMs } from "./useTransitionAnim.js";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 
 // In-file keyword search via pdf.js's own PDFFindController — highlighting
@@ -7,6 +8,32 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 export default function SearchBar({ eventBus }) {
   const [query, setQuery] = useState("");
   const [matchInfo, setMatchInfo] = useState(null);
+  // The prev/next/count controls stay mounted for one exit animation after
+  // the query is cleared.
+  const [showControls, setShowControls] = useState(false);
+  const [controlsClosing, setControlsClosing] = useState(false);
+  const controlsTimer = useRef(null);
+
+  useEffect(() => {
+    clearTimeout(controlsTimer.current);
+    if (query) {
+      setControlsClosing(false);
+      setShowControls(true);
+      return undefined;
+    }
+    const ms = animDurationMs();
+    if (!ms) {
+      setShowControls(false);
+      setControlsClosing(false);
+      return undefined;
+    }
+    setControlsClosing(true);
+    controlsTimer.current = setTimeout(() => {
+      setShowControls(false);
+      setControlsClosing(false);
+    }, ms);
+    return () => clearTimeout(controlsTimer.current);
+  }, [query]);
 
   useEffect(() => {
     if (!eventBus) return;
@@ -61,15 +88,15 @@ export default function SearchBar({ eventBus }) {
           }
         }}
       />
-      {query && (
+      {(query || showControls) && (
         <>
-          <button aria-label="Previous match" onClick={() => dispatchFind("again", { findPrevious: true })}>
+          <button aria-label="Previous match" className={controlsClosing ? "is-closing" : undefined} onClick={() => dispatchFind("again", { findPrevious: true })}>
             <IconChevronLeft size={16} />
           </button>
-          <span className="match-count">
+          <span className={`match-count${controlsClosing ? " is-closing" : ""}`}>
             {matchInfo ? `${matchInfo.current}/${matchInfo.total}` : "0/0"}
           </span>
-          <button aria-label="Next match" onClick={() => dispatchFind("again", { findPrevious: false })}>
+          <button aria-label="Next match" className={controlsClosing ? "is-closing" : undefined} onClick={() => dispatchFind("again", { findPrevious: false })}>
             <IconChevronRight size={16} />
           </button>
         </>

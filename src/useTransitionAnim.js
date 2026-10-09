@@ -32,3 +32,10 @@ export function useTransitionAnim(key, order, animStyle) {
     style: { "--dir": dir.current },
   };
 }
+
+// Current transition duration in ms, or 0 when animations are off / the
+// device asks for reduced motion — callers skip their exit animation then.
+export function animDurationMs() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--ed-dur")) || 0;
+}

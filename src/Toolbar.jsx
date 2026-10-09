@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { animDurationMs } from "./useTransitionAnim.js";
 import {
   IconLayoutSidebar,
   IconChevronDown,
@@ -39,11 +40,39 @@ const READING_THEMES = [
 // Closes whichever dropdown is open on an outside click or Escape — same
 // pattern as TreeView's FolderActions menu.
 function useDropdown() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenRaw] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const timer = useRef(null);
   const ref = useRef(null);
 
-  useEffect(() => {
+  // Same call shape as a state setter (value or updater). Closing keeps the
+  // menu mounted for one exit animation, then unmounts it.
+  function setOpen(value) {
+    const next = typeof value === "function" ? value(open && !closing) : value;
+    clearTimeout(timer.current);
+    if (next) {
+      setClosing(false);
+      setOpenRaw(true);
+      return;
+    }
     if (!open) return;
+    const ms = animDurationMs();
+    if (!ms) {
+      setClosing(false);
+      setOpenRaw(false);
+      return;
+    }
+    setClosing(true);
+    timer.current = setTimeout(() => {
+      setOpenRaw(false);
+      setClosing(false);
+    }, ms);
+  }
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  useEffect(() => {
+    if (!open || closing) return;
     function onOutside(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     }
@@ -56,9 +85,10 @@ function useDropdown() {
       document.removeEventListener("pointerdown", onOutside);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, closing]);
 
-  return { open, setOpen, ref };
+  return { open, closing, setOpen, ref };
 }
 
 export default function Toolbar({
@@ -91,6 +121,30 @@ export default function Toolbar({
   const viewModeMenu = useDropdown();
   const readingThemeMenu = useDropdown();
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [searchClosing, setSearchClosing] = useState(false);
+  const searchCloseTimer = useRef(null);
+  useEffect(() => () => clearTimeout(searchCloseTimer.current), []);
+
+  function openSearch() {
+    clearTimeout(searchCloseTimer.current);
+    setSearchClosing(false);
+    setMobileSearchOpen(true);
+  }
+
+  // Keep the search bar shown for one exit animation, then collapse it.
+  function closeSearch() {
+    if (searchClosing) return;
+    const ms = animDurationMs();
+    if (!ms) {
+      setMobileSearchOpen(false);
+      return;
+    }
+    setSearchClosing(true);
+    searchCloseTimer.current = setTimeout(() => {
+      setMobileSearchOpen(false);
+      setSearchClosing(false);
+    }, ms);
+  }
   // Holds the raw typed string while the zoom field is being edited, so
   // intermediate keystrokes (e.g. "1" of "150") aren't clamped to
   // MIN_SCALE and re-rendered mid-typing. Committed to the pdfViewer (and
@@ -135,7 +189,7 @@ export default function Toolbar({
               <IconChevronDown size={10} />
             </button>
             {viewModeMenu.open && (
-              <div className="dropdown-menu">
+              <div className={`dropdown-menu${viewModeMenu.closing ? " is-closing" : ""}`}>
                 {VIEW_MODES.map(({ value, label }) => (
                   <button
                     key={value}
@@ -198,7 +252,7 @@ export default function Toolbar({
             <IconChevronDown size={16} />
           </button>
           {viewMenu.open && (
-            <div className="dropdown-menu">
+            <div className={`dropdown-menu${viewMenu.closing ? " is-closing" : ""}`}>
               <button
                 onClick={() => {
                   if (pdfViewer) pdfViewer.currentScaleValue = "page-width";
@@ -264,7 +318,7 @@ export default function Toolbar({
             <span className="annotate-label">{activeToolLabel}</span> <IconChevronDown size={16} />
           </button>
           {annotateMenu.open && (
-            <div className="dropdown-menu">
+            <div className={`dropdown-menu${annotateMenu.closing ? " is-closing" : ""}`}>
               {ANNOTATE_TOOLS.map(({ tool, label }) => (
                 <button
                   key={tool}
@@ -316,7 +370,7 @@ export default function Toolbar({
             <IconMoon size={16} />
           </button>
           {readingThemeMenu.open && (
-            <div className="dropdown-menu">
+            <div className={`dropdown-menu${readingThemeMenu.closing ? " is-closing" : ""}`}>
               {READING_THEMES.map(({ value, label }) => (
                 <button
                   key={value}
@@ -361,11 +415,11 @@ export default function Toolbar({
         </span>
         <span className="toolbar-divider" aria-hidden="true" />
 
-        <span className={`search-wrap${mobileSearchOpen ? " open" : ""}`}>
+        <span className={`search-wrap${mobileSearchOpen ? " open" : ""}${searchClosing ? " closing" : ""}`}>
           <button
             className="search-toggle"
             aria-label="Search"
-            onClick={() => setMobileSearchOpen(true)}
+            onClick={openSearch}
           >
             <IconSearch size={16} />
           </button>
@@ -373,7 +427,7 @@ export default function Toolbar({
           <button
             className="search-close"
             aria-label="Close search"
-            onClick={() => setMobileSearchOpen(false)}
+            onClick={closeSearch}
           >
             <IconX size={16} />
           </button>

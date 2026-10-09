@@ -2197,12 +2197,19 @@ html,
    after the animation (it would clip the input's focus ring). */
 @keyframes ed-search-open { from { opacity: 0; clip-path: inset(-8px 100% -8px 0); } to { opacity: 1; clip-path: inset(-8px); } }
 @keyframes ed-search-in   { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes ed-drop-out    { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-8px); } }
+@keyframes ed-search-shut { from { opacity: 1; clip-path: inset(-8px); } to { opacity: 0; clip-path: inset(-8px 100% -8px 0); } }
+@keyframes ed-search-out  { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-6px); } }
 
 @media (prefers-reduced-motion: no-preference) {
   .search-wrap.open .search-bar { animation: ed-search-open var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
   .search-bar > button,
   .search-bar > .match-count { animation: ed-search-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
   .dropdown-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
+  .dropdown-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
+  .search-wrap.open.closing .search-bar { animation: ed-search-shut var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; }
+  .search-bar > button.is-closing,
+  .search-bar > .match-count.is-closing { animation: ed-search-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
   .ed-anim-slide { animation: ed-slide var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
   .ed-anim-rise  { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
 }
