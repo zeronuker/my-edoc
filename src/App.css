@@ -2239,6 +2239,17 @@ html,
     left: 0;
     width: var(--pv-w);
     height: var(--pv-h);
+    /* Own graphics layer: the PDF is moved by the compositor instead of being
+       repainted every frame. */
+    will-change: transform, opacity;
+    transform: translateZ(0);
+  }
+
+  /* The toolbar re-wraps as its width changes; a changing toolbar height
+     shifts the PDF mid-slide. Hold its height (contents clip) until the end. */
+  .app[data-layout-animating] .toolbar {
+    height: var(--tb-h);
+    overflow: hidden;
   }
 }
 

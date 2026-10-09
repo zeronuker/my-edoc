@@ -345,6 +345,8 @@ function App() {
     const { width, height } = pv.getBoundingClientRect();
     app.style.setProperty("--pv-w", `${width}px`);
     app.style.setProperty("--pv-h", `${height}px`);
+    const toolbar = app.querySelector(".toolbar");
+    if (toolbar) app.style.setProperty("--tb-h", `${toolbar.getBoundingClientRect().height}px`);
     app.dataset.layoutAnimating = "1";
     // When the slide ends the PDF snaps to its new size under a dim, then
     // fades back in ("settling") — the snap is hidden by the fade.
