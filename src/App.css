@@ -2142,6 +2142,6 @@ html,
     pointer-events: none;
     z-index: 99999;
   }
-  /* Strip overlaps the topbar's own 6px top padding and 3px of its content area (2px + 6px < 11px strip). */
-  .app { padding-top: calc(env(safe-area-inset-top) + 2px); }
+  /* Strip overlaps the topbar's own 6px top padding: 11px strip = 5px + 6px. */
+  .app { padding-top: calc(env(safe-area-inset-top) + 5px); }
 }
