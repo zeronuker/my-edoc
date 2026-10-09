@@ -327,11 +327,27 @@ function App() {
     else document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
 
-  // While the sidebar / top bar slide open or closed, the PDF area would be
-  // resized on every frame and the whole document re-laid out — visible as
-  // jitter. Freeze the PDF container at its starting size for the length of
-  // the slide (it then moves as one piece, clipped by the shrinking/growing
-  // area) and let it snap to the new size when the slide ends.
+  // Sidebar / top bar open and close ("slide a cover"). On desktop the layout
+  // changes in ONE step (the PDF area resizes once, so it never re-lays out
+  // mid-animation — that was the jitter), and the bars then glide using
+  // transform only, which runs on the compositor:
+  //  - opening: the real sidebar / top bar slide in from the edge;
+  //  - closing: copies of them (the originals are already gone from the
+  //    layout) slide out over the content, then are removed.
+  // The top bar's height is remembered while it is visible, since it reads 0
+  // once collapsed.
+  const topbarRef = useRef(null);
+  const topbarHeightRef = useRef(0);
+  useEffect(() => {
+    const el = topbarRef.current;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(() => {
+      if (el.offsetHeight > 0) topbarHeightRef.current = el.offsetHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const sidebarMountedRef = useRef(false);
   useLayoutEffect(() => {
     if (!sidebarMountedRef.current) {
@@ -339,18 +355,40 @@ function App() {
       return undefined;
     }
     const app = appRef.current;
-    const pv = app?.querySelector(".pdf-viewer-container");
     const ms = animDurationMs();
-    if (!pv || !ms || !window.matchMedia("(min-width: 881px)").matches) return undefined;
-    const { width, height } = pv.getBoundingClientRect();
-    app.style.setProperty("--pv-w", `${width}px`);
-    app.style.setProperty("--pv-h", `${height}px`);
-    app.dataset.layoutAnimating = "1";
-    const t = setTimeout(() => delete app.dataset.layoutAnimating, ms + 60);
-    return () => {
-      clearTimeout(t);
-      delete app.dataset.layoutAnimating;
-    };
+    if (!app || !ms || !window.matchMedia("(min-width: 881px)").matches) return undefined;
+    const sidebar = app.querySelector(".sidebar");
+    const topbar = app.querySelector(".topbar");
+    const row = app.querySelector(".app-row");
+    if (!sidebar || !topbar || !row) return undefined;
+
+    const opts = { duration: ms, easing: "cubic-bezier(.4, 0, .2, 1)" };
+    const undo = [];
+    if (sidebarOpen) {
+      const a1 = sidebar.animate([{ transform: "translateX(-100%)" }, { transform: "none" }], opts);
+      const a2 = topbar.animate([{ transform: "translateY(-100%)" }, { transform: "none" }], opts);
+      undo.push(() => { a1.cancel(); a2.cancel(); });
+    } else {
+      const h = topbarHeightRef.current;
+      // The row now starts where the top bar used to, so the old sidebar sat
+      // h below it and the old top bar sat at the row's top.
+      const r = row.getBoundingClientRect();
+      const sc = sidebar.cloneNode(true);
+      sc.classList.add("open", "slide-ghost");
+      sc.setAttribute("aria-hidden", "true");
+      Object.assign(sc.style, { left: `${r.left}px`, top: `${r.top + h}px`, height: `${r.height - h}px` });
+      const tc = topbar.cloneNode(true);
+      tc.classList.add("slide-ghost");
+      tc.setAttribute("aria-hidden", "true");
+      Object.assign(tc.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${h}px` });
+      document.body.append(sc, tc);
+      const a1 = sc.animate([{ transform: "none" }, { transform: "translateX(-100%)" }], { ...opts, fill: "forwards" });
+      const a2 = tc.animate([{ transform: "none" }, { transform: "translateY(-100%)" }], { ...opts, fill: "forwards" });
+      a1.onfinish = () => sc.remove();
+      a2.onfinish = () => tc.remove();
+      undo.push(() => { a1.cancel(); a2.cancel(); sc.remove(); tc.remove(); });
+    }
+    return () => undo.forEach((f) => f());
   }, [sidebarOpen]);
 
   // Animation speed for every transition (sidebar tabs, dialogs, sidebar
@@ -901,7 +939,7 @@ function App() {
         />
       )}
       <div className={`topbar-wrap${sidebarOpen ? "" : " collapsed"}`}>
-      <div className="topbar">
+      <div ref={topbarRef} className="topbar">
         <button
           className="icon-btn sidebar-toggle"
           onClick={() => setSidebarOpen((v) => !v)}

@@ -173,12 +173,12 @@ html,
   /* Collapses along with the sidebar so the same toolbar button hides
      both at once — desktop only; the topbar is the mobile sidebar drawer's
      only entry point, so it must stay put there. */
-  /* The wrapper animates its single grid row between 1fr and 0fr — the
-     CSS-only way to slide an element of unknown (auto) height open/closed. */
+  /* The wrapper switches its single grid row between 1fr and 0fr. No
+     transition: the layout changes in one step and the bars glide with
+     transform (see the sidebarOpen layout effect in App.jsx). */
   .topbar-wrap {
     display: grid;
     grid-template-rows: 1fr;
-    transition: grid-template-rows var(--ed-dur, 200ms) ease;
   }
 
   .topbar-wrap.collapsed {
@@ -267,18 +267,6 @@ html,
    slide transition and avoids losing the TreeView's expanded-folder
    state. */
 @media (min-width: 881px) {
-  .sidebar {
-    transition: width var(--ed-dur, 200ms) ease, padding var(--ed-dur, 200ms) ease;
-    will-change: width;
-  }
-
-  /* Keep the contents at their full width while the sidebar slides, so the
-     tree/tabs/search don't re-wrap and re-layout on every animation frame
-     (the cause of the stutter). 264 = 280px sidebar - 2 x 8px padding. */
-  .sidebar > * {
-    min-width: 264px;
-  }
-
   .sidebar:not(.open) {
     width: 0;
     padding-left: 0;
@@ -2218,15 +2206,11 @@ html,
   .sidebar, .topbar-wrap { transition: none; }
 }
 
-/* While the sidebar / top bar slide (desktop layout), the PDF container keeps
-   its starting size instead of resizing every frame — see the sidebarOpen
-   layout effect in App.jsx. */
-@media (min-width: 881px) {
-  .app[data-layout-animating] .pdf-viewer-container {
-    inset: auto;
-    top: 0;
-    left: 0;
-    width: var(--pv-w);
-    height: var(--pv-h);
-  }
+/* Copies of the sidebar / top bar that slide out over the content when they
+   close (see the sidebarOpen layout effect in App.jsx). */
+.slide-ghost {
+  position: fixed;
+  z-index: 60;
+  margin: 0;
+  pointer-events: none;
 }
