@@ -36,6 +36,11 @@ html,
   min-height: 0;
 }
 
+/* On phones/narrow screens the wrapper is transparent (no layout effect). */
+.topbar-wrap {
+  display: contents;
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -168,16 +173,24 @@ html,
   /* Collapses along with the sidebar so the same toolbar button hides
      both at once — desktop only; the topbar is the mobile sidebar drawer's
      only entry point, so it must stay put there. */
-  .topbar {
-    /* --topbar-h is the measured natural height (App.jsx) — height:auto can't
-       be animated, so the collapse would snap instead of sliding. */
-    height: var(--topbar-h, auto);
-    overflow: hidden;
-    transition: height var(--ed-dur, 200ms) ease;
+  /* The wrapper animates its single grid row between 1fr and 0fr — the
+     CSS-only way to slide an element of unknown (auto) height open/closed. */
+  .topbar-wrap {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--ed-dur, 200ms) ease;
   }
 
-  .topbar.collapsed {
-    height: 0;
+  .topbar-wrap.collapsed {
+    grid-template-rows: 0fr;
+  }
+
+  .topbar-wrap > .topbar {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .topbar-wrap.collapsed > .topbar {
     border-bottom: none;
   }
 }
@@ -758,15 +771,15 @@ html,
     display: none;
   }
 
-  .topbar:not(.collapsed) .settings-toggle {
+  .topbar-wrap:not(.collapsed) .topbar .settings-toggle {
     display: inline-flex;
   }
 
-  .topbar.collapsed ~ .app-row .toolbar .settings-toggle {
+  .topbar-wrap.collapsed ~ .app-row .toolbar .settings-toggle {
     display: inline-flex;
   }
 
-  .topbar.collapsed ~ .app-row .toolbar .toolbar-divider:has(+ .settings-toggle) {
+  .topbar-wrap.collapsed ~ .app-row .toolbar .toolbar-divider:has(+ .settings-toggle) {
     display: block;
   }
 }
@@ -2180,5 +2193,5 @@ html,
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-dialog, .modal-backdrop, .modal-dialog.is-closing, .modal-backdrop.is-closing { animation: none; }
-  .sidebar, .topbar.collapsed { transition: none; }
+  .sidebar, .topbar-wrap { transition: none; }
 }
