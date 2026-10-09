@@ -2187,7 +2187,12 @@ html,
 .modal-dialog.is-closing   { animation: ed-pop-out var(--ed-dur, 180ms) ease both; pointer-events: none; }
 .modal-backdrop.is-closing { animation: ed-fade-out var(--ed-dur, 180ms) ease both; pointer-events: none; }
 
+/* Toolbar dropdowns (View, Zoom/Page size, Annotate, Reading theme) slide down
+   from their trigger; speed follows --ed-dur like everything else. */
+@keyframes ed-drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: no-preference) {
+  .dropdown-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
   .ed-anim-slide { animation: ed-slide var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
   .ed-anim-rise  { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
 }
