@@ -2217,3 +2217,16 @@ html,
   .modal-dialog, .modal-backdrop, .modal-dialog.is-closing, .modal-backdrop.is-closing { animation: none; }
   .sidebar, .topbar-wrap { transition: none; }
 }
+
+/* While the sidebar / top bar slide (desktop layout), the PDF container keeps
+   its starting size instead of resizing every frame — see the sidebarOpen
+   layout effect in App.jsx. */
+@media (min-width: 881px) {
+  .app[data-layout-animating] .pdf-viewer-container {
+    inset: auto;
+    top: 0;
+    left: 0;
+    width: var(--pv-w);
+    height: var(--pv-h);
+  }
+}

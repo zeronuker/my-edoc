@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   pickFolder,
   scanDirectory,
@@ -23,7 +23,7 @@ import { usePdfDocument } from "./usePdfDocument.js";
 import { useTreeOverlay } from "./useTreeOverlay.js";
 import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
-import { useTransitionAnim, ANIM_SPEED_MS } from "./useTransitionAnim.js";
+import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { collectFileHandles } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
@@ -112,6 +112,7 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsClosing, setSettingsClosing] = useState(false);
   const settingsCloseTimer = useRef(null);
+  const appRef = useRef(null);
   const update = useUpdate("edoc");
   const [sidebarTab, setSidebarTab] = useState("folders");
   // [{ fileHandle, name, openedAt }], newest first — legacy (OPFS) handles
@@ -325,6 +326,32 @@ function App() {
     if (settings.theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
+
+  // While the sidebar / top bar slide open or closed, the PDF area would be
+  // resized on every frame and the whole document re-laid out — visible as
+  // jitter. Freeze the PDF container at its starting size for the length of
+  // the slide (it then moves as one piece, clipped by the shrinking/growing
+  // area) and let it snap to the new size when the slide ends.
+  const sidebarMountedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!sidebarMountedRef.current) {
+      sidebarMountedRef.current = true;
+      return undefined;
+    }
+    const app = appRef.current;
+    const pv = app?.querySelector(".pdf-viewer-container");
+    const ms = animDurationMs();
+    if (!pv || !ms || !window.matchMedia("(min-width: 881px)").matches) return undefined;
+    const { width, height } = pv.getBoundingClientRect();
+    app.style.setProperty("--pv-w", `${width}px`);
+    app.style.setProperty("--pv-h", `${height}px`);
+    app.dataset.layoutAnimating = "1";
+    const t = setTimeout(() => delete app.dataset.layoutAnimating, ms + 60);
+    return () => {
+      clearTimeout(t);
+      delete app.dataset.layoutAnimating;
+    };
+  }, [sidebarOpen]);
 
   // Animation speed for every transition (sidebar tabs, dialogs, sidebar
   // slide). 0ms when animations are off, so everything becomes instant.
@@ -842,7 +869,7 @@ function App() {
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
-    <div className={`app${IS_MOBILE ? " is-phone" : ""}`} onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div ref={appRef} className={`app${IS_MOBILE ? " is-phone" : ""}`} onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt ready={!showSplash} update={update} />
       {settingsOpen && (
