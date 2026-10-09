@@ -331,7 +331,7 @@ function App() {
   // resized on every frame and the whole document re-laid out — visible as
   // jitter. Freeze the PDF container at its starting size for the length of
   // the slide (it then moves as one piece, clipped by the shrinking/growing
-  // area) and let it snap to the new size when the slide ends.
+  // area), dimmed; it snaps to the new size when the slide ends and fades back.
   const sidebarMountedRef = useRef(false);
   useLayoutEffect(() => {
     if (!sidebarMountedRef.current) {
@@ -346,10 +346,19 @@ function App() {
     app.style.setProperty("--pv-w", `${width}px`);
     app.style.setProperty("--pv-h", `${height}px`);
     app.dataset.layoutAnimating = "1";
-    const t = setTimeout(() => delete app.dataset.layoutAnimating, ms + 60);
+    // When the slide ends the PDF snaps to its new size under a dim, then
+    // fades back in ("settling") — the snap is hidden by the fade.
+    let t2;
+    const t = setTimeout(() => {
+      delete app.dataset.layoutAnimating;
+      app.dataset.layoutSettling = "1";
+      t2 = setTimeout(() => delete app.dataset.layoutSettling, 320);
+    }, ms + 30);
     return () => {
       clearTimeout(t);
+      clearTimeout(t2);
       delete app.dataset.layoutAnimating;
+      delete app.dataset.layoutSettling;
     };
   }, [sidebarOpen]);
 
