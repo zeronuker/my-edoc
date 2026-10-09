@@ -178,7 +178,7 @@ html,
   .topbar-wrap {
     display: grid;
     grid-template-rows: 1fr;
-    transition: grid-template-rows var(--ed-dur, 200ms) cubic-bezier(.4, 0, .2, 1);
+    transition: grid-template-rows var(--ed-dur, 200ms) ease;
   }
 
   .topbar-wrap.collapsed {
@@ -188,13 +188,10 @@ html,
   .topbar-wrap > .topbar {
     min-height: 0;
     overflow: hidden;
-    transition: opacity var(--ed-dur, 200ms) ease, transform var(--ed-dur, 200ms) cubic-bezier(.4, 0, .2, 1);
   }
 
   .topbar-wrap.collapsed > .topbar {
     border-bottom: none;
-    opacity: 0;
-    transform: translateY(-8px);
   }
 }
 
@@ -271,7 +268,7 @@ html,
    state. */
 @media (min-width: 881px) {
   .sidebar {
-    transition: width var(--ed-dur, 200ms) cubic-bezier(.4, 0, .2, 1), padding var(--ed-dur, 200ms) cubic-bezier(.4, 0, .2, 1);
+    transition: width var(--ed-dur, 200ms) ease, padding var(--ed-dur, 200ms) ease;
     will-change: width;
   }
 
@@ -280,14 +277,6 @@ html,
      (the cause of the stutter). 264 = 280px sidebar - 2 x 8px padding. */
   .sidebar > * {
     min-width: 264px;
-    transition: opacity var(--ed-dur, 200ms) ease, transform var(--ed-dur, 200ms) cubic-bezier(.4, 0, .2, 1);
-  }
-
-  /* Contents fade and drift left as the panel closes (and return on open)
-     instead of being squeezed away. */
-  .sidebar:not(.open) > * {
-    opacity: 0;
-    transform: translateX(-16px);
   }
 
   .sidebar:not(.open) {
@@ -2226,7 +2215,7 @@ html,
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-dialog, .modal-backdrop, .modal-dialog.is-closing, .modal-backdrop.is-closing { animation: none; }
-  .sidebar, .sidebar > *, .topbar-wrap, .topbar-wrap > .topbar { transition: none; }
+  .sidebar, .topbar-wrap { transition: none; }
 }
 
 /* While the sidebar / top bar slide (desktop layout), the PDF container keeps
@@ -2239,25 +2228,5 @@ html,
     left: 0;
     width: var(--pv-w);
     height: var(--pv-h);
-    /* Own graphics layer: the PDF is moved by the compositor instead of being
-       repainted every frame. */
-    will-change: transform, opacity;
-    transform: translateZ(0);
   }
-
-  /* The toolbar re-wraps as its width changes; a changing toolbar height
-     shifts the PDF mid-slide. Hold its height (contents clip) until the end. */
-  .app[data-layout-animating] .toolbar {
-    height: var(--tb-h);
-    overflow: hidden;
-  }
-}
-
-/* The PDF dims while the panels move, then fades back in once it has snapped
-   to its new size, so the resize reads as part of the motion. */
-@keyframes ed-pdf-dim    { from { opacity: 1; } to { opacity: 0.45; } }
-@keyframes ed-pdf-settle { from { opacity: 0.45; } to { opacity: 1; } }
-@media (prefers-reduced-motion: no-preference) {
-  .app[data-layout-animating] .pdf-viewer-container { animation: ed-pdf-dim calc(var(--ed-dur, 200ms) * 0.6) ease-out forwards; }
-  .app[data-layout-settling] .pdf-viewer-container { animation: ed-pdf-settle 300ms ease-out both; }
 }
