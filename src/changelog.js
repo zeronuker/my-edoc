@@ -712,6 +712,7 @@ export const CHANGELOG = [
       "NEW: Settings → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
       "IMP: The floating page pill now also shows in continuous scroll mode, and is more transparent (less opaque, lighter blur) so it covers less of the page behind it.",
       "FIX: The selected file's tree guide line sat 1px right of its neighbours' because the selected row's border plus padding was 1px wider than a normal row's padding; the two now match.",
+      "FIX: iPadOS 27 drew a blur over the top of the installed app (a system effect, not an app element) while the app extended under the status bar. Removed the apple-mobile-web-app-capable / status-bar-style tags and added a permanent 11px top-edge strip in the top bar's colour; the status bar now blends into the top bar. Needs the Home Screen icon removed and re-added once to take effect.",
     ],
   },
 ]
