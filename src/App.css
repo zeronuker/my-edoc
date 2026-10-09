@@ -2191,7 +2191,17 @@ html,
    from their trigger; speed follows --ed-dur like everything else. */
 @keyframes ed-drop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 
+/* In-file search: the bar reveals left-to-right when the magnifier is tapped
+   (touch devices / narrow screens), and the prev / next / match-count controls
+   slide in once a query is typed. "backwards" fill so no clip-path lingers
+   after the animation (it would clip the input's focus ring). */
+@keyframes ed-search-open { from { opacity: 0; clip-path: inset(-8px 100% -8px 0); } to { opacity: 1; clip-path: inset(-8px); } }
+@keyframes ed-search-in   { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: no-preference) {
+  .search-wrap.open .search-bar { animation: ed-search-open var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .search-bar > button,
+  .search-bar > .match-count { animation: ed-search-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
   .dropdown-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
   .ed-anim-slide { animation: ed-slide var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
   .ed-anim-rise  { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
