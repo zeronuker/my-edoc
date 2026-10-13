@@ -1241,10 +1241,32 @@ html,
    "Add sector" button in the eLogbook app, same brand-kit mint. Anchored
    to .folders-panel's corner, floating over the tree rather than taking a
    layout row, and only ever rendered while the Folders tab is active. */
-.add-folder-fab {
+.add-fab {
   position: absolute;
   left: 8px;
   bottom: 8px;
+  z-index: 1;
+}
+
+/* Pops up above the FAB (the FAB sits at the panel's bottom edge, so the
+   kebab menu's drop-down direction would run off-screen). */
+.add-fab-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  transform-origin: bottom left;
+}
+
+.add-folder-fab {
   width: 44px;
   height: 44px;
   border: none;
@@ -1256,7 +1278,11 @@ html,
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--cb-mint) 70%, transparent);
-  z-index: 1;
+}
+
+/* + turns into × while the menu is open. */
+.add-folder-fab[aria-expanded="true"] svg {
+  transform: rotate(45deg);
 }
 
 .add-folder-fab:hover {
@@ -2344,6 +2370,35 @@ html,
     border-color var(--ed-hover) ease,
     filter var(--ed-hover) ease,
     transform var(--ed-hover) ease;
+}
+
+/* Floating + menu and the Add files dialog's own motion. The menu rises
+   from the FAB and its items fade in one after another (delay scales with
+   --ed-dur, so it's 0 when animations are off); + rotates into ×; the
+   dialog's file rows rise in with a short stagger and the Replace warning /
+   clash toggle fade in when they appear. */
+@keyframes ed-pop-up     { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes ed-pop-up-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px) scale(0.96); } }
+@keyframes ed-row-in     { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .add-folder-fab svg { transition: transform var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1); }
+  .add-fab-menu { animation: ed-pop-up var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
+  .add-fab-menu.is-closing { animation: ed-pop-up-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
+  .add-fab-menu .tree-kebab-item {
+    animation: ed-fade var(--ed-dur, 180ms) ease backwards;
+    animation-delay: calc(var(--i, 0) * var(--ed-dur, 180ms) * 0.25);
+  }
+  .add-files-row {
+    animation: ed-row-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards;
+    animation-delay: calc(var(--i, 0) * var(--ed-dur, 180ms) * 0.15);
+  }
+  .add-files-choice,
+  .add-files-warning { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+}
+
+.add-files-choice button {
+  transition: background-color var(--ed-hover) ease, color var(--ed-hover) ease;
 }
 
 @media (prefers-reduced-motion: no-preference) {

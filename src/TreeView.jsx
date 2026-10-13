@@ -195,16 +195,7 @@ function badgeTime(ms) {
 // a small menu, instead of showing both as separate icons on the row —
 // keeps the row's layout fixed regardless of the folder name or chip
 // text length, so nothing shifts around as folders update.
-function FolderActions({
-  folder,
-  isOpen,
-  onToggle,
-  onClose,
-  onRefreshFolder,
-  onAddFiles,
-  onRemoveFolder,
-  isRefreshing,
-}) {
+function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onRemoveFolder, isRefreshing }) {
   const wrapRef = useRef(null);
   const menu = usePresence(isOpen);
 
@@ -256,16 +247,6 @@ function FolderActions({
             }}
           >
             <RefreshIcon /> {isRefreshing ? "Refreshing…" : "Refresh"}
-          </button>
-          <button
-            className="tree-kebab-item"
-            disabled={isRefreshing}
-            onClick={() => {
-              onClose();
-              onAddFiles(folder.key);
-            }}
-          >
-            <span className="tree-kebab-remove-icon">+</span> Add files
           </button>
           <button
             className="tree-kebab-item"
@@ -474,7 +455,6 @@ export default function TreeView({
   selectedHandle,
   onRemoveFolder,
   onRefreshFolder,
-  onAddFiles,
   refreshingKeys,
   onHide,
   onDropNode,
@@ -549,7 +529,6 @@ export default function TreeView({
                     onToggle={() => setOpenActionsKey((k) => (k === folder.key ? null : folder.key))}
                     onClose={() => setOpenActionsKey(null)}
                     onRefreshFolder={onRefreshFolder}
-                    onAddFiles={onAddFiles}
                     onRemoveFolder={onRemoveFolder}
                     isRefreshing={refreshingKeys.has(folder.key)}
                   />

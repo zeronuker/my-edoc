@@ -45,6 +45,8 @@ import {
   IconX,
   IconFolder,
   IconPlus,
+  IconFolderPlus,
+  IconFilePlus,
   IconClock,
   IconBookmark,
   IconListTree,
@@ -145,7 +147,9 @@ function App() {
   const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
-  const [addFiles, setAddFiles] = useState(null); // { folderKey, files: File[] } while the Add files dialog is open
+  const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
+  const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
   const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
@@ -464,6 +468,23 @@ function App() {
   }, [viewerApi, pdf, annotationTool]);
 
   useKeyboardShortcuts(viewerApi);
+
+  // Same dismiss rules as a folder's ⋮ menu: tap outside or press Escape.
+  useEffect(() => {
+    if (!fabMenuOpen) return undefined;
+    function onOutside(e) {
+      if (fabRef.current && !fabRef.current.contains(e.target)) setFabMenuOpen(false);
+    }
+    function onKeyDown(e) {
+      if (e.key === "Escape") setFabMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [fabMenuOpen]);
 
   // Saves the lightweight folder list only — real handles (Chromium)
   // structured-clone as-is, and legacy folders save their (already OPFS-
@@ -804,10 +825,11 @@ function App() {
     }
   }
 
-  // "Add files" (folder ⋮ menu): the native file picker has to open straight
-  // from the click, so it comes first; the dialog then asks where to put the
-  // files and what to do about name clashes (see AddFilesModal).
-  async function handleAddFiles(key) {
+  // "Add files" (floating + menu): the native file picker has to open straight
+  // from the click, so it comes first; the dialog then asks which folder and
+  // subfolder to put the files in and what to do about name clashes (see
+  // AddFilesModal).
+  async function handleAddFiles() {
     let picked;
     try {
       picked = await pickPdfFiles();
@@ -819,7 +841,7 @@ function App() {
       setError("No PDF files were selected.");
       return;
     }
-    setAddFiles({ folderKey: key, files });
+    setAddFiles({ files });
   }
 
   // Legacy (iPad/phone) folders get each file written into the folder's OPFS
@@ -827,8 +849,8 @@ function App() {
   // needs readwrite permission. Either way only the picked files are
   // touched — the folder's other files are never re-read or re-copied — and
   // the tree is patched in memory instead of rescanned.
-  async function handleAddFilesConfirm(destPath, choices) {
-    const target = folders.find((f) => f.key === addFiles?.folderKey);
+  async function handleAddFilesConfirm(folderKey, destPath, choices) {
+    const target = folders.find((f) => f.key === folderKey);
     if (!target?.tree) {
       setAddFiles(null);
       return;
@@ -1011,7 +1033,10 @@ function App() {
   if (addFiles) lastAddFilesRef.current = addFiles;
   const addFilesPresence = usePresence(!!addFiles);
   const addFilesShown = addFiles ?? lastAddFilesRef.current;
-  const addFilesFolder = addFilesShown && folders.find((f) => f.key === addFilesShown.folderKey);
+  const addFilesTargets = folders
+    .filter((f) => f.tree)
+    .map((f) => ({ key: f.key, name: f.tree.name, tree: f.tree, writesToDisk: !f.dirHandle.__legacy }));
+  const fabMenu = usePresence(fabMenuOpen);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -1039,13 +1064,11 @@ function App() {
           onCancel={() => copyControllerRef.current?.abort()}
         />
       )}
-      {addFilesPresence.present && addFilesFolder?.tree && (
+      {addFilesPresence.present && addFilesShown && addFilesTargets.length > 0 && (
         <AddFilesModal
           closing={addFilesPresence.closing}
-          folderName={addFilesFolder.tree.name}
-          tree={addFilesFolder.tree}
+          folders={addFilesTargets}
           files={addFilesShown.files}
-          writesToDisk={!addFilesFolder.dirHandle.__legacy}
           busy={addFilesBusy}
           onConfirm={handleAddFilesConfirm}
           onClose={() => setAddFiles(null)}
@@ -1248,22 +1271,51 @@ function App() {
               selectedHandle={selectedHandle}
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
-              onAddFiles={handleAddFiles}
               refreshingKeys={refreshingKeys}
               onHide={handleHideNode}
               onDropNode={dropNode}
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the
                 corner as the tree scrolls underneath it. */}
-            <button
-              className="add-folder-fab"
-              onClick={handleAddFolder}
-              disabled={addingFolder}
-              aria-label="Add folder"
-              title="Add folder"
-            >
-              {addingFolder ? <span className="spinner" /> : <IconPlus size={20} />}
-            </button>
+            <div className="add-fab" ref={fabRef}>
+              {fabMenu.present && (
+                <div className={`add-fab-menu${fabMenu.closing ? " is-closing" : ""}`}>
+                  <button
+                    className="tree-kebab-item"
+                    style={{ "--i": 0 }}
+                    onClick={() => {
+                      setFabMenuOpen(false);
+                      handleAddFolder();
+                    }}
+                  >
+                    <IconFolderPlus size={16} /> Add folder
+                  </button>
+                  <button
+                    className="tree-kebab-item"
+                    style={{ "--i": 1 }}
+                    disabled={addFilesTargets.length === 0}
+                    title={addFilesTargets.length === 0 ? "Add a folder first" : undefined}
+                    onClick={() => {
+                      setFabMenuOpen(false);
+                      handleAddFiles();
+                    }}
+                  >
+                    <IconFilePlus size={16} /> Add files
+                  </button>
+                </div>
+              )}
+              <button
+                className="add-folder-fab"
+                onClick={() => setFabMenuOpen((v) => !v)}
+                disabled={addingFolder}
+                aria-label="Add folder or files"
+                aria-haspopup="menu"
+                aria-expanded={fabMenuOpen}
+                title="Add folder or files"
+              >
+                {addingFolder ? <span className="spinner" /> : <IconPlus size={20} />}
+              </button>
+            </div>
           </div>
         </aside>
         <main className="main">
