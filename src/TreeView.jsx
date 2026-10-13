@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
+import { usePresence } from "./usePresence.js";
 
 // One color per nesting depth (root, then each level under it), cycling
 // back to the start past the 5th level. A file has no depth-color of its
@@ -196,6 +197,7 @@ function badgeTime(ms) {
 // text length, so nothing shifts around as folders update.
 function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onRemoveFolder, isRefreshing }) {
   const wrapRef = useRef(null);
+  const menu = usePresence(isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -234,8 +236,8 @@ function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onR
       >
         ⋮
       </button>
-      {isOpen && (
-        <div className="tree-kebab-menu" onClick={(e) => e.stopPropagation()}>
+      {menu.present && (
+        <div className={`tree-kebab-menu${menu.closing ? " is-closing" : ""}`} onClick={(e) => e.stopPropagation()}>
           <button
             className="tree-kebab-item"
             disabled={isRefreshing}

@@ -2,11 +2,11 @@
 // file, on its first Save — the choice is then remembered (see
 // annotations.js) so this never reappears for that file unless the user
 // reopens it via the "change" control next to the Save button.
-export default function AnnotationModePicker({ fileName, onChoose, onClose }) {
+export default function AnnotationModePicker({ fileName, onChoose, onClose, closing }) {
   return (
     <>
-      <div className="modal-backdrop" onClick={onClose} />
-      <div className="modal-dialog mode-picker-dialog">
+      <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
+      <div className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <span className="update-dialog-icon">✎</span>
           <div>

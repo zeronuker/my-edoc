@@ -24,6 +24,7 @@ import { useTreeOverlay } from "./useTreeOverlay.js";
 import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
+import { usePresence } from "./usePresence.js";
 import { collectFileHandles } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
@@ -904,6 +905,7 @@ function App() {
   const showTabs = tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const sidebarAnim = useTransitionAnim(activeTab, SIDEBAR_TAB_ORDER, settings.animStyle);
+  const modePicker = usePresence(modePickerOpen && !!selectedHandle);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -931,8 +933,9 @@ function App() {
           onCancel={() => copyControllerRef.current?.abort()}
         />
       )}
-      {modePickerOpen && selectedHandle && (
+      {modePicker.present && selectedHandle && (
         <AnnotationModePicker
+          closing={modePicker.closing}
           fileName={selectedHandle.name}
           onChoose={handleAnnotationModeChosen}
           onClose={() => setModePickerOpen(false)}

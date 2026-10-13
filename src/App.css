@@ -2209,7 +2209,8 @@ html,
   .search-bar > .match-count { animation: ed-search-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
   .dropdown-menu,
   .tree-kebab-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
-  .dropdown-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
+  .dropdown-menu.is-closing,
+  .tree-kebab-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
   .search-wrap.open.closing .search-bar { animation: ed-search-shut var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; }
   .search-bar > button.is-closing,
   .search-bar > .match-count.is-closing { animation: ed-search-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
