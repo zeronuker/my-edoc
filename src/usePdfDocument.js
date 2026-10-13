@@ -23,11 +23,6 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
   // value only matters before any file has been opened yet.
   const [viewMode, setViewMode] = useState("two-up");
   const [loading, setLoading] = useState(false);
-  // Set when restoring the last-open file on launch finds the handle but
-  // the read permission grant didn't survive (e.g. the OS killed and
-  // reloaded the page in the background) — surfaces a one-tap "Reopen"
-  // banner instead of silently landing on the empty file browser.
-  const [pendingReopen, setPendingReopen] = useState(null);
   const [outline, setOutline] = useState(null);
   const [hasUnsavedAnnotations, setHasUnsavedAnnotations] = useState(false);
 
@@ -142,7 +137,6 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     const token = ++loadTokenRef.current;
     setSelectedHandle(fileHandle);
     setError(null);
-    setPendingReopen(null);
     closeSidebarIfAutoHide();
     setLoading(true);
     // Two-page (or single-page on narrow screens) + fit-page is the
@@ -174,13 +168,12 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       const positions = (await dbGet("filePositions")) || {};
       pendingRestoreRef.current = positions[fileHandle.name] || null;
       setPdf(doc);
-      // Real handles clone into IndexedDB as-is; legacy (OPFS-backed) ones
-      // don't (function properties), so their OPFS address is saved instead
-      // and turned back into a working handle on the next launch — same
-      // trick recentFiles uses, see App.jsx's load effect.
-      if (!fileHandle.__legacy) {
-        await dbSet("lastFileHandle", fileHandle);
-      } else if (fileHandle.folderId) {
+      // A handle can't be cloned into IndexedDB (function properties), so
+      // the file's OPFS address is saved instead and turned back into a
+      // working handle on the next launch — same trick recentFiles uses, see
+      // App.jsx's load effect. A dropped file has no folderId (no OPFS copy),
+      // so there's nothing to resume to.
+      if (fileHandle.folderId) {
         await dbSet("lastFileHandle", {
           legacy: true,
           name: fileHandle.name,
@@ -208,7 +201,6 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     setPdf(null);
     setSelectedHandle(null);
     setError(null);
-    setPendingReopen(null);
   }
 
   // Confirm-gated close for callers where the user is choosing to leave the
@@ -226,18 +218,6 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     return true;
   }
 
-  // Button-click handler for the "Reopen [name]" banner — the click itself
-  // is the user gesture requestPermission needs, unlike the silent
-  // queryPermission check on launch.
-  async function reopenLastFile() {
-    const { fileHandle } = pendingReopen;
-    if ((await fileHandle.requestPermission({ mode: "read" })) === "granted") {
-      selectFile(fileHandle);
-    } else {
-      setPendingReopen(null);
-    }
-  }
-
   return {
     pdf,
     selectedHandle,
@@ -247,14 +227,11 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     viewMode,
     setViewMode,
     loading,
-    pendingReopen,
-    setPendingReopen,
     outline,
     hasUnsavedAnnotations,
     setHasUnsavedAnnotations,
     selectFile,
     closeDocument,
     clearDocument,
-    reopenLastFile,
   };
 }

@@ -112,7 +112,6 @@ export default function Toolbar({
   onSetAnnotationTool,
   hasUnsavedAnnotations,
   onSaveAnnotations,
-  onChangeAnnotationMode,
   onOpenSettings,
   settingsUpdateAvailable,
 }) {
@@ -353,15 +352,6 @@ export default function Toolbar({
                 }}
               >
                 Save
-              </button>
-              <button
-                disabled={!numPages}
-                onClick={() => {
-                  onChangeAnnotationMode();
-                  annotateMenu.setOpen(false);
-                }}
-              >
-                Change save location…
               </button>
             </div>
           )}

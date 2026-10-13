@@ -16,20 +16,19 @@ test("formatBytes formats across units", () => {
   assert.equal(formatBytes(1536), "1.5 KB");
 });
 
-test("folderListRecords splits real vs legacy folders", () => {
-  const real = { dirHandle: { name: "Real" }, connectedAt: 1 };
-  const legacy = {
-    dirHandle: { __legacy: true },
-    connectedAt: 2,
-    folderId: "id1",
-    sizeBytes: 10,
-    tree: { name: "Legacy", kind: "directory", children: [] },
-  };
-  const { real: realOut, legacy: legacyOut } = folderListRecords([real, legacy]);
-  assert.equal(realOut.length, 1);
-  assert.equal(realOut[0].dirHandle, real.dirHandle);
-  assert.equal(legacyOut.length, 1);
-  assert.equal(legacyOut[0].id, "id1");
+test("folderListRecords saves each folder's id, time, manifest and size", () => {
+  const tree = { name: "Lib", kind: "directory", children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf" }] };
+  const [record] = folderListRecords([
+    { dirHandle: { __legacy: true }, folderId: "id-1", connectedAt: 5, tree, sizeBytes: 12 },
+  ]);
+  assert.equal(record.id, "id-1");
+  assert.equal(record.connectedAt, 5);
+  assert.equal(record.sizeBytes, 12);
+  assert.deepEqual(record.manifest, {
+    name: "Lib",
+    kind: "directory",
+    children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf" }],
+  });
 });
 
 test("nextRecentFiles de-dupes by name and caps at 10", () => {

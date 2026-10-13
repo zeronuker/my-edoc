@@ -1,21 +1,14 @@
-// Same modal shell as AnnotationModePicker.jsx. Asked before the tree's ×
-// does anything. `request` is { name, kind, isLegacy, count }: on iPad/phone
-// (isLegacy) the × deletes the app's own copy of the file(s); on desktop
-// there's no app copy, so it just takes the item out of the app. Either way
-// the user's real files are never touched, and the copy says so.
+// Same modal shell as the other dialogs. Asked before the tree's × does
+// anything. `request` is { name, kind, count }: the × deletes the app's own
+// copy of the file(s) — the user's original files are never touched, and
+// the copy says so.
 export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, closing }) {
-  const { name, kind, isLegacy, count } = request;
+  const { name, kind, count } = request;
   const isFolder = kind === "directory";
-  const noun = isFolder ? "FOLDER" : "FILE";
 
-  let body;
-  if (!isLegacy) {
-    body = `Remove "${name}" from the app? Your ${isFolder ? "files" : "file"} on disk ${isFolder ? "aren't" : "isn't"} touched.`;
-  } else if (isFolder) {
-    body = `Remove "${name}" and its ${count} file${count === 1 ? "" : "s"} from this device? Your original files aren't touched.`;
-  } else {
-    body = `Remove "${name}" from this device? Your original file isn't touched.`;
-  }
+  const body = isFolder
+    ? `Remove "${name}" and its ${count} file${count === 1 ? "" : "s"} from this device? Your original files aren't touched.`
+    : `Remove "${name}" from this device? Your original file isn't touched.`;
 
   return (
     <>
@@ -24,7 +17,7 @@ export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, 
         <div className="update-dialog-header">
           <span className="update-dialog-icon">×</span>
           <div>
-            <div className="update-dialog-title">REMOVE {noun}</div>
+            <div className="update-dialog-title">REMOVE {isFolder ? "FOLDER" : "FILE"}</div>
             <div className="update-dialog-subtitle">{name}</div>
           </div>
         </div>

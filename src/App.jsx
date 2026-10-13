@@ -1,8 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  pickFolder,
-  scanDirectory,
-  supportsDirectoryPicker,
   pickFolderLegacy,
   buildTreeFromFileList,
   wrapDroppedFile,
@@ -12,23 +9,18 @@ import {
   reviveInlineLegacyFolder,
   treeByteSize,
   flattenTreeFiles,
-  flattenTreeFilesWithPath,
   flattenTreeFileHandles,
   isMobileDevice,
   pickPdfFiles,
   filesInDirectory,
   planAddedFiles,
   insertFilesIntoTree,
-  writeFileIntoFolder,
   findNodeAt,
   removeNodeFromTree,
-  applySavedList,
-  listDirFileNames,
-  unionNames,
 } from "./fileSystem.js";
 import { deleteLegacyFolderFiles, deleteLegacyFiles, writeLegacyFile } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
-import { getAnnotationMode, saveAnnotations } from "./annotations.js";
+import { saveAnnotations } from "./annotations.js";
 import { usePdfDocument } from "./usePdfDocument.js";
 import { useTreeOverlay } from "./useTreeOverlay.js";
 import { useWakeLock } from "./useWakeLock.js";
@@ -72,7 +64,7 @@ import ThumbnailView from "./ThumbnailView.jsx";
 import PdfViewer from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
-import AnnotationModePicker from "./AnnotationModePicker.jsx";
+import LinkedFoldersNotice from "./LinkedFoldersNotice.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
@@ -117,7 +109,7 @@ const ANNOTATION_EDITOR_MODE_BY_TOOL = {
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const onSplashFinish = useCallback(() => setShowSplash(false), []);
-  const [folders, setFolders] = useState([]); // [{ key, dirHandle, tree, connectedAt, folderId }] — tree is null while pending permission; folderId only exists for legacy (OPFS-backed) folders
+  const [folders, setFolders] = useState([]); // [{ key, dirHandle, tree, connectedAt, folderId, sizeBytes }] — every folder is a copy in the app's own OPFS storage (see fileSystem.js)
   const [isNarrow, setIsNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
   const [error, setError] = useState(null);
   const [viewerApi, setViewerApi] = useState(null);
@@ -131,10 +123,9 @@ function App() {
   const appRef = useRef(null);
   const update = useUpdate("edoc");
   const [sidebarTab, setSidebarTab] = useState("folders");
-  // [{ fileHandle, name, openedAt }], newest first — legacy (OPFS) handles
-  // carry function properties IndexedDB can't clone, so only real handles
-  // persist across reload (same restriction lastFileHandle already has);
-  // legacy opens still show up in the list for the current session.
+  // [{ fileHandle, name, openedAt }], newest first. Handles carry function
+  // properties IndexedDB can't clone, so what's saved is each file's OPFS
+  // address (see persistRecent); a dropped file has none and isn't saved.
   const [recentFiles, setRecentFiles] = useState([]);
   // { [fileName]: [{ page, createdAt }] }, page-ascending — user-created
   // marks, distinct from the PDF's own outline.
@@ -148,9 +139,7 @@ function App() {
   // null | "highlight" | "ink" | "freetext" — mirrored onto
   // pdfViewer.annotationEditorMode by the effect below.
   const [annotationTool, setAnnotationTool] = useState(null);
-  const [modePickerOpen, setModePickerOpen] = useState(false);
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
-  const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
@@ -163,6 +152,7 @@ function App() {
   const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
   const [foldersReady, setFoldersReady] = useState(false); // the load effect has put the saved folders in `folders`
+  const [linkedNotice, setLinkedNotice] = useState(null); // names of old disk-linked folders, until the one-time notice is dismissed
   const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
@@ -178,15 +168,12 @@ function App() {
     viewMode,
     setViewMode,
     loading,
-    pendingReopen,
-    setPendingReopen,
     outline,
     hasUnsavedAnnotations,
     setHasUnsavedAnnotations,
     selectFile,
     closeDocument,
     clearDocument,
-    reopenLastFile,
   } = usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, addToRecent, setError });
 
   // Shared between the sidebar tree (renders/edits it) and search (needs the
@@ -195,9 +182,8 @@ function App() {
   const { displayFolders, allDisplayFolders, legacyHidden, clearLegacyHidden, placeRoot, releaseNested, dropNode } =
     useTreeOverlay(folders.filter((f) => f.tree));
 
-  // Restore last session: directory handles need a user gesture to
-  // re-request permission in most browsers, so folders without it show
-  // a per-folder "Reconnect" button instead of silently failing.
+  // Restore last session. Every folder is a copy in the app's own storage,
+  // so there's no permission to re-grant and nothing to reconnect.
   useEffect(() => {
     // StrictMode (dev) mounts this twice and the two async loads overlap.
     // Only the latest may apply its result: a stale one finishing after the
@@ -217,33 +203,16 @@ function App() {
 
       const loaded = [];
 
-      let realNeedsResave = false;
-      const rootRecords = (await dbGet("rootDirHandles")) || [];
-      for (const record of rootRecords) {
-        // Backward-compat: the pre-timestamp format stored a bare array
-        // of handles instead of { dirHandle, connectedAt } records.
-        const dirHandle = record?.dirHandle ?? record;
-        const connectedAt = record?.dirHandle ? record.connectedAt : null;
-        const granted = (await dirHandle.queryPermission({ mode: "read" })) === "granted";
-        // A folder saved before the "what to show" list existed has none:
-        // its first scan becomes it (written by the resave below).
-        if (granted && !record?.manifest) realNeedsResave = true;
-        loaded.push({
-          key: crypto.randomUUID(),
-          dirHandle,
-          connectedAt,
-          tree: granted
-            ? applySavedList(await scanDirectory(dirHandle), { manifest: record?.manifest, exclude: record?.exclude })
-            : null,
-          // Carried until the folder is reconnected and scanned.
-          manifest: granted ? undefined : record?.manifest,
-          pendingExclude: granted ? undefined : record?.exclude,
-        });
-      }
+      // Folders from before everything became a copy were links to the
+      // user's disk (a live handle, re-granted per session). They can't be
+      // converted without the user picking them again, so they're dropped
+      // and named in a one-time notice; the record is deleted once that's
+      // dismissed, so closing the app early just shows it again.
+      const oldLinks = (await dbGet("rootDirHandles")) || [];
+      const linkedNames = oldLinks.map((r) => (r?.dirHandle ?? r)?.name).filter(Boolean);
 
-      // Legacy (Safari/iOS, no File System Access API) folders have no
-      // permission to re-check — the file copies live in OPFS already,
-      // so they're ready to browse immediately, no reconnect needed.
+      // The file copies live in OPFS already, so they're ready to browse
+      // immediately.
       const legacyRecords = (await dbGet("legacyFolders")) || [];
       let legacyNeedsResave = false;
       for (const record of legacyRecords) {
@@ -280,16 +249,21 @@ function App() {
       if (cancelled) return;
       setFolders(loaded);
       setFoldersReady(true);
-      if (legacyNeedsResave || realNeedsResave) saveFolderList(loaded);
+      if (linkedNames.length > 0) setLinkedNotice(linkedNames);
+      if (legacyNeedsResave) saveFolderList(loaded);
       refreshStorageEstimate();
 
+      // Recents saved from a disk-linked folder hold a real disk handle that
+      // can't be opened any more — keep only the app's own copies.
       const savedRecent = (await dbGet("recentFiles")) || [];
+      const keptRecent = savedRecent.filter((e) => e.legacy);
+      if (keptRecent.length !== savedRecent.length) dbSet("recentFiles", keptRecent);
       setRecentFiles(
-        savedRecent.map((e) =>
-          e.legacy
-            ? { name: e.name, openedAt: e.openedAt, fileHandle: reviveLegacyFileHandle(e.folderId, e.name, e.relativePath) }
-            : e
-        )
+        keptRecent.map((e) => ({
+          name: e.name,
+          openedAt: e.openedAt,
+          fileHandle: reviveLegacyFileHandle(e.folderId, e.name, e.relativePath),
+        }))
       );
       setBookmarks((await dbGet("bookmarks")) || {});
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
@@ -298,14 +272,15 @@ function App() {
       // saved instead of leaving it orphaned in IndexedDB forever.
       dbDelete("textIndex");
       dbDelete("indexFailCounts");
+      // Annotations now always save as an app copy, so the per-file
+      // "where do I save" choice is gone.
+      dbDelete("annotationModes");
 
       if (resolvedSettings.resumePosition) {
         const lastFileHandle = await dbGet("lastFileHandle");
         if (lastFileHandle?.legacy) {
-          // Legacy (iPad/Android) files are saved as an OPFS address rather
-          // than a live handle (see usePdfDocument.js) — "still connected"
-          // just means that folder hasn't been removed since, and there's
-          // no permission grant to lose, so no reconnect prompt is needed.
+          // A file is saved as its OPFS address (see usePdfDocument.js) —
+          // "still connected" just means its folder hasn't been removed.
           const stillConnected = loaded.some((f) => f.folderId === lastFileHandle.folderId);
           if (stillConnected) {
             selectFile(
@@ -313,36 +288,7 @@ function App() {
             );
           }
         } else if (lastFileHandle) {
-          // A handle round-tripped through IndexedDB is never === to a
-          // fresh scan's handle for the same file — isSameEntry is the
-          // only reliable identity check — so this confirms the file still
-          // belongs to a folder that's actually connected right now.
-          // Without it, a file whose folder was removed in a past session
-          // would keep resurfacing here forever: the same orphaned-document
-          // problem handleRemoveFolder already guards against live, just
-          // hit from the resume-on-launch path instead.
-          let stillConnected = false;
-          for (const f of loaded) {
-            if (!f.tree || f.dirHandle?.__legacy) continue;
-            for (const x of flattenTreeFileHandles(f.tree)) {
-              if (await x.handle.isSameEntry(lastFileHandle)) {
-                stillConnected = true;
-                break;
-              }
-            }
-            if (stillConnected) break;
-          }
-          if (stillConnected) {
-            if ((await lastFileHandle.queryPermission({ mode: "read" })) === "granted") {
-              selectFile(lastFileHandle);
-            } else {
-              // Permission grant didn't survive (most often: the OS killed
-              // and reloaded the page in the background) — re-requesting it
-              // needs a user gesture, so offer a one-tap reopen instead of
-              // silently landing on the empty file browser.
-              setPendingReopen({ fileHandle: lastFileHandle, name: lastFileHandle.name });
-            }
-          }
+          dbDelete("lastFileHandle"); // a disk handle from before; can't be opened now
         }
       }
     })();
@@ -520,31 +466,19 @@ function App() {
 
   // One-time clean-up of the old "hidden" list. Removing now means removing
   // for good, so whatever was hidden before is removed here once the folders
-  // have loaded: iPad/phone frees the stored copies; desktop drops it from
-  // the folder's saved list (or, for a folder still waiting on permission,
-  // remembers to drop it on its first scan). The old list is only cleared at
-  // the end, so a launch cut short just repeats this next time.
+  // have loaded (the stored copies are deleted, freeing the space). The old
+  // list is only cleared at the end, so a launch cut short just repeats
+  // this next time.
   const hiddenCleanupStartedRef = useRef(false);
   useEffect(() => {
     if (!foldersReady || legacyHidden.length === 0 || hiddenCleanupStartedRef.current) return;
     hiddenCleanupStartedRef.current = true;
     (async () => {
       try {
-        const nameOf = (f) => f.tree?.name ?? f.dirHandle.name;
+        const nameOf = (f) => f.tree.name;
         for (const { rootName, relPaths } of hiddenRemovals(legacyHidden, folders.map(nameOf))) {
           const folder = folders.find((f) => nameOf(f) === rootName);
-          if (!folder) continue;
-          if (folder.tree) {
-            await removePathsFromFolder(folder, relPaths);
-          } else {
-            setFolders((prev) => {
-              const next = prev.map((f) =>
-                f.key === folder.key ? { ...f, pendingExclude: [...(f.pendingExclude || []), ...relPaths] } : f
-              );
-              saveFolderList(next);
-              return next;
-            });
-          }
+          if (folder) await removePathsFromFolder(folder, relPaths);
         }
         clearLegacyHidden();
       } catch (err) {
@@ -554,29 +488,24 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foldersReady, legacyHidden]);
 
-  // Saves the lightweight folder list only — real handles (Chromium)
-  // structured-clone as-is, and legacy folders save their (already OPFS-
-  // backed) manifest, not file bytes. Never call this expecting it to
-  // write any file content; that only happens in writeLegacyFiles.
+  // Saves the lightweight folder list only — each folder's manifest (its
+  // shape), not file bytes. Never call this expecting it to write any file
+  // content; that only happens in writeLegacyFiles.
   function saveFolderList(next) {
-    const { real, legacy } = folderListRecords(next);
-    dbSet("rootDirHandles", real);
-    dbSet("legacyFolders", legacy);
+    dbSet("legacyFolders", folderListRecords(next));
   }
 
   // De-dupes by filename (same key filePositions uses) and caps at 10, most
-  // recent first. Real handles are saved as-is; legacy (OPFS-backed) handles
-  // can't be cloned into IndexedDB directly, so their {folderId, relativePath}
-  // OPFS address is saved instead and turned back into a working handle on
-  // load (see reviveLegacyFileHandle). A dropped file with no folderId (drag
-  // straight from the OS, never added as a folder) has no OPFS copy to look
-  // up later, so it's left out — same as it always has been.
+  // recent first. Handles can't be cloned into IndexedDB directly, so each
+  // file's {folderId, relativePath} OPFS address is saved instead and turned
+  // back into a working handle on load (see reviveLegacyFileHandle). A
+  // dropped file with no folderId (drag straight from the OS, never added as
+  // a folder) has no OPFS copy to look up later, so it's left out.
   function persistRecent(list) {
     dbSet(
       "recentFiles",
       list
         .map((e) => {
-          if (!e.fileHandle.__legacy) return e;
           if (!e.fileHandle.folderId) return null;
           return { name: e.name, openedAt: e.openedAt, legacy: true, folderId: e.fileHandle.folderId, relativePath: e.fileHandle.relativePath };
         })
@@ -636,43 +565,17 @@ function App() {
     });
   }
 
-  // Bakes current annotation edits into the chosen destination (see
-  // annotations.js) and clears the "unsaved" flag. Also the path "change
-  // save mode" takes — re-saving to the newly chosen destination keeps it
-  // current even if nothing changed since the last save.
-  async function performAnnotationSave(mode) {
+  // Bakes current annotation edits into the file's app copy (see
+  // annotations.js) and clears the "unsaved" flag.
+  async function handleSaveAnnotations() {
     if (!selectedHandle || !pdf) return;
     try {
-      await saveAnnotations(selectedHandle, pdf, mode);
+      await saveAnnotations(selectedHandle, pdf);
       setHasUnsavedAnnotations(false);
     } catch (err) {
       console.error(err);
       setError(`Couldn't save annotations on "${selectedHandle.name}": ${err.message}`);
     }
-  }
-
-  // Legacy (Safari/OPFS) files have no real filesystem handle to write
-  // back to — they're already an app-managed copy, so "sidecar" is the
-  // only meaningful destination and there's nothing to ask about.
-  async function handleSaveAnnotations() {
-    if (!selectedHandle) return;
-    if (selectedHandle.__legacy) {
-      await performAnnotationSave("sidecar");
-      return;
-    }
-    const mode = await getAnnotationMode(selectedHandle.name);
-    if (mode) await performAnnotationSave(mode);
-    else setModePickerOpen(true);
-  }
-
-  function handleChangeAnnotationMode() {
-    if (!selectedHandle || selectedHandle.__legacy) return;
-    setModePickerOpen(true);
-  }
-
-  function handleAnnotationModeChosen(mode) {
-    setModePickerOpen(false);
-    performAnnotationSave(mode);
   }
 
   // Only fetches the device's overall quota — "used" is tracked ourselves
@@ -709,49 +612,6 @@ function App() {
     }
   }
 
-  // Desktop's directory scan (scanDirectory) is metadata-only and finishes
-  // near-instantly — there's no real per-file work to show progress on.
-  // This paces a reveal of the same CopyProgressModal iPad/Android's real
-  // per-file copy uses, purely so desktop gets the same visual experience
-  // for Add/Refresh folder. Each tick holds for TICK_MS before advancing —
-  // long enough for the checkmark and CopyProgressModal's smooth-scroll to
-  // actually be visible; an earlier version paced by a ~4s total duration
-  // instead, which for a folder in the thousands of files meant updates
-  // faster than the eye (or the scroll animation) could register, reading
-  // as frozen rather than ticking. Tick count scales with sqrt(file count),
-  // capped so a huge folder still wraps up in a few seconds rather than
-  // genuinely one-by-one. Throws an AbortError (matching copyFolderFiles'
-  // real-cancel shape) on Cancel, so callers can share the same catch-and-
-  // bail handling.
-  async function simulateScanProgress(tree, title, folderName) {
-    const files = flattenTreeFilesWithPath(tree);
-    const total = files.length;
-    if (total === 0) return;
-    const controller = new AbortController();
-    copyControllerRef.current = controller;
-    setCopyProgress({ title, folderName, files, doneSet: new Set(), actionLabel: "scanned" });
-    try {
-      const TICK_MS = 140;
-      const ticks = Math.min(total, Math.min(50, Math.max(4, Math.round(6 * Math.sqrt(total)))));
-      for (let t = 1; t <= ticks; t++) {
-        await new Promise((resolve, reject) => {
-          const id = setTimeout(resolve, TICK_MS);
-          controller.signal.addEventListener("abort", () => {
-            clearTimeout(id);
-            reject(new DOMException("Aborted", "AbortError"));
-          }, { once: true });
-        });
-        const doneCount = Math.round((t / ticks) * total);
-        setCopyProgress((p) =>
-          p ? { ...p, doneSet: new Set(files.slice(0, doneCount).map((f) => f.relativePath)) } : p
-        );
-      }
-    } finally {
-      setCopyProgress(null);
-      copyControllerRef.current = null;
-    }
-  }
-
   // Resolves to a node key (show the new folder inside that one), null
   // (top level), or undefined (cancelled). Doesn't ask at all when there's
   // nothing yet to put it inside.
@@ -761,50 +621,36 @@ function App() {
   }
 
   async function handleAddFolder() {
-    let dirHandle, tree, folderId, sizeBytes, parentKey;
-    if (supportsDirectoryPicker()) {
-      dirHandle = await pickFolder();
-      parentKey = await askPlacement(dirHandle.name);
-      if (parentKey === undefined) return;
-      setAddingFolder(true);
-      try {
-        tree = await scanDirectory(dirHandle);
-      } finally {
-        setAddingFolder(false);
-      }
-      try {
-        await simulateScanProgress(tree, "Adding folder", dirHandle.name);
-      } catch (err) {
-        if (err.name !== "AbortError") setError(`Couldn't add "${dirHandle.name}": ${err.message}`);
-        return;
-      }
-    } else {
-      const fileList = await pickFolderLegacy();
-      folderId = crypto.randomUUID();
-      tree = buildTreeFromFileList(fileList, folderId);
-      if (!tree) {
-        setError("No PDF files found in that folder.");
-        return;
-      }
-      dirHandle = tree.handle;
-      parentKey = await askPlacement(dirHandle.name);
-      if (parentKey === undefined) return;
-      sizeBytes = treeByteSize(tree);
+    let fileList;
+    try {
+      fileList = await pickFolderLegacy();
+    } catch {
+      return; // cancelled
+    }
+    const folderId = crypto.randomUUID();
+    const tree = buildTreeFromFileList(fileList, folderId);
+    if (!tree) {
+      setError("No PDF files found in that folder.");
+      return;
+    }
+    const dirHandle = tree.handle;
+    const parentKey = await askPlacement(dirHandle.name);
+    if (parentKey === undefined) return;
+    const sizeBytes = treeByteSize(tree);
 
-      const estimate = await getStorageEstimate();
-      if (estimate && sizeBytes > estimate.quota - foldersBytesUsed) {
-        setError(
-          `"${dirHandle.name}" (${formatBytes(sizeBytes)}) is bigger than the space free on this device ` +
-            `(${formatBytes(estimate.quota - foldersBytesUsed)}). It may not fully save.`
-        );
-      }
-      try {
-        await copyFolderFiles(folderId, tree, "Adding folder", dirHandle.name);
-      } catch (err) {
-        await deleteLegacyFolderFiles(folderId);
-        if (err.name !== "AbortError") setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
-        return;
-      }
+    const estimate = await getStorageEstimate();
+    if (estimate && sizeBytes > estimate.quota - foldersBytesUsed) {
+      setError(
+        `"${dirHandle.name}" (${formatBytes(sizeBytes)}) is bigger than the space free on this device ` +
+          `(${formatBytes(estimate.quota - foldersBytesUsed)}). It may not fully save.`
+      );
+    }
+    try {
+      await copyFolderFiles(folderId, tree, "Adding folder", dirHandle.name);
+    } catch (err) {
+      await deleteLegacyFolderFiles(folderId);
+      if (err.name !== "AbortError") setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
+      return;
     }
     const connectedAt = Date.now();
     const key = crypto.randomUUID();
@@ -816,32 +662,6 @@ function App() {
       return next;
     });
     refreshStorageEstimate();
-  }
-
-  async function handleReconnect(dirHandle) {
-    const granted = (await dirHandle.requestPermission({ mode: "read" })) === "granted";
-    if (!granted) return;
-    const scan = await scanDirectory(dirHandle);
-    const connectedAt = Date.now();
-    setFolders((prev) => {
-      const next = prev.map((f) =>
-        f.dirHandle === dirHandle
-          ? {
-              ...f,
-              tree: applySavedList(scan, { manifest: f.manifest, exclude: f.pendingExclude }),
-              connectedAt,
-              manifest: undefined,
-              pendingExclude: undefined,
-            }
-          : f
-      );
-      saveFolderList(next);
-      return next;
-    });
-  }
-
-  async function handleReconnectAll(dirHandles) {
-    for (const dirHandle of dirHandles) await handleReconnect(dirHandle);
   }
 
   // "Add files" (floating + menu): the native file picker has to open straight
@@ -863,36 +683,19 @@ function App() {
     setAddFiles({ files });
   }
 
-  // Legacy (iPad/phone) folders get each file written into the folder's OPFS
-  // copy; desktop folders get it written into the real folder on disk, which
-  // needs readwrite permission. Either way only the picked files are
-  // touched — the folder's other files are never re-read or re-copied — and
-  // the tree is patched in memory instead of rescanned.
+  // Each picked file is written into the folder's own OPFS copy. Only the
+  // picked files are touched — the folder's other files are never re-read or
+  // re-copied — and the tree is patched in memory.
   async function handleAddFilesConfirm(folderKey, destPath, choices) {
     const target = folders.find((f) => f.key === folderKey);
     if (!target?.tree) {
       setAddFiles(null);
       return;
     }
-    const isLegacy = !!target.dirHandle.__legacy;
     setAddFilesBusy(true);
     try {
-      // Must be the first await: the permission prompt needs the click's
-      // user activation, which is gone after any other async work.
-      if (!isLegacy && (await target.dirHandle.requestPermission({ mode: "readwrite" })) !== "granted") {
-        setError(`Couldn't add files: edit permission for "${target.dirHandle.name}" wasn't granted.`);
-        return;
-      }
       const existing = filesInDirectory(target.tree, destPath);
-      // Desktop: a file can be on disk without being in the app's list (it
-      // was taken out with ×, or put there outside the app). Count those
-      // names as taken too, or this would silently overwrite them.
-      const diskNames = isLegacy ? [] : await listDirFileNames(target.dirHandle, destPath);
-      const plan = planAddedFiles(
-        addFiles.files,
-        unionNames(existing.map((f) => f.name), diskNames),
-        choices
-      );
+      const plan = planAddedFiles(addFiles.files, existing.map((f) => f.name), choices);
       const added = [];
       const replacedHandles = [];
       let bytesDelta = 0;
@@ -912,19 +715,15 @@ function App() {
           try {
             const relativePath = destPath ? `${destPath}/${name}` : name;
             const old = replaces ? existing.find((f) => f.name === name) : null;
-            let oldSize = 0;
-            if (isLegacy && old) oldSize = (await old.handle.getFile().catch(() => null))?.size ?? 0;
+            const oldSize = old ? ((await old.handle.getFile().catch(() => null))?.size ?? 0) : 0;
 
-            let handle;
-            if (isLegacy) {
-              await writeLegacyFile(target.folderId, relativePath, file);
-              handle = reviveLegacyFileHandle(target.folderId, name, relativePath);
-            } else {
-              handle = await writeFileIntoFolder(target.dirHandle, destPath, name, file);
-            }
-            added.push(
-              isLegacy ? { name, kind: "file", relativePath, handle } : { name, kind: "file", handle }
-            );
+            await writeLegacyFile(target.folderId, relativePath, file);
+            added.push({
+              name,
+              kind: "file",
+              relativePath,
+              handle: reviveLegacyFileHandle(target.folderId, name, relativePath),
+            });
             bytesDelta += file.size - oldSize;
             if (old) replacedHandles.push(old.handle);
             setCopyProgress((p) =>
@@ -952,7 +751,7 @@ function App() {
               ? {
                   ...f,
                   tree: insertFilesIntoTree(f.tree, destPath, added),
-                  ...(isLegacy ? { sizeBytes: (f.sizeBytes || 0) + bytesDelta } : {}),
+                  sizeBytes: (f.sizeBytes || 0) + bytesDelta,
                 }
               : f
           );
@@ -967,14 +766,6 @@ function App() {
     } finally {
       setAddFilesBusy(false);
     }
-  }
-
-  // For AddFilesModal: which files really are in a desktop folder's
-  // directory on disk right now (empty for iPad/phone folders).
-  async function loadDiskNames(folderKey, destPath) {
-    const folder = folders.find((f) => f.key === folderKey);
-    if (!folder || folder.dirHandle.__legacy) return [];
-    return listDirFileNames(folder.dirHandle, destPath);
   }
 
   // Closes the open document if it (or a subfolder containing it) belongs
@@ -1014,14 +805,14 @@ function App() {
     }
   }
 
-  // TreeView's × on a subfolder or file: ask first. A node's key always
-  // points back at the folder it physically lives in (see parseNodeKey), so
-  // this finds the right connected folder and path even if the overlay has
-  // moved the node somewhere else in the displayed tree.
+  // TreeView's × on a subfolder, file or whole folder: ask first. A node's
+  // key always points back at the folder it physically lives in (see
+  // parseNodeKey), so this finds the right connected folder and path even if
+  // the overlay has moved the node somewhere else in the displayed tree.
   function requestRemoveNode(node) {
     const roots = folders.filter((f) => f.tree);
     // A connected folder's own root (top level or placed inside another):
-    // removes the whole folder, same as the old ⋮ → Remove did.
+    // removes the whole folder.
     if (node.folderRef) {
       const folder = roots.find((f) => f.key === node.folderRef.key);
       if (!folder) return;
@@ -1030,7 +821,6 @@ function App() {
         name: node.name,
         kind: "directory",
         isRoot: true,
-        isLegacy: !!folder.dirHandle.__legacy,
         folderKey: folder.key,
         relPath: "",
         count: flattenTreeFiles(folder.tree).length,
@@ -1041,43 +831,35 @@ function App() {
     const folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
     if (!folder) return;
     const rawNode = findNodeAt(folder.tree, parsed.relPath);
-    const isLegacy = !!folder.dirHandle.__legacy;
     if (!rawNode) return;
-    const count = rawNode.kind === "file" ? 1 : flattenTreeFiles(rawNode).length;
     setRemoveRequest({
       node,
       name: node.name,
       kind: node.kind,
-      isLegacy,
       folderKey: folder.key,
       relPath: parsed.relPath,
-      count,
+      count: rawNode.kind === "file" ? 1 : flattenTreeFiles(rawNode).length,
     });
   }
 
   // Takes the given paths (files or whole subfolders) out of one connected
-  // folder for good. iPad/phone also deletes the app's stored copies and
-  // frees the space; desktop just drops them from the folder's saved list so
-  // the next scan doesn't show them. The user's real files are never
-  // involved. Shared by the tree's × and the one-time clean-up of the old
-  // hidden list.
+  // folder for good: deletes the app's stored copies and frees the space.
+  // The user's original files outside the app are never involved. Shared by
+  // the tree's × and the one-time clean-up of the old hidden list.
   async function removePathsFromFolder(target, relPaths) {
-    const isLegacy = !!target.dirHandle.__legacy;
     const nodes = relPaths.map((p) => findNodeAt(target.tree, p)).filter(Boolean);
     const leaves = nodes.flatMap((n) => flattenTreeFileHandles(n));
     const paths = nodes.flatMap((n) => flattenTreeFiles(n).map((f) => f.relativePath));
     let freedBytes = 0;
-    if (isLegacy) {
-      for (const leaf of leaves) freedBytes += (await leaf.handle.getFile().catch(() => null))?.size ?? 0;
-      await deleteLegacyFiles(target.folderId, paths);
-    }
+    for (const leaf of leaves) freedBytes += (await leaf.handle.getFile().catch(() => null))?.size ?? 0;
+    await deleteLegacyFiles(target.folderId, paths);
     setFolders((prev) => {
       const next = prev.map((f) =>
         f.key === target.key
           ? {
               ...f,
               tree: relPaths.reduce((tree, p) => removeNodeFromTree(tree, p), f.tree),
-              ...(isLegacy ? { sizeBytes: Math.max(0, (f.sizeBytes || 0) - freedBytes) } : {}),
+              sizeBytes: Math.max(0, (f.sizeBytes || 0) - freedBytes),
             }
           : f
       );
@@ -1088,26 +870,11 @@ function App() {
 
     // The open document, and Recent entries, may point at what was just
     // removed — drop both rather than leave dead handles.
-    const handles = leaves.map((l) => l.handle);
-    handleFilesRemovedFromView(handles);
+    handleFilesRemovedFromView(leaves.map((l) => l.handle));
     const gone = new Set(paths);
-    const staleReal = [];
-    if (!isLegacy) {
-      for (const entry of recentFiles) {
-        if (typeof entry.fileHandle.isSameEntry !== "function") continue;
-        for (const removed of handles) {
-          if (await entry.fileHandle.isSameEntry(removed).catch(() => false)) {
-            staleReal.push(entry);
-            break;
-          }
-        }
-      }
-    }
     setRecentFiles((prev) => {
-      const next = prev.filter((e) =>
-        isLegacy
-          ? !(e.fileHandle.folderId === target.folderId && gone.has(e.fileHandle.relativePath))
-          : !staleReal.includes(e)
+      const next = prev.filter(
+        (e) => !(e.fileHandle.folderId === target.folderId && gone.has(e.fileHandle.relativePath))
       );
       persistRecent(next);
       return next;
@@ -1146,34 +913,21 @@ function App() {
     if (IS_MOBILE || settings.autoHideSidebar) setSidebarOpen(false);
   }
 
-  // Drag-and-drop: folders only work via getAsFileSystemHandle (Chromium);
-  // other browsers can still drop individual PDF files, which is the more
-  // common case anyway.
-  async function handleDrop(e) {
+  // Drag-and-drop: a dropped PDF opens for reading. A dropped folder can't
+  // be added this way — folders are copied in through + → Add folder — so
+  // say so instead of silently ignoring it.
+  function handleDrop(e) {
     e.preventDefault();
-    const items = [...e.dataTransfer.items].filter((i) => i.kind === "file");
-    for (const item of items) {
-      if (item.getAsFileSystemHandle) {
-        const handle = await item.getAsFileSystemHandle();
-        if (handle.kind === "directory") {
-          const tree = await scanDirectory(handle);
-          placeRoot(makeNodeKey(handle.name, ""), null);
-          setFolders((prev) => {
-            const next = [...prev, { key: crypto.randomUUID(), dirHandle: handle, tree, connectedAt: Date.now() }];
-            saveFolderList(next);
-            return next;
-          });
-          refreshStorageEstimate();
-        } else if (handle.name.toLowerCase().endsWith(".pdf")) {
-          selectFile(handle);
-        }
-      } else {
-        const file = item.getAsFile();
-        if (file?.name.toLowerCase().endsWith(".pdf")) {
-          selectFile(wrapDroppedFile(file));
-        }
+    let sawFolder = false;
+    for (const item of [...e.dataTransfer.items].filter((i) => i.kind === "file")) {
+      if (item.webkitGetAsEntry?.()?.isDirectory) {
+        sawFolder = true;
+        continue;
       }
+      const file = item.getAsFile();
+      if (file?.name.toLowerCase().endsWith(".pdf")) selectFile(wrapDroppedFile(file));
     }
+    if (sawFolder) setError("To add a folder, use + → Add folder.");
   }
 
   // Any edit to the global search field, while a document is open, closes
@@ -1192,7 +946,6 @@ function App() {
     closeDocument();
   }
 
-  const pendingFolders = folders.filter((f) => !f.tree);
   const currentBookmarks = selectedHandle ? bookmarks[selectedHandle.name] || [] : [];
   const isBookmarked = currentBookmarks.some((b) => b.page === currentPage);
   const currentOutlineExpanded = new Set(selectedHandle ? outlineExpanded[selectedHandle.name] || [] : []);
@@ -1206,19 +959,17 @@ function App() {
   const showTabs = tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const sidebarAnim = useTransitionAnim(activeTab, SIDEBAR_TAB_ORDER, settings.animStyle);
-  const modePicker = usePresence(modePickerOpen && !!selectedHandle);
   if (addFiles) lastAddFilesRef.current = addFiles;
   const addFilesPresence = usePresence(!!addFiles);
   const addFilesShown = addFiles ?? lastAddFilesRef.current;
-  // tree is the displayed (hide/move/reorder-applied) one the picker draws;
-  // rawTree is the on-disk shape the files are actually written into.
+  // tree is the displayed (move/reorder-applied) one the picker draws;
+  // rawTree is the folder's own shape, which is where files actually land.
   const addFilesTargets = allDisplayFolders.map((f) => ({
     key: f.key,
     name: f.tree.name,
     tree: f.tree,
     nested: f.nested,
     rawTree: folders.find((r) => r.key === f.key).tree,
-    writesToDisk: !f.dirHandle.__legacy,
   }));
   const fabMenu = usePresence(fabMenuOpen);
   if (removeRequest) lastRemoveRef.current = removeRequest;
@@ -1260,7 +1011,6 @@ function App() {
           folders={addFilesTargets}
           files={addFilesShown.files}
           busy={addFilesBusy}
-          loadDiskNames={loadDiskNames}
           onConfirm={handleAddFilesConfirm}
           onClose={() => setAddFiles(null)}
         />
@@ -1289,12 +1039,13 @@ function App() {
           onClose={() => setRemoveRequest(null)}
         />
       )}
-      {modePicker.present && selectedHandle && (
-        <AnnotationModePicker
-          closing={modePicker.closing}
-          fileName={selectedHandle.name}
-          onChoose={handleAnnotationModeChosen}
-          onClose={() => setModePickerOpen(false)}
+      {linkedNotice && (
+        <LinkedFoldersNotice
+          names={linkedNotice}
+          onClose={() => {
+            dbDelete("rootDirHandles");
+            setLinkedNotice(null);
+          }}
         />
       )}
       <div className={`topbar-wrap${sidebarOpen ? "" : " collapsed"}`}>
@@ -1444,37 +1195,6 @@ function App() {
               unmounting it collapses the whole tree back to the root. */}
           <div className={`folders-panel ${sidebarAnim.className}`} style={sidebarAnim.style} hidden={activeTab !== "folders"}>
             {folders.length === 0 && <p className="folders-empty-hint">No folders yet — tap + to add one.</p>}
-            {pendingFolders.length > 0 && (
-              <div className="pending-folders">
-                <button
-                  className="cb-btn"
-                  onClick={() => handleReconnectAll(pendingFolders.map((f) => f.dirHandle))}
-                >
-                  Reconnect all
-                </button>
-                {pendingFolders.map((f) => (
-                  <div key={f.key} className="pending-folder-row">
-                    <span className="pending-folder-name">{f.dirHandle.name}</span>
-                    <button
-                      className="tree-icon-btn"
-                      title={`Reconnect "${f.dirHandle.name}"`}
-                      aria-label={`Reconnect "${f.dirHandle.name}"`}
-                      onClick={() => handleReconnect(f.dirHandle)}
-                    >
-                      ↻
-                    </button>
-                    <button
-                      className="tree-icon-btn"
-                      title={`Remove "${f.dirHandle.name}"`}
-                      aria-label={`Remove "${f.dirHandle.name}"`}
-                      onClick={() => handleRemoveFolder(f.key)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
             {storageEstimate && (
               <div className="storage-usage">
                 {formatBytes(foldersBytesUsed)} used of {formatBytes(storageEstimate.quota)}
@@ -1519,13 +1239,12 @@ function App() {
               <button
                 className="add-folder-fab"
                 onClick={() => setFabMenuOpen((v) => !v)}
-                disabled={addingFolder}
                 aria-label="Add folder or files"
                 aria-haspopup="menu"
                 aria-expanded={fabMenuOpen}
                 title="Add folder or files"
               >
-                {addingFolder ? <span className="spinner" /> : <IconPlus size={20} />}
+                <IconPlus size={20} />
               </button>
             </div>
           </div>
@@ -1552,7 +1271,6 @@ function App() {
             onSetAnnotationTool={setAnnotationTool}
             hasUnsavedAnnotations={hasUnsavedAnnotations}
             onSaveAnnotations={handleSaveAnnotations}
-            onChangeAnnotationMode={handleChangeAnnotationMode}
             onOpenSettings={openSettings}
             settingsUpdateAvailable={update.needRefresh}
           />
@@ -1598,17 +1316,6 @@ function App() {
             <SearchResults query={globalSearch} folders={displayFolders} onOpenResult={selectFile} />
           ) : !pdf ? (
             <div className="viewer-empty">
-              {pendingReopen ? (
-                <span className="reopen-banner">
-                  Lost your place — reopen "{pendingReopen.name}"?
-                  <button className="cb-btn cb-btn--primary" onClick={reopenLastFile}>
-                    REOPEN
-                  </button>
-                  <button className="cb-btn" onClick={() => setPendingReopen(null)}>
-                    DISMISS
-                  </button>
-                </span>
-              ) : (
                 <div className="empty-illustration">
                   <svg className="empty-illustration-icon" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true">
                     <defs>
@@ -1662,7 +1369,6 @@ function App() {
                     <div className="empty-illustration-subtext">Drag a PDF here, or pick one from the sidebar</div>
                   </div>
                 </div>
-              )}
             </div>
           ) : null}
           {pdf && !loading && (

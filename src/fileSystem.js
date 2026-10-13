@@ -1,75 +1,38 @@
 import { writeLegacyFile, readLegacyFile } from "./opfs.js";
 
-export function supportsDirectoryPicker() {
-  // Safari/WebKit (iPhone, iPad, desktop Mac) has no genuine, working
-  // implementation of this API on any platform, and Android's version has
-  // shown the same failure mode in practice: the property can be present
-  // (passing a plain feature-detection check) without permission actually
-  // surviving an app relaunch — silently routing folder-adding down the
-  // "live handle" path and leaving the folder permanently stuck needing
-  // "reconnect" every reopen. Treat both platforms as unsupported
-  // regardless of what feature-detection reports; only desktop
-  // (Windows/Mac/Linux/ChromeOS) gets to use the live-handle path.
-  // navigator.vendor reliably identifies Apple's engine even on iPad,
-  // which otherwise reports a desktop-Mac user agent by default.
-  const isAppleWebKit = navigator.vendor === "Apple Computer, Inc.";
-  const isAndroid = /Android/i.test(navigator.userAgent);
-  return !isAppleWebKit && !isAndroid && "showDirectoryPicker" in window;
-}
-
 // True only for an actual phone, not a tablet. iPhone/iPod always
 // self-identify in the UA; real Android phones carry a "Mobile" token that
-// Android tablets omit. (iPadOS masquerades as a desktop Mac UA by default —
-// see supportsDirectoryPicker above — so there's no reliable UA signal to
-// single out iPad specifically; it isn't needed here since "not a phone"
-// is the only distinction this makes.)
+// Android tablets omit. (iPadOS masquerades as a desktop Mac UA by default,
+// so there's no reliable UA signal to single out iPad specifically; it
+// isn't needed here since "not a phone" is the only distinction this makes.)
 export function isMobileDevice() {
   const ua = navigator.userAgent;
   return /iPhone|iPod/.test(ua) || (/Android/.test(ua) && /Mobile/.test(ua));
 }
 
-export async function pickFolder() {
-  return window.showDirectoryPicker();
-}
+// Every folder is copied into the app's own storage (OPFS) and read from
+// there — the same on every device. A folder is picked with
+// <input webkitdirectory>, which hands over a one-time flat file list with
+// relative paths that buildTreeFromFileList turns into a tree.
 
-// Recursively builds a tree of folders and .pdf files only.
-export async function scanDirectory(dirHandle, name = dirHandle.name) {
-  const children = [];
-  for await (const entry of dirHandle.values()) {
-    if (entry.kind === "directory") {
-      const subtree = await scanDirectory(entry, entry.name);
-      if (subtree.children.length > 0) children.push(subtree);
-    } else if (entry.kind === "file" && entry.name.toLowerCase().endsWith(".pdf")) {
-      children.push({ name: entry.name, kind: "file", handle: entry });
-    }
-  }
-  children.sort((a, b) => a.name.localeCompare(b.name));
-  return { name, kind: "directory", handle: dirHandle, children };
-}
-
-// ponytail: no live filesystem connection here, so there's nothing to
-// re-grant permission to — queryPermission always reports "granted".
-// The real limitation is no detection of files added/removed on disk
-// after picking, since it's a one-time snapshot rather than a live handle.
+// ponytail: no live filesystem connection here — a picked folder is a
+// one-time snapshot, so changes made to the original files afterwards aren't
+// seen until they're added again.
 function permissiveHandle(name, extra = {}) {
-  // __legacy marks this for App.jsx: it carries function properties
-  // (getFile/queryPermission), which IndexedDB can't structured-clone
-  // directly — see writeLegacyFiles/buildLegacyManifest/reviveLegacyManifest
-  // below for how these get persisted across reloads instead.
-  return { name, __legacy: true, queryPermission: async () => "granted", ...extra };
+  // __legacy marks a handle that carries function properties (getFile),
+  // which IndexedDB can't structured-clone directly — see
+  // writeLegacyFiles/buildLegacyManifest/reviveLegacyManifest below for how
+  // these get persisted across reloads instead.
+  return { name, __legacy: true, ...extra };
 }
 
-// Wraps a single dropped File (from drag-and-drop) in the same permissive
-// handle shape used by the legacy folder picker, so selectFile() can treat
-// it identically regardless of how it was opened.
+// Wraps a single dropped File (from drag-and-drop) in the same handle shape
+// a copied file has, so selectFile() can treat it identically regardless of
+// how it was opened.
 export function wrapDroppedFile(file) {
   return permissiveHandle(file.name, { getFile: async () => file });
 }
 
-// Safari/iOS has no File System Access API (no showDirectoryPicker), so
-// folders there go through the older <input webkitdirectory> mechanism
-// instead: a one-time flat file list with relative paths, which we
-// rebuild into the same tree shape scanDirectory produces.
 function openFileInput(configure) {
   return new Promise((resolve, reject) => {
     const input = document.createElement("input");
@@ -250,84 +213,8 @@ export function insertFilesIntoTree(tree, path, fileNodes) {
   return rebuild(tree, 0);
 }
 
-// ---- Desktop folders' saved list ----
-// A desktop folder is a live handle and gets rescanned off disk on every
-// launch, so "removed from the app" needs something to remember it by: a
-// saved list (names only, no file bytes) of what the app should show. A
-// scan is filtered by it, so a removed item stays removed and a file that
-// merely appeared on disk stays out until the folder is added again.
-
-// The tree's shape as plain names: { name, kind, children? }.
-export function buildTreeManifest(tree) {
-  if (tree.kind === "file") return { name: tree.name, kind: "file" };
-  return { name: tree.name, kind: "directory", children: tree.children.map(buildTreeManifest) };
-}
-
-// Keeps only the scanned entries the saved list names. Folders that end up
-// empty are dropped (a scan only ever shows folders holding PDFs); the root
-// is kept regardless.
-export function filterTreeByManifest(tree, manifest) {
-  const wanted = new Map((manifest.children || []).map((c) => [`${c.kind}:${c.name}`, c]));
-  const children = [];
-  for (const child of tree.children) {
-    const m = wanted.get(`${child.kind}:${child.name}`);
-    if (!m) continue;
-    if (child.kind === "directory") {
-      const sub = filterTreeByManifest(child, m);
-      if (sub.children.length > 0) children.push(sub);
-    } else {
-      children.push(child);
-    }
-  }
-  return { ...tree, children };
-}
-
-// What a fresh scan of a desktop folder becomes once its saved state is
-// applied: filtered by the saved list when there is one; otherwise (the
-// first launch after this list existed) the full scan minus `exclude`, the
-// paths that were hidden under the old scheme.
-export function applySavedList(scanTree, { manifest, exclude } = {}) {
-  if (manifest) return filterTreeByManifest(scanTree, manifest);
-  return (exclude || []).reduce((tree, path) => removeNodeFromTree(tree, path), scanTree);
-}
-
-// Case-insensitive union of name lists. The last spelling of a name wins, so
-// the on-disk names passed last set the exact casing a Replace will write.
-export function unionNames(...lists) {
-  return [...new Map(lists.flat().map((n) => [n.toLowerCase(), n])).values()];
-}
-
-// Names of the files directly inside directory `path` of a live folder, as
-// they are on disk right now — used to catch a clash with a file the app's
-// saved list doesn't show (removed with ×, or added outside the app).
-export async function listDirFileNames(rootHandle, path) {
-  try {
-    let dir = rootHandle;
-    for (const part of path ? path.split("/") : []) dir = await dir.getDirectoryHandle(part);
-    const names = [];
-    for await (const entry of dir.values()) if (entry.kind === "file") names.push(entry.name);
-    return names;
-  } catch {
-    return [];
-  }
-}
-
-// Desktop (live-handle) folders: writes `file` straight into the real folder
-// on disk, under directory `path` of the connected root. Needs readwrite
-// permission on rootHandle — see handleAddFiles in App.jsx. Returns the new
-// file's handle, in the same shape scanDirectory gives file nodes.
-export async function writeFileIntoFolder(rootHandle, path, name, file) {
-  let dir = rootHandle;
-  for (const part of path ? path.split("/") : []) dir = await dir.getDirectoryHandle(part);
-  const fileHandle = await dir.getFileHandle(name, { create: true });
-  const writable = await fileHandle.createWritable();
-  await writable.write(file);
-  await writable.close();
-  return fileHandle;
-}
-
 // Flat, ordered list of a tree's file leaves — used to show the full file
-// list up front in the add/refresh progress modal, before any of them have
+// list up front in the add-folder progress modal, before any of them have
 // actually been copied yet.
 export function flattenTreeFiles(tree) {
   const out = [];
@@ -336,23 +223,6 @@ export function flattenTreeFiles(tree) {
     else node.children.forEach(walk);
   }
   walk(tree);
-  return out;
-}
-
-// Same idea as flattenTreeFiles, but for a live-handle tree (scanDirectory)
-// whose file nodes don't carry a relativePath the way legacy-path trees do —
-// computed here instead of threading it through scanDirectory, since the
-// desktop add/refresh progress simulation is the only thing that needs it.
-export function flattenTreeFilesWithPath(tree) {
-  const out = [];
-  function walk(node, prefix) {
-    if (node.kind === "file") {
-      out.push({ name: node.name, relativePath: prefix + node.name });
-      return;
-    }
-    for (const child of node.children) walk(child, `${prefix}${node.name}/`);
-  }
-  for (const child of tree.children) walk(child, "");
   return out;
 }
 
@@ -386,11 +256,8 @@ export function flattenTreeFileHandlesWithPath(tree) {
   return out;
 }
 
-// Writes every file in a freshly-picked legacy tree into its own OPFS
-// subdirectory (folderId) — this is the actual persisted copy. Called once
-// at connect time and once per refresh (into a *new* folderId — see
-// App.jsx's handleRefreshFolder for why: write-the-new-copy-first is what
-// lets a failed refresh leave the old copy intact).
+// Writes every file in a freshly-picked tree into its own OPFS
+// subdirectory (folderId) — this is the actual persisted copy.
 //
 // onFileDone(relativePath) fires after each file finishes, so the progress
 // modal can check it off live. signal lets the modal's Cancel button abort

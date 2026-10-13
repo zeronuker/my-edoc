@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { filesInDirectory, planAddedFiles, unionNames } from "./fileSystem.js";
+import { useState } from "react";
+import { filesInDirectory, planAddedFiles } from "./fileSystem.js";
 import { displayedPath, parseNodeKey } from "./treeOverlay.js";
 import DestinationTree from "./DestinationTree.jsx";
 
@@ -10,12 +10,12 @@ import DestinationTree from "./DestinationTree.jsx";
 // others), then any name already taken there gets Replace / Keep both.
 //
 // `folders` is every connected folder, [{ key, name, tree, rawTree,
-// writesToDisk, nested }]: `tree` is the displayed (overlaid) root this
+// nested }]: `tree` is the displayed (overlaid) root this
 // picker draws — nested ones are drawn inside their parent, not as a row of
 // their own; `rawTree` is the real on-disk shape, which is where files
 // physically land — a node's key always points back at its real folder
 // (see parseNodeKey), wherever the overlay shows it.
-export default function AddFilesModal({ folders, files, busy, onConfirm, onClose, closing, loadDiskNames }) {
+export default function AddFilesModal({ folders, files, busy, onConfirm, onClose, closing }) {
   const topLevel = folders.filter((f) => !f.nested);
   const [selectedKey, setSelectedKey] = useState(topLevel[0].tree.key);
   const [expanded, setExpanded] = useState(() => new Set([topLevel[0].tree.key]));
@@ -25,30 +25,11 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
   const target = folders.find((f) => f.name === parsed?.rootName) ?? topLevel[0];
   const destPath = parsed?.relPath ?? "";
 
-  // On desktop a file can be on disk without being in the app's list (taken
-  // out with ×, or put there outside the app) — those names count as taken
-  // too, or adding one would silently overwrite it. Loaded for just the
-  // chosen folder; the add itself re-checks, so this only has to explain.
-  const [disk, setDisk] = useState({ at: null, names: [] });
-  const diskAt = `${target.key}|${destPath}`;
-  useEffect(() => {
-    if (!target.writesToDisk) return undefined;
-    let cancelled = false;
-    loadDiskNames(target.key, destPath).then((names) => {
-      if (!cancelled) setDisk({ at: diskAt, names });
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diskAt, target.writesToDisk]);
-  const diskNames = disk.at === diskAt ? disk.names : [];
-  const listNames = filesInDirectory(target.rawTree, destPath).map((f) => f.name);
-  const inList = (name) => listNames.some((n) => n.toLowerCase() === name.toLowerCase());
-  const onDiskOnly = (name) => !inList(name) && diskNames.some((n) => n.toLowerCase() === name.toLowerCase());
-
-  const plan = planAddedFiles(files, unionNames(listNames, diskNames), choices);
-  const anyReplace = plan.some((p) => p.replaces);
+  const plan = planAddedFiles(
+    files,
+    filesInDirectory(target.rawTree, destPath).map((f) => f.name),
+    choices
+  );
   // A clash is any file whose name is already taken in the destination —
   // that's exactly when "keep both" had to rename it or "replace" is on.
   const clashes = plan.map((p, i) => p.replaces || p.name !== files[i].name);
@@ -93,13 +74,8 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
         <div className="add-files-list">
           {plan.map((p, i) => (
             <div className="add-files-row" key={i} style={{ "--i": Math.min(i, 8) }}>
-              <span className="add-files-namecol">
-                <span className="add-files-name" title={p.name}>
-                  {p.name}
-                </span>
-                {clashes[i] && onDiskOnly(files[i].name) && (
-                  <span className="add-files-note">Already in this folder on disk</span>
-                )}
+              <span className="add-files-name" title={p.name}>
+                {p.name}
               </span>
               {clashes[i] && (
                 <span className="add-files-choice">
@@ -122,10 +98,6 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
             </div>
           ))}
         </div>
-
-        {anyReplace && target.writesToDisk && (
-          <div className="add-files-warning">Replace overwrites the file in your folder on disk. Can't be undone.</div>
-        )}
 
         <div className="update-dialog-actions">
           <button className="cb-btn" onClick={onClose} disabled={busy}>

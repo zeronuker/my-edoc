@@ -1,4 +1,4 @@
-import { buildLegacyManifest, buildTreeManifest } from "./fileSystem.js";
+import { buildLegacyManifest } from "./fileSystem.js";
 
 export function formatBytes(bytes) {
   if (bytes == null) return "";
@@ -12,28 +12,16 @@ export function formatBytes(bytes) {
   return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }
 
-// Splits a folders array into the two persisted shapes saveFolderList writes
-// — real (Chromium) dirHandle records vs. legacy (OPFS-backed) manifests.
+// The persisted shape of each folder: its OPFS id, when it was added, a
+// manifest of its shape (no file bytes — those live in OPFS under the id) and
+// the size the app tracks for it.
 export function folderListRecords(folders) {
-  const real = folders.filter((f) => !f.dirHandle.__legacy);
-  const legacy = folders.filter((f) => f.dirHandle.__legacy);
-  return {
-    // manifest = the saved list of what to show (see fileSystem.js). A folder
-    // still waiting for permission has no tree yet, so it passes along what
-    // it loaded with (its manifest, or paths still to drop on first scan).
-    real: real.map((f) => ({
-      dirHandle: f.dirHandle,
-      connectedAt: f.connectedAt,
-      manifest: f.tree ? buildTreeManifest(f.tree) : f.manifest,
-      exclude: f.tree ? undefined : f.pendingExclude,
-    })),
-    legacy: legacy.map((f) => ({
-      id: f.folderId,
-      connectedAt: f.connectedAt,
-      manifest: buildLegacyManifest(f.tree),
-      sizeBytes: f.sizeBytes,
-    })),
-  };
+  return folders.map((f) => ({
+    id: f.folderId,
+    connectedAt: f.connectedAt,
+    manifest: buildLegacyManifest(f.tree),
+    sizeBytes: f.sizeBytes,
+  }));
 }
 
 // De-dupes by filename and caps at 10, most recent first.
