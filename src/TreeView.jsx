@@ -271,7 +271,7 @@ function Node({
   actions,
   expandedPaths,
   onToggleOpen,
-  onHide,
+  onRemoveNode,
   onDropNode,
   dragKeyRef,
   dropTarget,
@@ -342,12 +342,12 @@ function Node({
         </span>
         <button
           className="tree-hide-btn"
-          title={`Remove "${node.name}" from view`}
-          aria-label={`Remove "${node.name}" from view`}
+          title={`Remove "${node.name}"`}
+          aria-label={`Remove "${node.name}"`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
-            onHide(node);
+            onRemoveNode(node);
           }}
         >
           ×
@@ -388,12 +388,12 @@ function Node({
             </span>
             <button
               className="tree-hide-btn"
-              title={`Remove "${node.name}" from view`}
-              aria-label={`Remove "${node.name}" from view`}
+              title={`Remove "${node.name}"`}
+              aria-label={`Remove "${node.name}"`}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
-                onHide(node);
+                onRemoveNode(node);
               }}
             >
               ×
@@ -416,7 +416,7 @@ function Node({
               selectedHandle={selectedHandle}
               expandedPaths={expandedPaths}
               onToggleOpen={onToggleOpen}
-              onHide={onHide}
+              onRemoveNode={onRemoveNode}
               onDropNode={onDropNode}
               dragKeyRef={dragKeyRef}
               dropTarget={dropTarget}
@@ -436,7 +436,7 @@ export default function TreeView({
   onRemoveFolder,
   onRefreshFolder,
   refreshingKeys,
-  onHide,
+  onRemoveNode,
   onDropNode,
 }) {
   // Only one folder's actions menu open at a time.
@@ -497,7 +497,7 @@ export default function TreeView({
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}
                 onToggleOpen={toggleOpen}
-                onHide={onHide}
+                onRemoveNode={onRemoveNode}
                 onDropNode={onDropNode}
                 dragKeyRef={dragKeyRef}
                 dropTarget={dropTarget}

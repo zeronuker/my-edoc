@@ -160,6 +160,41 @@ function findDirectory(tree, path) {
   return dir ?? null;
 }
 
+// The node (file or directory) at `path`, or null — "" is the root itself.
+export function findNodeAt(tree, path) {
+  let node = tree;
+  for (const part of path ? path.split("/") : []) {
+    node = node?.kind === "directory" ? node.children.find((c) => c.name === part) : null;
+  }
+  return node ?? null;
+}
+
+// Returns a new tree without the node at `path` (a file or a whole folder),
+// also dropping any folder left empty by it — scans only ever show folders
+// that contain PDFs, so a leftover empty one would be a ghost row. The root
+// itself is never removed. Only the nodes along `path` are copied.
+export function removeNodeFromTree(tree, path) {
+  if (!path) return tree;
+  const parts = path.split("/");
+  function rebuild(dir, depth) {
+    const children = [];
+    for (const child of dir.children) {
+      if (child.name !== parts[depth]) {
+        children.push(child);
+      } else if (depth === parts.length - 1) {
+        continue;
+      } else if (child.kind === "directory") {
+        const next = rebuild(child, depth + 1);
+        if (next.children.length > 0) children.push(next);
+      } else {
+        children.push(child);
+      }
+    }
+    return { ...dir, children };
+  }
+  return rebuild(tree, 0);
+}
+
 // The file nodes sitting directly inside `path` (empty if it doesn't exist).
 export function filesInDirectory(tree, path) {
   return findDirectory(tree, path)?.children.filter((c) => c.kind === "file") ?? [];

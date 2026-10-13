@@ -8,6 +8,8 @@ import {
   uniqueFileName,
   planAddedFiles,
   insertFilesIntoTree,
+  findNodeAt,
+  removeNodeFromTree,
   writeFileIntoFolder,
 } from "./fileSystem.js";
 
@@ -114,4 +116,29 @@ test("writeFileIntoFolder writes into the nested directory and returns its handl
   assert.equal(handle.name, "x (1).pdf");
   assert.deepEqual(handle.opts, { create: true });
   assert.deepEqual(written, [file]);
+});
+
+test("findNodeAt finds files and folders by path, and null for a missing one", () => {
+  const tree = buildTreeFromFileList([mockFile("Lib/a.pdf"), mockFile("Lib/Sub/b.pdf")]);
+  assert.equal(findNodeAt(tree, ""), tree);
+  assert.equal(findNodeAt(tree, "Sub").kind, "directory");
+  assert.equal(findNodeAt(tree, "Sub/b.pdf").name, "b.pdf");
+  assert.equal(findNodeAt(tree, "Sub/nope.pdf"), null);
+  assert.equal(findNodeAt(tree, "a.pdf/b.pdf"), null);
+});
+
+test("removeNodeFromTree removes a file, prunes the folder it emptied, and leaves the old tree alone", () => {
+  const tree = buildTreeFromFileList([mockFile("Lib/a.pdf"), mockFile("Lib/Sub/Deep/b.pdf"), mockFile("Lib/Sub/c.pdf")]);
+  const one = removeNodeFromTree(tree, "Sub/Deep/b.pdf");
+  assert.equal(findNodeAt(one, "Sub/Deep"), null);
+  assert.equal(findNodeAt(one, "Sub/c.pdf").name, "c.pdf");
+  assert.equal(findNodeAt(tree, "Sub/Deep/b.pdf").name, "b.pdf");
+});
+
+test("removeNodeFromTree removes a whole folder and its parents if that empties them, but never the root", () => {
+  const tree = buildTreeFromFileList([mockFile("Lib/Sub/Deep/b.pdf")]);
+  const next = removeNodeFromTree(tree, "Sub/Deep");
+  assert.equal(next.name, "Lib");
+  assert.deepEqual(next.children, []);
+  assert.equal(removeNodeFromTree(tree, ""), tree);
 });

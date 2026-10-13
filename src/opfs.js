@@ -40,6 +40,17 @@ export async function deleteLegacyFolderFiles(folderId) {
   await root.removeEntry(folderId, { recursive: true }).catch(() => {});
 }
 
+// Removes individual files from a folder's OPFS copy (the tree's ×). A file
+// that's already gone is skipped rather than failing the whole batch, so the
+// caller can always go on to drop them from the manifest.
+export async function deleteLegacyFiles(folderId, relativePaths) {
+  if (!folderId) return;
+  const root = await legacyFoldersRoot();
+  const dir = await root.getDirectoryHandle(folderId).catch(() => null);
+  if (!dir) return;
+  for (const path of relativePaths) await dir.removeEntry(escapeName(path)).catch(() => {});
+}
+
 // Annotated copies (see annotations.js): one flat file per original
 // filename, holding the most recently saved "sidecar" version — used
 // instead of the original when a file's annotation mode is "sidecar" (the

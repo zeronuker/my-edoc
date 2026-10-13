@@ -20,8 +20,10 @@ import {
   planAddedFiles,
   insertFilesIntoTree,
   writeFileIntoFolder,
+  findNodeAt,
+  removeNodeFromTree,
 } from "./fileSystem.js";
-import { deleteLegacyFolderFiles, writeLegacyFile } from "./opfs.js";
+import { deleteLegacyFolderFiles, deleteLegacyFiles, writeLegacyFile } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { getAnnotationMode, saveAnnotations } from "./annotations.js";
 import { usePdfDocument } from "./usePdfDocument.js";
@@ -30,7 +32,7 @@ import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { usePresence } from "./usePresence.js";
-import { collectFileHandles, makeNodeKey } from "./treeOverlay.js";
+import { collectFileHandles, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
@@ -69,6 +71,7 @@ import Toolbar from "./Toolbar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import AnnotationModePicker from "./AnnotationModePicker.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
+import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
@@ -148,6 +151,9 @@ function App() {
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
+  const [removeRequest, setRemoveRequest] = useState(null); // { node, name, kind, isLegacy, folderKey, relPath, count } while the × confirmation is open
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
@@ -503,19 +509,23 @@ function App() {
   // load (see reviveLegacyFileHandle). A dropped file with no folderId (drag
   // straight from the OS, never added as a folder) has no OPFS copy to look
   // up later, so it's left out — same as it always has been.
+  function persistRecent(list) {
+    dbSet(
+      "recentFiles",
+      list
+        .map((e) => {
+          if (!e.fileHandle.__legacy) return e;
+          if (!e.fileHandle.folderId) return null;
+          return { name: e.name, openedAt: e.openedAt, legacy: true, folderId: e.fileHandle.folderId, relativePath: e.fileHandle.relativePath };
+        })
+        .filter(Boolean)
+    );
+  }
+
   function addToRecent(fileHandle) {
     setRecentFiles((prev) => {
       const next = nextRecentFiles(prev, fileHandle);
-      dbSet(
-        "recentFiles",
-        next
-          .map((e) => {
-            if (!e.fileHandle.__legacy) return e;
-            if (!e.fileHandle.folderId) return null;
-            return { name: e.name, openedAt: e.openedAt, legacy: true, folderId: e.fileHandle.folderId, relativePath: e.fileHandle.relativePath };
-          })
-          .filter(Boolean)
-      );
+      persistRecent(next);
       return next;
     });
   }
@@ -980,11 +990,93 @@ function App() {
     }
   }
 
-  // TreeView's × button — apply the overlay change, then close the doc if
-  // it (or something under it) was just hidden, same as removing a folder.
+  // Desktop's ×: no app copy exists to delete (the folder is a live handle
+  // onto disk), so it only hides the node, then closes the doc if it (or
+  // something under it) was just hidden, same as removing a folder.
   function handleHideNode(node) {
     hideNode(node);
     handleFilesRemovedFromView(collectFileHandles(node));
+  }
+
+  // TreeView's × on a subfolder or file: ask first. A node's key always
+  // points back at the folder it physically lives in (see parseNodeKey), so
+  // this finds the right connected folder and path even if the overlay has
+  // moved the node somewhere else in the displayed tree.
+  function requestRemoveNode(node) {
+    const roots = folders.filter((f) => f.tree);
+    const parsed = parseNodeKey(node.key, roots.map((f) => f.tree.name));
+    const folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
+    if (!folder) return;
+    const rawNode = findNodeAt(folder.tree, parsed.relPath);
+    const isLegacy = !!folder.dirHandle.__legacy;
+    if (isLegacy && !rawNode) return;
+    const count = !rawNode ? 0 : rawNode.kind === "file" ? 1 : flattenTreeFiles(rawNode).length;
+    setRemoveRequest({
+      node,
+      name: node.name,
+      kind: node.kind,
+      isLegacy,
+      folderKey: folder.key,
+      relPath: parsed.relPath,
+      count,
+    });
+  }
+
+  // iPad/phone: deletes the app's own copy of the file(s) from OPFS, takes
+  // them out of the saved tree, and frees the space — the original files
+  // outside the app are never involved. Desktop: just hides, see above.
+  async function confirmRemoveNode() {
+    const req = removeRequest;
+    if (!req) return;
+    setRemoveBusy(true);
+    try {
+      if (!req.isLegacy) {
+        handleHideNode(req.node);
+      } else {
+        const target = folders.find((f) => f.key === req.folderKey);
+        const rawNode = target?.tree && findNodeAt(target.tree, req.relPath);
+        if (rawNode) {
+          const leaves = flattenTreeFileHandles(rawNode);
+          const paths = flattenTreeFiles(rawNode).map((f) => f.relativePath);
+          let freedBytes = 0;
+          for (const leaf of leaves) freedBytes += (await leaf.handle.getFile().catch(() => null))?.size ?? 0;
+
+          await deleteLegacyFiles(target.folderId, paths);
+          setFolders((prev) => {
+            const next = prev.map((f) =>
+              f.key === target.key
+                ? {
+                    ...f,
+                    tree: removeNodeFromTree(f.tree, req.relPath),
+                    sizeBytes: Math.max(0, (f.sizeBytes || 0) - freedBytes),
+                  }
+                : f
+            );
+            saveFolderList(next);
+            return next;
+          });
+          refreshStorageEstimate();
+
+          // The open document, and Recent entries, may point at what was
+          // just deleted — drop both rather than leave dead handles.
+          handleFilesRemovedFromView(leaves.map((l) => l.handle));
+          const gone = new Set(paths);
+          setRecentFiles((prev) => {
+            const next = prev.filter(
+              (e) => !(e.fileHandle.folderId === target.folderId && gone.has(e.fileHandle.relativePath))
+            );
+            persistRecent(next);
+            return next;
+          });
+        }
+      }
+      setRemoveRequest(null);
+    } catch (err) {
+      setError(`Couldn't remove "${req.name}": ${err.message}`);
+      setRemoveRequest(null);
+    } finally {
+      setRemoveBusy(false);
+    }
   }
 
   function handleDragOver(e) {
@@ -1072,6 +1164,9 @@ function App() {
     writesToDisk: !f.dirHandle.__legacy,
   }));
   const fabMenu = usePresence(fabMenuOpen);
+  if (removeRequest) lastRemoveRef.current = removeRequest;
+  const removePresence = usePresence(!!removeRequest);
+  const removeShown = removeRequest ?? lastRemoveRef.current;
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -1107,6 +1202,15 @@ function App() {
           busy={addFilesBusy}
           onConfirm={handleAddFilesConfirm}
           onClose={() => setAddFiles(null)}
+        />
+      )}
+      {removePresence.present && removeShown && (
+        <ConfirmRemoveModal
+          closing={removePresence.closing}
+          request={removeShown}
+          busy={removeBusy}
+          onConfirm={confirmRemoveNode}
+          onClose={() => setRemoveRequest(null)}
         />
       )}
       {modePicker.present && selectedHandle && (
@@ -1307,7 +1411,7 @@ function App() {
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
               refreshingKeys={refreshingKeys}
-              onHide={handleHideNode}
+              onRemoveNode={requestRemoveNode}
               onDropNode={dropNode}
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the
