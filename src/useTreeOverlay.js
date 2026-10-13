@@ -1,41 +1,43 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dbGet, dbSet } from "./db.js";
-import { applyOverlay, emptyOverlay, flattenByKey, releaseNestedRoots, unhideKeys } from "./treeOverlay.js";
+import { applyOverlay, emptyOverlay, flattenByKey, releaseNestedRoots } from "./treeOverlay.js";
 
-// Owns the "hide / move / reorder" virtual layer on top of the real folder
-// trees — see treeOverlay.js. Shared by both TreeView (which renders it and
-// lets the user edit it) and search (which needs the same filtered/reordered
-// view so a hidden file doesn't still show up as a result) — previously this
-// lived only inside TreeView, so nothing else could see it.
+// Owns the "move / reorder / placed inside another folder" virtual layer on
+// top of the real folder trees — see treeOverlay.js. Shared by both TreeView
+// (which renders it and lets the user edit it) and search (which needs the
+// same arranged view so results show where things are drawn).
+//
+// legacyHidden carries the old "hidden" list from before hiding was removed.
+// It is kept in storage until App.jsx has removed those items for good and
+// calls clearLegacyHidden, so an app closed halfway just redoes the
+// (idempotent) clean-up on the next launch.
 export function useTreeOverlay(folders) {
   const [overlay, setOverlay] = useState(emptyOverlay);
+  const [legacyHidden, setLegacyHidden] = useState([]);
   const overlayLoadedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
       const saved = await dbGet("treeOverlay");
-      if (saved) setOverlay(saved);
+      if (saved) {
+        const { hidden, ...rest } = saved;
+        setOverlay({ ...emptyOverlay, ...rest });
+        if (hidden?.length) setLegacyHidden(hidden);
+      }
       overlayLoadedRef.current = true;
     })();
   }, []);
 
   useEffect(() => {
     if (!overlayLoadedRef.current) return;
-    dbSet("treeOverlay", overlay);
-  }, [overlay]);
+    dbSet("treeOverlay", legacyHidden.length ? { ...overlay, hidden: legacyHidden } : overlay);
+  }, [overlay, legacyHidden]);
 
   // allDisplayFolders keeps every connected folder (a nested one is flagged
   // `nested`); displayFolders is just the top-level rows, since a nested
   // folder is drawn inside its parent's tree rather than on its own.
   const allDisplayFolders = useMemo(() => applyOverlay(folders, overlay), [folders, overlay]);
   const displayFolders = useMemo(() => allDisplayFolders.filter((f) => !f.nested), [allDisplayFolders]);
-
-  // Just the overlay mutation — callers that need to also react to a file
-  // being hidden (e.g. closing it if it was the open document) do that
-  // themselves; this hook has no notion of "the open document".
-  function hideNode(node) {
-    setOverlay((prev) => ({ ...prev, hidden: [...prev.hidden, node.key] }));
-  }
 
   // Puts a connected folder's root inside `parentKey` (a node key), or back
   // at the top level when parentKey is null — also what clears a stale
@@ -53,8 +55,8 @@ export function useTreeOverlay(folders) {
     setOverlay((prev) => releaseNestedRoots(prev, parentName));
   }
 
-  function unhideNodes(keys) {
-    setOverlay((prev) => unhideKeys(prev, keys));
+  function clearLegacyHidden() {
+    setLegacyHidden([]);
   }
 
   function dropNode(draggedKey, targetParentKey, index) {
@@ -76,5 +78,5 @@ export function useTreeOverlay(folders) {
     }));
   }
 
-  return { displayFolders, allDisplayFolders, hideNode, unhideNodes, placeRoot, releaseNested, dropNode };
+  return { displayFolders, allDisplayFolders, legacyHidden, clearLegacyHidden, placeRoot, releaseNested, dropNode };
 }

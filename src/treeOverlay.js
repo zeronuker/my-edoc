@@ -1,10 +1,11 @@
-// Applies a persisted, purely virtual layer (hide / reorder / move-between-
-// folders) on top of the trees scanDirectory/buildTreeFromFileList produce
-// straight off disk. Never touches the real filesystem — re-applied after
-// every rescan/refresh, so a hidden or moved node stays hidden/moved even
-// once the raw scan brings it back in its original spot.
+// Applies a persisted, purely virtual layer (reorder / move-between-folders /
+// folders placed inside others) on top of the trees scanDirectory/
+// buildTreeFromFileList produce. Never touches the real filesystem —
+// re-applied after every load, so a moved node stays moved even once the raw
+// scan brings it back in its original spot. (There is no "hidden" any more:
+// removing something removes it from the app for good — see App.jsx.)
 
-export const emptyOverlay = { hidden: [], moves: {}, order: {} };
+export const emptyOverlay = { moves: {}, order: {} };
 
 export function makeNodeKey(folderKey, relPath) {
   return `${folderKey}:${relPath}`;
@@ -23,14 +24,6 @@ export function releaseNestedRoots(overlay, parentName) {
   return { ...overlay, moves };
 }
 
-// Un-hides the given node keys — used when a file is (re-)added, since
-// adding something means wanting to see it, even if an earlier copy of the
-// same name had been removed from view.
-export function unhideKeys(overlay, keys) {
-  const drop = new Set(keys);
-  return { ...overlay, hidden: (overlay.hidden || []).filter((k) => !drop.has(k)) };
-}
-
 // Inverse of makeNodeKey: which connected folder (by its root name) a node
 // key belongs to, and the node's path inside it — i.e. where it physically
 // lives, regardless of where the overlay moved it to in the displayed tree.
@@ -42,6 +35,24 @@ export function parseNodeKey(key, rootNames) {
     if (key.startsWith(`${name}:`) && (best === null || name.length > best.length)) best = name;
   }
   return best === null ? null : { rootName: best, relPath: key.slice(best.length + 1) };
+}
+
+// One-time migration: the old "hidden" list (node keys) turned into the
+// paths to remove for good from each connected folder, [{ rootName,
+// relPaths }]. Keys no connected folder owns are dropped, and a path whose
+// ancestor is also listed is dropped since removing the ancestor covers it.
+export function hiddenRemovals(hiddenKeys, rootNames) {
+  const byRoot = new Map();
+  for (const key of hiddenKeys) {
+    const parsed = parseNodeKey(key, rootNames);
+    if (!parsed || !parsed.relPath) continue;
+    if (!byRoot.has(parsed.rootName)) byRoot.set(parsed.rootName, new Set());
+    byRoot.get(parsed.rootName).add(parsed.relPath);
+  }
+  return [...byRoot].map(([rootName, paths]) => ({
+    rootName,
+    relPaths: [...paths].filter((p) => ![...paths].some((q) => q !== p && p.startsWith(`${q}/`))),
+  }));
 }
 
 // Walks up parentKey links to check whether `candidate` is `node` itself or
@@ -57,7 +68,6 @@ function isSelfOrDescendant(candidate, node, nodesByKey) {
 }
 
 export function applyOverlay(folders, overlay) {
-  const hidden = new Set(overlay.hidden || []);
   const moves = overlay.moves || {};
   const order = overlay.order || {};
   const nodesByKey = new Map();
@@ -85,9 +95,9 @@ export function applyOverlay(folders, overlay) {
   for (const folder of folders) {
     if (!folder.tree) continue;
     const root = clone(folder.tree, "", folder.tree.name, null);
-    // The connected folder this root belongs to — lets the tree draw its
-    // Refresh/Remove menu on it even when it's been placed inside another
-    // folder rather than sitting at the top level.
+    // The connected folder this root belongs to — lets the tree tell a
+    // folder's own root (which has a × that removes the whole folder) from
+    // a subfolder, even when it's been placed inside another folder.
     root.folderRef = folder;
     rootByFolderKey.set(folder.tree.name, root);
   }
@@ -104,27 +114,10 @@ export function applyOverlay(folders, overlay) {
     node.parentKey = newParentKey;
   }
 
-  // Effective hidden = explicitly hidden, or a descendant of a hidden node.
-  const effectivelyHidden = new Set();
-  function isHidden(node) {
-    if (effectivelyHidden.has(node.key)) return true;
-    if (hidden.has(node.key)) {
-      effectivelyHidden.add(node.key);
-      return true;
-    }
-    if (node.parentKey && isHidden(nodesByKey.get(node.parentKey))) {
-      effectivelyHidden.add(node.key);
-      return true;
-    }
-    return false;
-  }
-
-  // Rebuild every children[] from the (possibly reparented) links above,
-  // skipping hidden nodes entirely.
+  // Rebuild every children[] from the (possibly reparented) links above.
   for (const node of nodesByKey.values()) {
-    if (node.parentKey === null || isHidden(node)) continue;
-    const parent = nodesByKey.get(node.parentKey);
-    if (parent && !isHidden(parent)) parent.children.push(node);
+    if (node.parentKey === null) continue;
+    nodesByKey.get(node.parentKey)?.children.push(node);
   }
 
   for (const node of nodesByKey.values()) {
@@ -158,19 +151,6 @@ export function flattenByKey(displayFolders) {
   }
   for (const folder of displayFolders) if (folder.tree) walk(folder.tree);
   return map;
-}
-
-// File handles of a node's own leaves (itself if it's a file, every file
-// under it if it's a folder) — used to close the open document if it was
-// just hidden from view.
-export function collectFileHandles(node) {
-  const out = [];
-  function walk(n) {
-    if (n.kind === "file") out.push(n.handle);
-    else n.children.forEach(walk);
-  }
-  walk(node);
-  return out;
 }
 
 // "Contracts › Signed › 2025" for the node with this key, from the

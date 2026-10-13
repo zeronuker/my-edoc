@@ -2042,6 +2042,18 @@ html,
   border-bottom: none;
 }
 
+.add-files-namecol {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.add-files-note {
+  font-size: 11px;
+  color: var(--cb-ink-dim);
+}
+
 .add-files-name {
   min-width: 0;
   overflow: hidden;

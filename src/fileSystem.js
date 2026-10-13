@@ -250,6 +250,68 @@ export function insertFilesIntoTree(tree, path, fileNodes) {
   return rebuild(tree, 0);
 }
 
+// ---- Desktop folders' saved list ----
+// A desktop folder is a live handle and gets rescanned off disk on every
+// launch, so "removed from the app" needs something to remember it by: a
+// saved list (names only, no file bytes) of what the app should show. A
+// scan is filtered by it, so a removed item stays removed and a file that
+// merely appeared on disk stays out until the folder is added again.
+
+// The tree's shape as plain names: { name, kind, children? }.
+export function buildTreeManifest(tree) {
+  if (tree.kind === "file") return { name: tree.name, kind: "file" };
+  return { name: tree.name, kind: "directory", children: tree.children.map(buildTreeManifest) };
+}
+
+// Keeps only the scanned entries the saved list names. Folders that end up
+// empty are dropped (a scan only ever shows folders holding PDFs); the root
+// is kept regardless.
+export function filterTreeByManifest(tree, manifest) {
+  const wanted = new Map((manifest.children || []).map((c) => [`${c.kind}:${c.name}`, c]));
+  const children = [];
+  for (const child of tree.children) {
+    const m = wanted.get(`${child.kind}:${child.name}`);
+    if (!m) continue;
+    if (child.kind === "directory") {
+      const sub = filterTreeByManifest(child, m);
+      if (sub.children.length > 0) children.push(sub);
+    } else {
+      children.push(child);
+    }
+  }
+  return { ...tree, children };
+}
+
+// What a fresh scan of a desktop folder becomes once its saved state is
+// applied: filtered by the saved list when there is one; otherwise (the
+// first launch after this list existed) the full scan minus `exclude`, the
+// paths that were hidden under the old scheme.
+export function applySavedList(scanTree, { manifest, exclude } = {}) {
+  if (manifest) return filterTreeByManifest(scanTree, manifest);
+  return (exclude || []).reduce((tree, path) => removeNodeFromTree(tree, path), scanTree);
+}
+
+// Case-insensitive union of name lists. The last spelling of a name wins, so
+// the on-disk names passed last set the exact casing a Replace will write.
+export function unionNames(...lists) {
+  return [...new Map(lists.flat().map((n) => [n.toLowerCase(), n])).values()];
+}
+
+// Names of the files directly inside directory `path` of a live folder, as
+// they are on disk right now — used to catch a clash with a file the app's
+// saved list doesn't show (removed with ×, or added outside the app).
+export async function listDirFileNames(rootHandle, path) {
+  try {
+    let dir = rootHandle;
+    for (const part of path ? path.split("/") : []) dir = await dir.getDirectoryHandle(part);
+    const names = [];
+    for await (const entry of dir.values()) if (entry.kind === "file") names.push(entry.name);
+    return names;
+  } catch {
+    return [];
+  }
+}
+
 // Desktop (live-handle) folders: writes `file` straight into the real folder
 // on disk, under directory `path` of the connected root. Needs readwrite
 // permission on rootHandle — see handleAddFiles in App.jsx. Returns the new

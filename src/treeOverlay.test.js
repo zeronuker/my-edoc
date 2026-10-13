@@ -2,14 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   applyOverlay,
-  collectFileHandles,
   displayedPath,
   emptyOverlay,
   flattenByKey,
+  hiddenRemovals,
   makeNodeKey,
   parseNodeKey,
   releaseNestedRoots,
-  unhideKeys,
 } from "./treeOverlay.js";
 
 function file(name) {
@@ -33,14 +32,6 @@ test("applyOverlay with emptyOverlay preserves the tree shape", () => {
   const [result] = applyOverlay(makeFolders(), emptyOverlay);
   assert.equal(result.tree.children.length, 2);
   assert.equal(result.tree.children[1].children[0].name, "b.pdf");
-});
-
-test("applyOverlay hides a node and its descendants", () => {
-  const folders = makeFolders();
-  const subKey = makeNodeKey("Root", "Sub");
-  const [result] = applyOverlay(folders, { ...emptyOverlay, hidden: [subKey] });
-  const names = result.tree.children.map((c) => c.name);
-  assert.deepEqual(names, ["a.pdf"]);
 });
 
 test("applyOverlay moves a node to a different parent", () => {
@@ -90,20 +81,18 @@ test("flattenByKey indexes every node in the tree by key", () => {
   assert.ok(map.has(makeNodeKey("Root", "Sub/b.pdf")));
 });
 
-test("collectFileHandles gathers every leaf file under a node", () => {
-  const [result] = applyOverlay(makeFolders(), emptyOverlay);
-  const handles = collectFileHandles(result.tree).map((h) => h.name);
-  assert.deepEqual(handles.sort(), ["a.pdf", "b.pdf"]);
-});
-
 test("applyOverlay survives folder.key changing across reloads, since it keys by folder name", () => {
-  const overlay = { ...emptyOverlay, hidden: [makeNodeKey("Root", "a.pdf")] };
+  const rootKey = makeNodeKey("Root", "");
+  const overlay = {
+    ...emptyOverlay,
+    order: { [rootKey]: [makeNodeKey("Root", "b.pdf"), makeNodeKey("Root", "a.pdf")] },
+  };
   const sessionOne = [{ key: "random-id-session-1", tree: dir("Root", [file("a.pdf"), file("b.pdf")]) }];
   const sessionTwo = [{ key: "random-id-session-2", tree: dir("Root", [file("a.pdf"), file("b.pdf")]) }];
   const [resultOne] = applyOverlay(sessionOne, overlay);
   const [resultTwo] = applyOverlay(sessionTwo, overlay);
-  assert.deepEqual(resultOne.tree.children.map((c) => c.name), ["b.pdf"]);
-  assert.deepEqual(resultTwo.tree.children.map((c) => c.name), ["b.pdf"]);
+  assert.deepEqual(resultOne.tree.children.map((c) => c.name), ["b.pdf", "a.pdf"]);
+  assert.deepEqual(resultTwo.tree.children.map((c) => c.name), ["b.pdf", "a.pdf"]);
 });
 
 test("parseNodeKey recovers a node's physical root and path from its key", () => {
@@ -118,16 +107,6 @@ test("parseNodeKey recovers a node's physical root and path from its key", () =>
 
 test("parseNodeKey prefers the longest matching root name", () => {
   assert.deepEqual(parseNodeKey("Lib:Old:sub", ["Lib", "Lib:Old"]), { rootName: "Lib:Old", relPath: "sub" });
-});
-
-test("unhideKeys brings a hidden file back and leaves other hidden nodes alone", () => {
-  const folders = [{ key: "k", tree: dir("Lib", [file("a.pdf"), file("b.pdf")]) }];
-  const hidden = { ...emptyOverlay, hidden: [makeNodeKey("Lib", "a.pdf"), makeNodeKey("Lib", "b.pdf")] };
-  const next = unhideKeys(hidden, [makeNodeKey("Lib", "a.pdf")]);
-  assert.deepEqual(next.hidden, [makeNodeKey("Lib", "b.pdf")]);
-  const [result] = applyOverlay(folders, next);
-  assert.deepEqual(result.tree.children.map((c) => c.name), ["a.pdf"]);
-  assert.deepEqual(hidden.hidden.length, 2);
 });
 
 test("applyOverlay can place a connected folder's root inside another folder and flags it nested", () => {
@@ -166,4 +145,19 @@ test("releaseNestedRoots frees only the folders placed inside the removed one", 
     makeNodeKey("Contracts", "Signed/2024"),
     makeNodeKey("Other", ""),
   ]);
+});
+
+test("hiddenRemovals groups old hidden keys per folder and drops what an ancestor already covers", () => {
+  const roots = ["Contracts", "Manuals"];
+  const hidden = [
+    makeNodeKey("Contracts", "Signed"),
+    makeNodeKey("Contracts", "Signed/2025/x.pdf"),
+    makeNodeKey("Contracts", "a.pdf"),
+    makeNodeKey("Manuals", "m.pdf"),
+    makeNodeKey("Gone", "z.pdf"),
+    makeNodeKey("Contracts", ""),
+  ];
+  const result = hiddenRemovals(hidden, roots);
+  const byRoot = Object.fromEntries(result.map((r) => [r.rootName, r.relPaths.sort()]));
+  assert.deepEqual(byRoot, { Contracts: ["Signed", "a.pdf"], Manuals: ["m.pdf"] });
 });

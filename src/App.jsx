@@ -22,6 +22,9 @@ import {
   writeFileIntoFolder,
   findNodeAt,
   removeNodeFromTree,
+  applySavedList,
+  listDirFileNames,
+  unionNames,
 } from "./fileSystem.js";
 import { deleteLegacyFolderFiles, deleteLegacyFiles, writeLegacyFile } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
@@ -32,7 +35,7 @@ import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { usePresence } from "./usePresence.js";
-import { collectFileHandles, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
+import { hiddenRemovals, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
@@ -159,6 +162,7 @@ function App() {
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
+  const [foldersReady, setFoldersReady] = useState(false); // the load effect has put the saved folders in `folders`
   const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
@@ -186,14 +190,20 @@ function App() {
   } = usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, addToRecent, setError });
 
   // Shared between the sidebar tree (renders/edits it) and search (needs the
-  // same filtered/reordered view so a hidden file doesn't still show up as a
-  // result) — see useTreeOverlay.js.
-  const { displayFolders, allDisplayFolders, hideNode, unhideNodes, placeRoot, releaseNested, dropNode } = useTreeOverlay(folders.filter((f) => f.tree));
+  // same arranged view so results show where things are drawn) — see
+  // useTreeOverlay.js.
+  const { displayFolders, allDisplayFolders, legacyHidden, clearLegacyHidden, placeRoot, releaseNested, dropNode } =
+    useTreeOverlay(folders.filter((f) => f.tree));
 
   // Restore last session: directory handles need a user gesture to
   // re-request permission in most browsers, so folders without it show
   // a per-folder "Reconnect" button instead of silently failing.
   useEffect(() => {
+    // StrictMode (dev) mounts this twice and the two async loads overlap.
+    // Only the latest may apply its result: a stale one finishing after the
+    // one-time hidden clean-up (or any removal) would put back the folder
+    // state it read before that, and re-save it.
+    let cancelled = false;
     (async () => {
       // Exempts our storage from Safari's "clear untouched site data"
       // eviction and raises the quota ceiling — silently granted for
@@ -207,6 +217,7 @@ function App() {
 
       const loaded = [];
 
+      let realNeedsResave = false;
       const rootRecords = (await dbGet("rootDirHandles")) || [];
       for (const record of rootRecords) {
         // Backward-compat: the pre-timestamp format stored a bare array
@@ -214,11 +225,19 @@ function App() {
         const dirHandle = record?.dirHandle ?? record;
         const connectedAt = record?.dirHandle ? record.connectedAt : null;
         const granted = (await dirHandle.queryPermission({ mode: "read" })) === "granted";
+        // A folder saved before the "what to show" list existed has none:
+        // its first scan becomes it (written by the resave below).
+        if (granted && !record?.manifest) realNeedsResave = true;
         loaded.push({
           key: crypto.randomUUID(),
           dirHandle,
           connectedAt,
-          tree: granted ? await scanDirectory(dirHandle) : null,
+          tree: granted
+            ? applySavedList(await scanDirectory(dirHandle), { manifest: record?.manifest, exclude: record?.exclude })
+            : null,
+          // Carried until the folder is reconnected and scanned.
+          manifest: granted ? undefined : record?.manifest,
+          pendingExclude: granted ? undefined : record?.exclude,
         });
       }
 
@@ -258,8 +277,10 @@ function App() {
         }
       }
 
+      if (cancelled) return;
       setFolders(loaded);
-      if (legacyNeedsResave) saveFolderList(loaded);
+      setFoldersReady(true);
+      if (legacyNeedsResave || realNeedsResave) saveFolderList(loaded);
       refreshStorageEstimate();
 
       const savedRecent = (await dbGet("recentFiles")) || [];
@@ -325,6 +346,9 @@ function App() {
         }
       }
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -493,6 +517,42 @@ function App() {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [fabMenuOpen]);
+
+  // One-time clean-up of the old "hidden" list. Removing now means removing
+  // for good, so whatever was hidden before is removed here once the folders
+  // have loaded: iPad/phone frees the stored copies; desktop drops it from
+  // the folder's saved list (or, for a folder still waiting on permission,
+  // remembers to drop it on its first scan). The old list is only cleared at
+  // the end, so a launch cut short just repeats this next time.
+  const hiddenCleanupStartedRef = useRef(false);
+  useEffect(() => {
+    if (!foldersReady || legacyHidden.length === 0 || hiddenCleanupStartedRef.current) return;
+    hiddenCleanupStartedRef.current = true;
+    (async () => {
+      try {
+        const nameOf = (f) => f.tree?.name ?? f.dirHandle.name;
+        for (const { rootName, relPaths } of hiddenRemovals(legacyHidden, folders.map(nameOf))) {
+          const folder = folders.find((f) => nameOf(f) === rootName);
+          if (!folder) continue;
+          if (folder.tree) {
+            await removePathsFromFolder(folder, relPaths);
+          } else {
+            setFolders((prev) => {
+              const next = prev.map((f) =>
+                f.key === folder.key ? { ...f, pendingExclude: [...(f.pendingExclude || []), ...relPaths] } : f
+              );
+              saveFolderList(next);
+              return next;
+            });
+          }
+        }
+        clearLegacyHidden();
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foldersReady, legacyHidden]);
 
   // Saves the lightweight folder list only — real handles (Chromium)
   // structured-clone as-is, and legacy folders save their (already OPFS-
@@ -761,10 +821,20 @@ function App() {
   async function handleReconnect(dirHandle) {
     const granted = (await dirHandle.requestPermission({ mode: "read" })) === "granted";
     if (!granted) return;
-    const tree = await scanDirectory(dirHandle);
+    const scan = await scanDirectory(dirHandle);
     const connectedAt = Date.now();
     setFolders((prev) => {
-      const next = prev.map((f) => (f.dirHandle === dirHandle ? { ...f, tree, connectedAt } : f));
+      const next = prev.map((f) =>
+        f.dirHandle === dirHandle
+          ? {
+              ...f,
+              tree: applySavedList(scan, { manifest: f.manifest, exclude: f.pendingExclude }),
+              connectedAt,
+              manifest: undefined,
+              pendingExclude: undefined,
+            }
+          : f
+      );
       saveFolderList(next);
       return next;
     });
@@ -814,7 +884,15 @@ function App() {
         return;
       }
       const existing = filesInDirectory(target.tree, destPath);
-      const plan = planAddedFiles(addFiles.files, existing.map((f) => f.name), choices);
+      // Desktop: a file can be on disk without being in the app's list (it
+      // was taken out with ×, or put there outside the app). Count those
+      // names as taken too, or this would silently overwrite them.
+      const diskNames = isLegacy ? [] : await listDirFileNames(target.dirHandle, destPath);
+      const plan = planAddedFiles(
+        addFiles.files,
+        unionNames(existing.map((f) => f.name), diskNames),
+        choices
+      );
       const added = [];
       const replacedHandles = [];
       let bytesDelta = 0;
@@ -882,12 +960,6 @@ function App() {
           return next;
         });
         refreshStorageEstimate();
-        // Adding a file means wanting to see it: if an earlier copy with the
-        // same name had been hidden with ×, the new one would otherwise be
-        // saved but stay invisible (hidden is keyed by folder + path).
-        unhideNodes(
-          added.map((n) => makeNodeKey(target.tree.name, destPath ? `${destPath}/${n.name}` : n.name))
-        );
         // A replaced file that's open now shows stale bytes — close it, same
         // as when its folder is removed.
         handleFilesRemovedFromView(replacedHandles);
@@ -895,6 +967,14 @@ function App() {
     } finally {
       setAddFilesBusy(false);
     }
+  }
+
+  // For AddFilesModal: which files really are in a desktop folder's
+  // directory on disk right now (empty for iPad/phone folders).
+  async function loadDiskNames(folderKey, destPath) {
+    const folder = folders.find((f) => f.key === folderKey);
+    if (!folder || folder.dirHandle.__legacy) return [];
+    return listDirFileNames(folder.dirHandle, destPath);
   }
 
   // Closes the open document if it (or a subfolder containing it) belongs
@@ -934,14 +1014,6 @@ function App() {
     }
   }
 
-  // Desktop's ×: no app copy exists to delete (the folder is a live handle
-  // onto disk), so it only hides the node, then closes the doc if it (or
-  // something under it) was just hidden, same as removing a folder.
-  function handleHideNode(node) {
-    hideNode(node);
-    handleFilesRemovedFromView(collectFileHandles(node));
-  }
-
   // TreeView's × on a subfolder or file: ask first. A node's key always
   // points back at the folder it physically lives in (see parseNodeKey), so
   // this finds the right connected folder and path even if the overlay has
@@ -970,8 +1042,8 @@ function App() {
     if (!folder) return;
     const rawNode = findNodeAt(folder.tree, parsed.relPath);
     const isLegacy = !!folder.dirHandle.__legacy;
-    if (isLegacy && !rawNode) return;
-    const count = !rawNode ? 0 : rawNode.kind === "file" ? 1 : flattenTreeFiles(rawNode).length;
+    if (!rawNode) return;
+    const count = rawNode.kind === "file" ? 1 : flattenTreeFiles(rawNode).length;
     setRemoveRequest({
       node,
       name: node.name,
@@ -983,9 +1055,65 @@ function App() {
     });
   }
 
-  // iPad/phone: deletes the app's own copy of the file(s) from OPFS, takes
-  // them out of the saved tree, and frees the space — the original files
-  // outside the app are never involved. Desktop: just hides, see above.
+  // Takes the given paths (files or whole subfolders) out of one connected
+  // folder for good. iPad/phone also deletes the app's stored copies and
+  // frees the space; desktop just drops them from the folder's saved list so
+  // the next scan doesn't show them. The user's real files are never
+  // involved. Shared by the tree's × and the one-time clean-up of the old
+  // hidden list.
+  async function removePathsFromFolder(target, relPaths) {
+    const isLegacy = !!target.dirHandle.__legacy;
+    const nodes = relPaths.map((p) => findNodeAt(target.tree, p)).filter(Boolean);
+    const leaves = nodes.flatMap((n) => flattenTreeFileHandles(n));
+    const paths = nodes.flatMap((n) => flattenTreeFiles(n).map((f) => f.relativePath));
+    let freedBytes = 0;
+    if (isLegacy) {
+      for (const leaf of leaves) freedBytes += (await leaf.handle.getFile().catch(() => null))?.size ?? 0;
+      await deleteLegacyFiles(target.folderId, paths);
+    }
+    setFolders((prev) => {
+      const next = prev.map((f) =>
+        f.key === target.key
+          ? {
+              ...f,
+              tree: relPaths.reduce((tree, p) => removeNodeFromTree(tree, p), f.tree),
+              ...(isLegacy ? { sizeBytes: Math.max(0, (f.sizeBytes || 0) - freedBytes) } : {}),
+            }
+          : f
+      );
+      saveFolderList(next);
+      return next;
+    });
+    refreshStorageEstimate();
+
+    // The open document, and Recent entries, may point at what was just
+    // removed — drop both rather than leave dead handles.
+    const handles = leaves.map((l) => l.handle);
+    handleFilesRemovedFromView(handles);
+    const gone = new Set(paths);
+    const staleReal = [];
+    if (!isLegacy) {
+      for (const entry of recentFiles) {
+        if (typeof entry.fileHandle.isSameEntry !== "function") continue;
+        for (const removed of handles) {
+          if (await entry.fileHandle.isSameEntry(removed).catch(() => false)) {
+            staleReal.push(entry);
+            break;
+          }
+        }
+      }
+    }
+    setRecentFiles((prev) => {
+      const next = prev.filter((e) =>
+        isLegacy
+          ? !(e.fileHandle.folderId === target.folderId && gone.has(e.fileHandle.relativePath))
+          : !staleReal.includes(e)
+      );
+      persistRecent(next);
+      return next;
+    });
+  }
+
   async function confirmRemoveNode() {
     const req = removeRequest;
     if (!req) return;
@@ -993,45 +1121,9 @@ function App() {
     try {
       if (req.isRoot) {
         handleRemoveFolder(req.folderKey);
-      } else if (!req.isLegacy) {
-        handleHideNode(req.node);
       } else {
         const target = folders.find((f) => f.key === req.folderKey);
-        const rawNode = target?.tree && findNodeAt(target.tree, req.relPath);
-        if (rawNode) {
-          const leaves = flattenTreeFileHandles(rawNode);
-          const paths = flattenTreeFiles(rawNode).map((f) => f.relativePath);
-          let freedBytes = 0;
-          for (const leaf of leaves) freedBytes += (await leaf.handle.getFile().catch(() => null))?.size ?? 0;
-
-          await deleteLegacyFiles(target.folderId, paths);
-          setFolders((prev) => {
-            const next = prev.map((f) =>
-              f.key === target.key
-                ? {
-                    ...f,
-                    tree: removeNodeFromTree(f.tree, req.relPath),
-                    sizeBytes: Math.max(0, (f.sizeBytes || 0) - freedBytes),
-                  }
-                : f
-            );
-            saveFolderList(next);
-            return next;
-          });
-          refreshStorageEstimate();
-
-          // The open document, and Recent entries, may point at what was
-          // just deleted — drop both rather than leave dead handles.
-          handleFilesRemovedFromView(leaves.map((l) => l.handle));
-          const gone = new Set(paths);
-          setRecentFiles((prev) => {
-            const next = prev.filter(
-              (e) => !(e.fileHandle.folderId === target.folderId && gone.has(e.fileHandle.relativePath))
-            );
-            persistRecent(next);
-            return next;
-          });
-        }
+        if (target?.tree) await removePathsFromFolder(target, [req.relPath]);
       }
       setRemoveRequest(null);
     } catch (err) {
@@ -1168,6 +1260,7 @@ function App() {
           folders={addFilesTargets}
           files={addFilesShown.files}
           busy={addFilesBusy}
+          loadDiskNames={loadDiskNames}
           onConfirm={handleAddFilesConfirm}
           onClose={() => setAddFiles(null)}
         />

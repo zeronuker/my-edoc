@@ -1,4 +1,4 @@
-import { buildLegacyManifest } from "./fileSystem.js";
+import { buildLegacyManifest, buildTreeManifest } from "./fileSystem.js";
 
 export function formatBytes(bytes) {
   if (bytes == null) return "";
@@ -18,7 +18,15 @@ export function folderListRecords(folders) {
   const real = folders.filter((f) => !f.dirHandle.__legacy);
   const legacy = folders.filter((f) => f.dirHandle.__legacy);
   return {
-    real: real.map((f) => ({ dirHandle: f.dirHandle, connectedAt: f.connectedAt })),
+    // manifest = the saved list of what to show (see fileSystem.js). A folder
+    // still waiting for permission has no tree yet, so it passes along what
+    // it loaded with (its manifest, or paths still to drop on first scan).
+    real: real.map((f) => ({
+      dirHandle: f.dirHandle,
+      connectedAt: f.connectedAt,
+      manifest: f.tree ? buildTreeManifest(f.tree) : f.manifest,
+      exclude: f.tree ? undefined : f.pendingExclude,
+    })),
     legacy: legacy.map((f) => ({
       id: f.folderId,
       connectedAt: f.connectedAt,
