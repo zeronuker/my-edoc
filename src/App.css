@@ -1726,45 +1726,6 @@ html,
   background: rgba(103, 197, 165, 0.18);
 }
 
-/* Badge + kebab menu, inline on the folder's own name row (after the
-   label, before the row's own drag-handle/hide-btn slot). margin-left:
-   auto pins it flush right regardless of how much space the name takes,
-   same as the drag-handle/hide-btn group on a subfolder's own row.
-   margin-top: 2px matches the row's own icon/hide-btn/drag-handle offset
-   (the row aligns to the top for 2-line-wrapped names, so everything
-   sitting beside a single-line name needs the same nudge down to read
-   as level with the text instead of pinned above it). */
-.tree-folder-actions {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-  margin-left: auto;
-  margin-top: 2px;
-}
-
-.tree-updated-chip {
-  flex-shrink: 0;
-  font-family: var(--cb-font-mono);
-  font-size: 10px;
-  color: var(--cb-ink-dim);
-  white-space: nowrap;
-}
-
-/* Compact "2d" / "4mo" badge — exact date/time is in its title tooltip. */
-.tree-updated-badge {
-  flex-shrink: 0;
-  font-family: var(--cb-font-mono);
-  font-size: 10px;
-  color: var(--cb-ink-dim);
-  background: var(--cb-surface-2);
-  border: 1px solid var(--cb-line);
-  border-radius: var(--cb-radius-sm);
-  padding: 1px 5px;
-  white-space: nowrap;
-}
-
 .tree-icon-btn {
   flex-shrink: 0;
   display: flex;
@@ -1785,47 +1746,6 @@ html,
 .tree-icon-btn:disabled {
   cursor: default;
   color: var(--cb-ink-dim);
-}
-
-.tree-icon-btn.spinning {
-  animation: spin 0.8s linear infinite;
-}
-
-.tree-kebab {
-  font-size: 16px;
-  letter-spacing: -1px;
-  padding: 0 2px 0 6px;
-}
-
-/* The generic 44px touch-target bump (@media (pointer: coarse) above)
-   applies to every .tree-icon-btn, this kebab included — on a touch
-   phone that blows this one icon up to 44x44px, throwing off its
-   position next to the badge and the row's own text. This row is
-   already a full-width tap target for opening/closing the folder (same
-   as a subfolder's hide-btn, which gets no such bump either), so this
-   icon can stay at its own compact size here. */
-@media (pointer: coarse) {
-  .tree-folder-actions .tree-kebab {
-    min-width: 0;
-    min-height: 0;
-  }
-}
-
-/* Fixed spot on the row, always — the chip/name can vary in length
-   without ever shifting this button. */
-.tree-kebab-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  min-width: 130px;
-  background: var(--cb-surface-2);
-  border: 1px solid var(--cb-line-2);
-  border-radius: var(--cb-radius-sm);
-  padding: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .tree-kebab-item {
@@ -1853,12 +1773,6 @@ html,
   cursor: default;
   color: var(--cb-ink-dim);
   background: none;
-}
-
-.tree-kebab-remove-icon {
-  width: 14px;
-  flex-shrink: 0;
-  text-align: center;
 }
 
 .storage-usage {
@@ -2377,10 +2291,8 @@ html,
   .search-wrap.open .search-bar { animation: ed-search-open var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
   .search-bar > button,
   .search-bar > .match-count { animation: ed-search-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
-  .dropdown-menu,
-  .tree-kebab-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
-  .dropdown-menu.is-closing,
-  .tree-kebab-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
+  .dropdown-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
+  .dropdown-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
   .search-wrap.open.closing .search-bar { animation: ed-search-shut var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; }
   .search-bar > button.is-closing,
   .search-bar > .match-count.is-closing { animation: ed-search-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }

@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
-import { usePresence } from "./usePresence.js";
 import { folderLevelColor, fileLevelColor } from "./appHelpers.js";
 
 export function FolderIcon() {
@@ -102,147 +101,6 @@ function TreeLabel({ name }) {
   return <span className="tree-label" ref={ref} />;
 }
 
-function RefreshIcon() {
-  return (
-    <svg className="tree-icon" viewBox="0 0 16 16" width="14" height="14" fill="none">
-      <path
-        d="M13 3v3.5h-3.5M3 13v-3.5h3.5"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M3.5 8a4.5 4.5 0 0 1 7.9-2.95L13 6.5M12.5 8a4.5 4.5 0 0 1-7.9 2.95L3 9.5"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-// "just now" / "5 minutes ago" / "3 hours ago" / "2 days ago" /
-// "4 months ago" / "1 year ago", from an epoch-ms timestamp (null if never
-// successfully connected/refreshed/opened yet). Months/years are
-// approximate (30/365 days).
-function relativeTimeLabel(ms) {
-  if (!ms) return null;
-  const diff = Date.now() - ms;
-  const minute = 60000;
-  const hour = 3600000;
-  const day = 86400000;
-  const month = day * 30;
-  const year = day * 365;
-
-  if (diff < minute) return "just now";
-
-  let value, unit;
-  if (diff < hour) {
-    value = Math.floor(diff / minute);
-    unit = "minute";
-  } else if (diff < day) {
-    value = Math.floor(diff / hour);
-    unit = "hour";
-  } else if (diff < month) {
-    value = Math.floor(diff / day);
-    unit = "day";
-  } else if (diff < year) {
-    value = Math.floor(diff / month);
-    unit = "month";
-  } else {
-    value = Math.floor(diff / year);
-    unit = "year";
-  }
-  return `${value} ${unit}${value === 1 ? "" : "s"} ago`;
-}
-
-const SHORT_UNIT = { minute: "m", hour: "h", day: "d", month: "mo", year: "y" };
-
-// "now" / "5m" / "3h" / "2d" / "4mo" / "1y" — same timestamp, condensed to
-// fit a small badge on the folder's own name row (exact time is still in
-// the badge's title tooltip).
-function badgeTime(ms) {
-  const label = relativeTimeLabel(ms);
-  if (!label) return null;
-  if (label === "just now") return "now";
-  const [value, unit] = label.split(" ");
-  return `${value}${SHORT_UNIT[unit.replace(/s$/, "")]}`;
-}
-
-// Chip + a single "more actions" (⋮) button that reveals Refresh/Remove in
-// a small menu, instead of showing both as separate icons on the row —
-// keeps the row's layout fixed regardless of the folder name or chip
-// text length, so nothing shifts around as folders update.
-function FolderActions({ folder, isOpen, onToggle, onClose, onRefreshFolder, onRemoveFolder, isRefreshing }) {
-  const wrapRef = useRef(null);
-  const menu = usePresence(isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    function onOutside(e) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) onClose();
-    }
-    function onKeyDown(e) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("pointerdown", onOutside);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onOutside);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen, onClose]);
-
-  const updated = badgeTime(folder.connectedAt);
-
-  return (
-    <span className="tree-folder-actions" ref={wrapRef}>
-      {updated && (
-        <span className="tree-updated-badge" title={new Date(folder.connectedAt).toLocaleString()}>
-          {updated}
-        </span>
-      )}
-      <button
-        className={`tree-icon-btn tree-kebab${isRefreshing ? " spinning" : ""}`}
-        title="More actions"
-        aria-label="More actions"
-        aria-expanded={isOpen}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-      >
-        ⋮
-      </button>
-      {menu.present && (
-        <div className={`tree-kebab-menu${menu.closing ? " is-closing" : ""}`} onClick={(e) => e.stopPropagation()}>
-          <button
-            className="tree-kebab-item"
-            disabled={isRefreshing}
-            onClick={() => {
-              onClose();
-              onRefreshFolder(folder.key);
-            }}
-          >
-            <RefreshIcon /> {isRefreshing ? "Refreshing…" : "Refresh"}
-          </button>
-          <button
-            className="tree-kebab-item"
-            onClick={() => {
-              onClose();
-              onRemoveFolder(folder.key);
-            }}
-          >
-            <span className="tree-kebab-remove-icon">×</span> Remove
-          </button>
-        </div>
-      )}
-    </span>
-  );
-}
-
 // Which third (or half, for files) of a row the pointer is over — "before"/
 // "after" reorder this node among its current siblings, "inside" (folders
 // only) nests the dragged node inside this one instead.
@@ -268,7 +126,6 @@ function Node({
   isLast,
   onSelectFile,
   selectedHandle,
-  renderActions,
   expandedPaths,
   onToggleOpen,
   onRemoveNode,
@@ -278,7 +135,8 @@ function Node({
   setDropTarget,
 }) {
   // A connected folder's root, whether at the top level or placed inside
-  // another folder (see applyOverlay): gets the ⋮ menu, no drag/× handles.
+  // another folder (see applyOverlay): has the × (removes the whole
+  // folder) but no drag handle — it can't be reordered or moved.
   const isRoot = !!node.folderRef;
   const isFolder = node.kind === "directory";
   const zone = dropTarget?.key === node.key ? dropTarget.zone : null;
@@ -373,35 +231,32 @@ function Node({
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FolderIcon />
         <TreeLabel name={node.name} />
-        {renderActions?.(node)}
         {!isRoot && (
-          <>
-            <span
-              className="tree-drag-handle"
-              title="Drag to reorder"
-              aria-label="Drag to reorder"
-              draggable
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <IconGripVertical size={12} />
-            </span>
-            <button
-              className="tree-hide-btn"
-              title={`Remove "${node.name}"`}
-              aria-label={`Remove "${node.name}"`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemoveNode(node);
-              }}
-            >
-              ×
-            </button>
-          </>
+          <span
+            className="tree-drag-handle"
+            title="Drag to reorder"
+            aria-label="Drag to reorder"
+            draggable
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <IconGripVertical size={12} />
+          </span>
         )}
+        <button
+          className="tree-hide-btn"
+          title={`Remove "${node.name}"`}
+          aria-label={`Remove "${node.name}"`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemoveNode(node);
+          }}
+        >
+          ×
+        </button>
       </div>
       {isOpen && (
         <div className="tree-children">
@@ -416,7 +271,6 @@ function Node({
               isLast={childIndex === node.children.length - 1}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
-              renderActions={renderActions}
               expandedPaths={expandedPaths}
               onToggleOpen={onToggleOpen}
               onRemoveNode={onRemoveNode}
@@ -436,14 +290,9 @@ export default function TreeView({
   displayFolders,
   onSelectFile,
   selectedHandle,
-  onRemoveFolder,
-  onRefreshFolder,
-  refreshingKeys,
   onRemoveNode,
   onDropNode,
 }) {
-  // Only one folder's actions menu open at a time.
-  const [openActionsKey, setOpenActionsKey] = useState(null);
   const [expandedPaths, setExpandedPaths] = useState(() => new Set());
   // Guards the persist-effect below from firing (with the empty default
   // above) before the saved set has loaded, which would otherwise clobber it.
@@ -476,19 +325,6 @@ export default function TreeView({
     });
   };
 
-  const renderActions = (node) =>
-    node.folderRef && (
-      <FolderActions
-        folder={node.folderRef}
-        isOpen={openActionsKey === node.folderRef.key}
-        onToggle={() => setOpenActionsKey((k) => (k === node.folderRef.key ? null : node.folderRef.key))}
-        onClose={() => setOpenActionsKey(null)}
-        onRefreshFolder={onRefreshFolder}
-        onRemoveFolder={onRemoveFolder}
-        isRefreshing={refreshingKeys.has(node.folderRef.key)}
-      />
-    );
-
   if (!displayFolders.length) return null;
 
   return (
@@ -518,7 +354,6 @@ export default function TreeView({
                 dragKeyRef={dragKeyRef}
                 dropTarget={dropTarget}
                 setDropTarget={setDropTarget}
-                renderActions={renderActions}
               />
             )
         )}

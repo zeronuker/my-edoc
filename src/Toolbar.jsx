@@ -38,7 +38,7 @@ const READING_THEMES = [
 ];
 
 // Closes whichever dropdown is open on an outside click or Escape — same
-// pattern as TreeView's FolderActions menu.
+// pattern as App's floating + menu.
 function useDropdown() {
   const [open, setOpenRaw] = useState(false);
   const [closing, setClosing] = useState(false);

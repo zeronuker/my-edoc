@@ -147,7 +147,6 @@ function App() {
   const [annotationTool, setAnnotationTool] = useState(null);
   const [modePickerOpen, setModePickerOpen] = useState(false);
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
-  const [refreshingKeys, setRefreshingKeys] = useState(() => new Set());
   const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
@@ -775,83 +774,6 @@ function App() {
     for (const dirHandle of dirHandles) await handleReconnect(dirHandle);
   }
 
-  // Folders never get a silent background refresh (no permission/handle
-  // persists for the legacy path — see fileSystem.js), so this always
-  // re-opens the native picker. Once the user re-picks the same folder:
-  // the fresh copy is written under a *new* OPFS folderId first, and only
-  // once that fully succeeds is the old folderId's copy deleted — so a
-  // failed refresh (cancelled picker, ran out of storage) leaves the
-  // previous working copy untouched instead of losing it.
-  async function handleRefreshFolder(key) {
-    const target = folders.find((f) => f.key === key);
-    if (!target) return;
-    setRefreshingKeys((prev) => new Set(prev).add(key));
-    try {
-      if (target.dirHandle.__legacy) {
-        let fileList;
-        try {
-          fileList = await pickFolderLegacy();
-        } catch {
-          return; // cancelled — leave the existing copy as-is
-        }
-        const newFolderId = crypto.randomUUID();
-        const tree = buildTreeFromFileList(fileList, newFolderId);
-        if (!tree) {
-          setError("No PDF files found in that folder.");
-          return;
-        }
-        const sizeBytes = treeByteSize(tree);
-        try {
-          await copyFolderFiles(newFolderId, tree, "Refreshing folder", target.dirHandle.name);
-        } catch (err) {
-          await deleteLegacyFolderFiles(newFolderId);
-          if (err.name !== "AbortError") {
-            setError(`Couldn't refresh "${target.dirHandle.name}": ${err.message}`);
-          }
-          return;
-        }
-        await deleteLegacyFolderFiles(target.folderId);
-        const connectedAt = Date.now();
-        setFolders((prev) => {
-          const next = prev.map((f) =>
-            f.key === key
-              ? { ...f, dirHandle: tree.handle, tree, connectedAt, folderId: newFolderId, sizeBytes }
-              : f
-          );
-          saveFolderList(next);
-          return next;
-        });
-      } else {
-        const granted = (await target.dirHandle.requestPermission({ mode: "read" })) === "granted";
-        if (!granted) return;
-        const tree = await scanDirectory(target.dirHandle);
-        try {
-          await simulateScanProgress(tree, "Refreshing folder", target.dirHandle.name);
-        } catch (err) {
-          if (err.name !== "AbortError") {
-            setError(`Couldn't refresh "${target.dirHandle.name}": ${err.message}`);
-          }
-          return;
-        }
-        const connectedAt = Date.now();
-        setFolders((prev) => {
-          const next = prev.map((f) => (f.key === key ? { ...f, tree, connectedAt } : f));
-          saveFolderList(next);
-          return next;
-        });
-      }
-      refreshStorageEstimate();
-    } catch (err) {
-      setError(`Couldn't refresh folder: ${err.message}`);
-    } finally {
-      setRefreshingKeys((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    }
-  }
-
   // "Add files" (floating + menu): the native file picker has to open straight
   // from the click, so it comes first; the dialog then asks which folder and
   // subfolder to put the files in and what to do about name clashes (see
@@ -1026,6 +948,23 @@ function App() {
   // moved the node somewhere else in the displayed tree.
   function requestRemoveNode(node) {
     const roots = folders.filter((f) => f.tree);
+    // A connected folder's own root (top level or placed inside another):
+    // removes the whole folder, same as the old ⋮ → Remove did.
+    if (node.folderRef) {
+      const folder = roots.find((f) => f.key === node.folderRef.key);
+      if (!folder) return;
+      setRemoveRequest({
+        node,
+        name: node.name,
+        kind: "directory",
+        isRoot: true,
+        isLegacy: !!folder.dirHandle.__legacy,
+        folderKey: folder.key,
+        relPath: "",
+        count: flattenTreeFiles(folder.tree).length,
+      });
+      return;
+    }
     const parsed = parseNodeKey(node.key, roots.map((f) => f.tree.name));
     const folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
     if (!folder) return;
@@ -1052,7 +991,9 @@ function App() {
     if (!req) return;
     setRemoveBusy(true);
     try {
-      if (!req.isLegacy) {
+      if (req.isRoot) {
+        handleRemoveFolder(req.folderKey);
+      } else if (!req.isLegacy) {
         handleHideNode(req.node);
       } else {
         const target = folders.find((f) => f.key === req.folderKey);
@@ -1450,9 +1391,6 @@ function App() {
               displayFolders={displayFolders}
               onSelectFile={selectFile}
               selectedHandle={selectedHandle}
-              onRemoveFolder={handleRemoveFolder}
-              onRefreshFolder={handleRefreshFolder}
-              refreshingKeys={refreshingKeys}
               onRemoveNode={requestRemoveNode}
               onDropNode={dropNode}
             />
