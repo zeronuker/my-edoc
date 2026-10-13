@@ -23,7 +23,7 @@ export default function LinkedFoldersNotice({ names, onClose }) {
           to your disk, which is no longer supported. Add {names.length === 1 ? "it" : "them"} again with + → Add folder. Your
           files on disk weren't touched.
         </div>
-        <ul className="linked-notice-list">
+        <ul className="modal-list">
           {names.map((n) => (
             <li key={n}>{n}</li>
           ))}

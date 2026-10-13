@@ -18,7 +18,13 @@ import {
   findNodeAt,
   removeNodeFromTree,
 } from "./fileSystem.js";
-import { deleteLegacyFolderFiles, deleteLegacyFiles, writeLegacyFile } from "./opfs.js";
+import {
+  deleteLegacyFolderFiles,
+  deleteLegacyFiles,
+  writeLegacyFile,
+  listAnnotatedCopyNames,
+  deleteAnnotatedCopy,
+} from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { saveAnnotations } from "./annotations.js";
 import { usePdfDocument } from "./usePdfDocument.js";
@@ -69,6 +75,7 @@ import LinkedFoldersNotice from "./LinkedFoldersNotice.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
+import ChoiceModal from "./ChoiceModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
@@ -148,6 +155,8 @@ function App() {
   const [removeBusy, setRemoveBusy] = useState(false);
   const [placement, setPlacement] = useState(null); // { folderName, resolve } while the Add folder "where to show it" dialog is open
   const lastPlacementRef = useRef(null); // keeps that dialog's content on screen through its exit animation
+  const [choice, setChoice] = useState(null); // { ...ChoiceModal spec, resolve } while a "pick one" question is open
+  const lastChoiceRef = useRef(null);
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabRef = useRef(null);
@@ -613,6 +622,85 @@ function App() {
     }
   }
 
+  // Asks a "pick one" question (see ChoiceModal). Resolves to the chosen
+  // action's value, or undefined if cancelled.
+  function askChoice(spec) {
+    return new Promise((resolve) => setChoice({ ...spec, resolve }));
+  }
+
+  // Add folder was given a folder whose name is already in the app: offer to
+  // update that one instead of making a second, same-named copy (they'd
+  // share arrangement settings). Updating re-copies the whole folder, then
+  // deletes the old copy — in that order, so a cancel or a failure leaves
+  // the old one untouched. Its placement and order are kept, and anything
+  // that had been removed from it comes back.
+  async function updateExistingFolder(existing, tree, folderId) {
+    const name = tree.name;
+    const oldCount = flattenTreeFiles(existing.tree).length;
+    const newFiles = flattenTreeFiles(tree);
+    const go = await askChoice({
+      title: "UPDATE FOLDER",
+      subtitle: name,
+      body: `"${name}" is already in the app. Update it with the folder you picked? Its ${oldCount} file${oldCount === 1 ? "" : "s"} are replaced by these ${newFiles.length}, and anything you removed from it comes back.`,
+      actions: [{ label: "Update", value: "update", primary: true }],
+    });
+    if (go !== "update") return;
+
+    // A saved annotated copy is opened instead of the file with the same
+    // name, so it would keep hiding the new version — ask what to do.
+    const annotated = new Set(await listAnnotatedCopyNames());
+    const affected = [...new Set(newFiles.map((f) => f.name).filter((n) => annotated.has(n)))];
+    let discard = false;
+    if (affected.length > 0) {
+      const c = await askChoice({
+        title: "SAVED ANNOTATIONS",
+        subtitle: name,
+        body: `${affected.length} file${affected.length === 1 ? " has" : "s have"} your saved annotations. The annotated version keeps opening instead of the updated file unless you discard it.`,
+        items: affected.length > 8 ? [...affected.slice(0, 8), `…and ${affected.length - 8} more`] : affected,
+        actions: [
+          { label: "Discard annotations", value: "discard", primary: true },
+          { label: "Keep annotations", value: "keep" },
+        ],
+      });
+      if (c === undefined) return;
+      discard = c === "discard";
+    }
+
+    const sizeBytes = treeByteSize(tree);
+    const estimate = await getStorageEstimate();
+    const spaceNote = freeSpaceWarning(`"${name}"`, sizeBytes, estimate ? estimate.quota - foldersBytesUsed : null);
+    if (spaceNote) setError(spaceNote);
+    try {
+      await copyFolderFiles(folderId, tree, "Updating folder", name);
+    } catch (err) {
+      await deleteLegacyFolderFiles(folderId);
+      if (err.name !== "AbortError") setError(`Couldn't update "${name}": ${err.message}`);
+      return;
+    }
+
+    const oldFolderId = existing.folderId;
+    const oldHandles = flattenTreeFileHandles(existing.tree).map((l) => l.handle);
+    await deleteLegacyFolderFiles(oldFolderId);
+    setFolders((prev) => {
+      const next = prev.map((f) =>
+        f.key === existing.key
+          ? { ...f, dirHandle: tree.handle, tree, connectedAt: Date.now(), folderId, sizeBytes }
+          : f
+      );
+      saveFolderList(next);
+      return next;
+    });
+    if (discard) for (const n of affected) await deleteAnnotatedCopy(n);
+    // The open document and Recent entries pointed at the old copy.
+    handleFilesRemovedFromView(oldHandles);
+    setRecentFiles((prev) => {
+      const next = prev.filter((e) => e.fileHandle.folderId !== oldFolderId);
+      persistRecent(next);
+      return next;
+    });
+    refreshStorageEstimate();
+  }
+
   // Resolves to a node key (show the new folder inside that one), null
   // (top level), or undefined (cancelled). Doesn't ask at all when there's
   // nothing yet to put it inside.
@@ -632,6 +720,11 @@ function App() {
     const tree = buildTreeFromFileList(fileList, folderId);
     if (!tree) {
       setError("No PDF files found in that folder.");
+      return;
+    }
+    const alreadyThere = folders.find((f) => f.tree?.name === tree.name);
+    if (alreadyThere) {
+      await updateExistingFolder(alreadyThere, tree, folderId);
       return;
     }
     const dirHandle = tree.handle;
@@ -979,6 +1072,9 @@ function App() {
   const placementPresence = usePresence(!!placement);
   const placementShown = placement ?? lastPlacementRef.current;
   const removeShown = removeRequest ?? lastRemoveRef.current;
+  if (choice) lastChoiceRef.current = choice;
+  const choicePresence = usePresence(!!choice);
+  const choiceShown = choice ?? lastChoiceRef.current;
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -1029,6 +1125,20 @@ function App() {
           onClose={() => {
             placement?.resolve(undefined);
             setPlacement(null);
+          }}
+        />
+      )}
+      {choicePresence.present && choiceShown && (
+        <ChoiceModal
+          closing={choicePresence.closing}
+          spec={choiceShown}
+          onChoose={(value) => {
+            choice?.resolve(value);
+            setChoice(null);
+          }}
+          onClose={() => {
+            choice?.resolve(undefined);
+            setChoice(null);
           }}
         />
       )}

@@ -2021,7 +2021,7 @@ html,
   color: var(--cb-ink-dim);
 }
 
-.linked-notice-list {
+.modal-list {
   margin: -8px 0 18px;
   padding-left: 18px;
   max-height: 140px;
@@ -2029,6 +2029,14 @@ html,
   font-size: 13px;
   color: var(--cb-ink-2);
   line-height: 1.7;
+}
+
+.choice-actions {
+  flex-wrap: wrap;
+}
+
+.choice-actions .cb-btn {
+  min-width: 30%;
 }
 
 .copy-progress-dialog {

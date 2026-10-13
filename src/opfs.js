@@ -61,6 +61,14 @@ async function annotatedCopiesRoot() {
   return root.getDirectoryHandle("annotated-copies", { create: true });
 }
 
+// Names (as passed to writeAnnotatedCopy) of every file that has one.
+export async function listAnnotatedCopyNames() {
+  const root = await annotatedCopiesRoot();
+  const names = [];
+  for await (const [name] of root.entries()) names.push(name);
+  return names;
+}
+
 export async function writeAnnotatedCopy(name, bytes) {
   const root = await annotatedCopiesRoot();
   const fileHandle = await root.getFileHandle(escapeName(name), { create: true });
