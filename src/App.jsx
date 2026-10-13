@@ -31,6 +31,7 @@ import { hiddenRemovals, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
+  freeSpaceWarning,
   folderListRecords,
   nextRecentFiles,
   toggleBookmarkList,
@@ -639,12 +640,12 @@ function App() {
     const sizeBytes = treeByteSize(tree);
 
     const estimate = await getStorageEstimate();
-    if (estimate && sizeBytes > estimate.quota - foldersBytesUsed) {
-      setError(
-        `"${dirHandle.name}" (${formatBytes(sizeBytes)}) is bigger than the space free on this device ` +
-          `(${formatBytes(estimate.quota - foldersBytesUsed)}). It may not fully save.`
-      );
-    }
+    const spaceNote = freeSpaceWarning(
+      `"${dirHandle.name}"`,
+      sizeBytes,
+      estimate ? estimate.quota - foldersBytesUsed : null
+    );
+    if (spaceNote) setError(spaceNote);
     try {
       await copyFolderFiles(folderId, tree, "Adding folder", dirHandle.name);
     } catch (err) {
@@ -1011,6 +1012,7 @@ function App() {
           folders={addFilesTargets}
           files={addFilesShown.files}
           busy={addFilesBusy}
+          freeBytes={storageEstimate ? storageEstimate.quota - foldersBytesUsed : null}
           onConfirm={handleAddFilesConfirm}
           onClose={() => setAddFiles(null)}
         />

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   formatBytes,
   folderListRecords,
+  freeSpaceWarning,
   nextRecentFiles,
   toggleBookmarkList,
   removeBookmarkFromList,
@@ -66,4 +67,11 @@ test("buildReadingFilter combines preset and sliders", () => {
     buildReadingFilter("night", 120, 80),
     "invert(1) hue-rotate(180deg) brightness(120%) contrast(80%)"
   );
+});
+
+test("freeSpaceWarning only speaks up when it won't fit, and stays quiet if free space is unknown", () => {
+  assert.equal(freeSpaceWarning("These files", 100, 100), null);
+  assert.equal(freeSpaceWarning("These files", 100, null), null);
+  const note = freeSpaceWarning("This file", 3 * 1024 * 1024, 1024 * 1024);
+  assert.match(note, /^This file \(3\.0 MB\) is bigger than the space free on this device \(1\.0 MB\)/);
 });

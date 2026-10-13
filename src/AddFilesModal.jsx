@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { filesInDirectory, planAddedFiles } from "./fileSystem.js";
+import { freeSpaceWarning } from "./appHelpers.js";
 import { displayedPath, parseNodeKey } from "./treeOverlay.js";
 import DestinationTree from "./DestinationTree.jsx";
 
@@ -15,7 +16,7 @@ import DestinationTree from "./DestinationTree.jsx";
 // their own; `rawTree` is the real on-disk shape, which is where files
 // physically land — a node's key always points back at its real folder
 // (see parseNodeKey), wherever the overlay shows it.
-export default function AddFilesModal({ folders, files, busy, onConfirm, onClose, closing }) {
+export default function AddFilesModal({ folders, files, busy, onConfirm, onClose, closing, freeBytes }) {
   const topLevel = folders.filter((f) => !f.nested);
   const [selectedKey, setSelectedKey] = useState(topLevel[0].tree.key);
   const [expanded, setExpanded] = useState(() => new Set([topLevel[0].tree.key]));
@@ -33,6 +34,13 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
   // A clash is any file whose name is already taken in the destination —
   // that's exactly when "keep both" had to rename it or "replace" is on.
   const clashes = plan.map((p, i) => p.replaces || p.name !== files[i].name);
+
+  // Replace is counted at full size too, which is the safe side.
+  const spaceNote = freeSpaceWarning(
+    files.length === 1 ? "This file" : "These files",
+    files.reduce((sum, f) => sum + f.size, 0),
+    freeBytes
+  );
 
   function toggle(key) {
     setExpanded((prev) => {
@@ -98,6 +106,8 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
             </div>
           ))}
         </div>
+
+        {spaceNote && <div className="add-files-warning">{spaceNote}</div>}
 
         <div className="update-dialog-actions">
           <button className="cb-btn" onClick={onClose} disabled={busy}>

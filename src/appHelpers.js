@@ -12,6 +12,14 @@ export function formatBytes(bytes) {
   return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }
 
+// The note shown when something being copied in is bigger than the space
+// left (null when it fits, or when the free space isn't known). It only
+// warns — a copy that doesn't fit fails on its own with an error.
+export function freeSpaceWarning(label, neededBytes, freeBytes) {
+  if (freeBytes == null || neededBytes <= freeBytes) return null;
+  return `${label} (${formatBytes(neededBytes)}) is bigger than the space free on this device (${formatBytes(Math.max(0, freeBytes))}). It may not fully save.`;
+}
+
 // The persisted shape of each folder: its OPFS id, when it was added, a
 // manifest of its shape (no file bytes — those live in OPFS under the id) and
 // the size the app tracks for it.
