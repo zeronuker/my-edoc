@@ -2204,6 +2204,48 @@ html,
 @media (prefers-reduced-motion: reduce) {
   .modal-dialog, .modal-backdrop, .modal-dialog.is-closing, .modal-backdrop.is-closing { animation: none; }
   .sidebar, .topbar-wrap { transition: none; }
+  :root { --ed-hover: 0ms; }
+}
+
+/* Hover / press feedback. Capped at 120ms so "Slower" doesn't make buttons
+   feel laggy; follows --ed-dur down to 0ms when animations are off, and is
+   zeroed under Reduce Motion above. No `all`, and drop indicators
+   (box-shadow) are left out so drag feedback stays instant. */
+:root { --ed-hover: min(var(--ed-dur, 120ms), 120ms); }
+
+.icon-btn,
+.bookmark-toggle,
+.reading-theme-trigger,
+.annotate-tool,
+.zoom-pill button,
+.zoom-more,
+.dropdown-menu button,
+.tree-kebab-item,
+.sidebar-tab,
+.tree-file,
+.tree-folder-label,
+.tree-icon-btn,
+.thumb,
+.outline-label,
+.pending-folder-row,
+.recent-clear-btn,
+.page-pill button,
+.mode-picker-option,
+.add-folder-fab {
+  transition:
+    background-color var(--ed-hover) ease,
+    color var(--ed-hover) ease,
+    border-color var(--ed-hover) ease,
+    filter var(--ed-hover) ease,
+    transform var(--ed-hover) ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .icon-btn:active,
+  .page-pill button:active:not(:disabled),
+  .add-folder-fab:active:not(:disabled) {
+    transform: scale(0.94);
+  }
 }
 
 /* Copies of the sidebar / top bar that slide out over the content when they
