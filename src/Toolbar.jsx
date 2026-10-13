@@ -150,6 +150,14 @@ export default function Toolbar({
   // MIN_SCALE and re-rendered mid-typing. Committed to the pdfViewer (and
   // cleared, falling back to the live scale) on blur/Enter.
   const [zoomDraft, setZoomDraft] = useState(null);
+  // Set only by a click that adds a bookmark, so the icon pops for that and
+  // not whenever scrolling lands on an already-bookmarked page (isBookmarked
+  // is derived from the current page). Cleared as soon as the current page
+  // isn't bookmarked, so leaving the page (or removing the bookmark) resets it.
+  const [bookmarkPop, setBookmarkPop] = useState(false);
+  useEffect(() => {
+    if (!isBookmarked) setBookmarkPop(false);
+  }, [isBookmarked]);
 
   const activeToolLabel = ANNOTATE_TOOLS.find((t) => t.tool === annotationTool)?.label ?? "Annotate";
 
@@ -297,12 +305,15 @@ export default function Toolbar({
 
       <div className="toolbar-group toolbar-group-tools">
         <button
-          className={`bookmark-toggle${isBookmarked ? " active" : ""}`}
+          className={`bookmark-toggle${isBookmarked ? " active" : ""}${bookmarkPop ? " pop" : ""}`}
           aria-label={isBookmarked ? "Remove bookmark for this page" : "Bookmark this page"}
           aria-pressed={isBookmarked}
           title="Bookmark this page"
           disabled={!numPages}
-          onClick={onToggleBookmark}
+          onClick={() => {
+            if (!isBookmarked) setBookmarkPop(true);
+            onToggleBookmark();
+          }}
         >
           {isBookmarked ? <IconBookmarkFilled size={16} /> : <IconBookmark size={16} />}
         </button>
