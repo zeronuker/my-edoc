@@ -1,36 +1,34 @@
-// Legacy (Safari/iOS, no live folder handle) folders keep their file
-// copies in the Origin Private File System rather than as raw blobs
-// inside IndexedDB — same storage quota, but a purpose-built file store
-// that's more efficient and more stable for large files.
+// Every connected folder keeps its file copies in the Origin Private File
+// System rather than as raw blobs inside IndexedDB — same storage quota, but
+// a purpose-built file store that's more efficient and more stable for large
+// files.
 //
-// Each connected folder gets its own flat subdirectory named by folderId;
-// nested subfolder structure is preserved only in the manifest tree kept
-// in IndexedDB (see fileSystem.js), with each leaf's original relative
-// path escaped into a single flat filename here, so no nested-directory
-// bookkeeping is needed on the OPFS side.
+// Each folder gets its own flat subdirectory named by folderId. Nested
+// subfolder structure lives only in the manifest tree kept in IndexedDB (see
+// fileSystem.js); each file is stored under its own random `storedAs` name
+// recorded there. A name made from the path would collide for
+// "Reports/Q1.pdf" and "Reports__Q1.pdf", and can't hold every character a
+// real file name can (a backslash is refused), so the stored name is never
+// derived from the file's name at all.
 
 async function legacyFoldersRoot() {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle("legacy-folders", { create: true });
 }
 
-function escapeName(relativePath) {
-  return relativePath.replaceAll("/", "__");
-}
-
-export async function writeLegacyFile(folderId, relativePath, file) {
+export async function writeLegacyFile(folderId, storedAs, file) {
   const root = await legacyFoldersRoot();
   const dir = await root.getDirectoryHandle(folderId, { create: true });
-  const fileHandle = await dir.getFileHandle(escapeName(relativePath), { create: true });
+  const fileHandle = await dir.getFileHandle(storedAs, { create: true });
   const writable = await fileHandle.createWritable();
   await writable.write(file);
   await writable.close();
 }
 
-export async function readLegacyFile(folderId, relativePath) {
+export async function readLegacyFile(folderId, storedAs) {
   const root = await legacyFoldersRoot();
   const dir = await root.getDirectoryHandle(folderId);
-  const fileHandle = await dir.getFileHandle(escapeName(relativePath));
+  const fileHandle = await dir.getFileHandle(storedAs);
   return fileHandle.getFile();
 }
 
@@ -40,15 +38,15 @@ export async function deleteLegacyFolderFiles(folderId) {
   await root.removeEntry(folderId, { recursive: true }).catch(() => {});
 }
 
-// Removes individual files from a folder's OPFS copy (the tree's ×). A file
-// that's already gone is skipped rather than failing the whole batch, so the
-// caller can always go on to drop them from the manifest.
-export async function deleteLegacyFiles(folderId, relativePaths) {
+// Removes individual files from a folder's OPFS copy (the tree's ×), by
+// their stored names. A file that's already gone is skipped rather than
+// failing the whole batch.
+export async function deleteLegacyFiles(folderId, storedNames) {
   if (!folderId) return;
   const root = await legacyFoldersRoot();
   const dir = await root.getDirectoryHandle(folderId).catch(() => null);
   if (!dir) return;
-  for (const path of relativePaths) await dir.removeEntry(escapeName(path)).catch(() => {});
+  for (const stored of storedNames) await dir.removeEntry(stored).catch(() => {});
 }
 
 // Annotated copies (see annotations.js): one flat file per saved file, holding

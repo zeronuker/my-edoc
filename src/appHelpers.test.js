@@ -20,7 +20,7 @@ test("formatBytes formats across units", () => {
 });
 
 test("folderListRecords saves each folder's id, time, manifest and size", () => {
-  const tree = { name: "Lib", kind: "directory", children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf" }] };
+  const tree = { name: "Lib", kind: "directory", children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf", storedAs: "s-1" }] };
   const [record] = folderListRecords([
     { dirHandle: { __legacy: true }, folderId: "id-1", connectedAt: 5, tree, sizeBytes: 12 },
   ]);
@@ -30,7 +30,7 @@ test("folderListRecords saves each folder's id, time, manifest and size", () => 
   assert.deepEqual(record.manifest, {
     name: "Lib",
     kind: "directory",
-    children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf" }],
+    children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf", storedAs: "s-1" }],
   });
 });
 

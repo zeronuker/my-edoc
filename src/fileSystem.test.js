@@ -12,6 +12,9 @@ import {
   removeNodeFromTree,
   extrasKey,
   reviveLegacyFileHandle,
+  buildLegacyManifest,
+  reviveLegacyManifest,
+  flattenTreeFiles,
 } from "./fileSystem.js";
 
 function mockFile(webkitRelativePath) {
@@ -137,4 +140,23 @@ test("a copied file's extras are keyed by folder name and path, a dropped file's
   assert.deepEqual(keys.sort(), ["Lib:Sub/a.pdf", "Lib:a.pdf"]);
   assert.equal(extrasKey(reviveLegacyFileHandle("id", "a.pdf", "Sub/a.pdf", "Lib")), "Lib:Sub/a.pdf");
   assert.equal(extrasKey(wrapDroppedFile({ name: "dropped.pdf" })), "dropped.pdf");
+});
+
+test("every stored file gets its own name, so paths like Reports/Q1.pdf and Reports__Q1.pdf never collide", () => {
+  const tree = buildTreeFromFileList(
+    [mockFile("Lib/Reports/Q1.pdf"), mockFile("Lib/Reports__Q1.pdf"), mockFile("Lib/odd\\name.pdf")],
+    "id"
+  );
+  const stored = flattenTreeFiles(tree).map((f) => f.storedAs);
+  assert.equal(new Set(stored).size, 3);
+  assert.ok(stored.every((n) => /^[0-9a-f-]{36}$/.test(n)));
+});
+
+test("a folder's saved list keeps each file's stored name and hands it back on revive", () => {
+  const tree = buildTreeFromFileList([mockFile("Lib/a.pdf"), mockFile("Lib/Sub/b.pdf")], "id");
+  const original = Object.fromEntries(flattenTreeFiles(tree).map((f) => [f.relativePath, f.storedAs]));
+  const revived = reviveLegacyManifest("id", JSON.parse(JSON.stringify(buildLegacyManifest(tree))));
+  for (const file of flattenTreeFiles(revived)) {
+    assert.equal(file.storedAs, original[file.relativePath]);
+  }
 });

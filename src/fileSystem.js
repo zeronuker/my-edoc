@@ -34,6 +34,11 @@ export function fileKeyFor(rootName, relativePath) {
   return `${rootName}:${relativePath}`;
 }
 
+// A fresh name to store one file under in OPFS (see opfs.js).
+export function newStoredName() {
+  return crypto.randomUUID();
+}
+
 export function extrasKey(handle) {
   return handle.fileKey ?? handle.name;
 }
@@ -102,21 +107,25 @@ export function buildTreeFromFileList(fileList, folderId = null) {
       }
       parent = dir;
     }
-    // relativePath (path within the picked root, e.g. "Work/Q1.pdf") is
-    // the OPFS lookup key — see writeLegacyFiles/buildLegacyManifest below.
-    // Also stashed on the handle itself (folderId alongside it) so a Recent
-    // Files entry opened straight from this fresh pick can still be saved
-    // and looked back up in OPFS after the app restarts.
+    // relativePath (path within the picked root, e.g. "Work/Q1.pdf") is what
+    // the file is called inside its folder; storedAs is the name its bytes
+    // are kept under in OPFS — see writeLegacyFiles/buildLegacyManifest
+    // below. Both are also stashed on the handle (with folderId) so a Recent
+    // Files entry opened straight from this fresh pick can be saved and
+    // looked back up in OPFS after the app restarts.
     const relativePath = parts.slice(1).join("/");
+    const storedAs = newStoredName();
     parent.children.push({
       name: file.name,
       kind: "file",
       relativePath,
+      storedAs,
       handle: permissiveHandle(file.name, {
         getFile: async () => file,
         file,
         folderId,
         relativePath,
+        storedAs,
         fileKey: fileKeyFor(rootName, relativePath),
       }),
     });
@@ -237,8 +246,11 @@ export function insertFilesIntoTree(tree, path, fileNodes) {
 export function flattenTreeFiles(tree) {
   const out = [];
   function walk(node) {
-    if (node.kind === "file") out.push({ name: node.name, relativePath: node.relativePath });
-    else node.children.forEach(walk);
+    if (node.kind === "file") {
+      out.push({ name: node.name, relativePath: node.relativePath, storedAs: node.storedAs });
+    } else {
+      node.children.forEach(walk);
+    }
   }
   walk(tree);
   return out;
@@ -285,7 +297,7 @@ export async function writeLegacyFiles(folderId, tree, { onFileDone, signal } = 
   async function walk(node) {
     if (node.kind === "file") {
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-      await writeLegacyFile(folderId, node.relativePath, node.handle.file);
+      await writeLegacyFile(folderId, node.storedAs, node.handle.file);
       onFileDone?.(node.relativePath);
       return;
     }
@@ -313,7 +325,7 @@ export function treeByteSize(tree) {
 export function buildLegacyManifest(tree) {
   function walk(node) {
     if (node.kind === "file") {
-      return { name: node.name, kind: "file", relativePath: node.relativePath };
+      return { name: node.name, kind: "file", relativePath: node.relativePath, storedAs: node.storedAs };
     }
     return { name: node.name, kind: "directory", children: node.children.map(walk) };
   }
@@ -323,11 +335,12 @@ export function buildLegacyManifest(tree) {
 // Rebuilds a single legacy file's handle from its OPFS address — used both
 // by reviveLegacyManifest below and by App.jsx to bring back a Recent Files
 // entry that was saved as {folderId, relativePath} instead of a live handle.
-export function reviveLegacyFileHandle(folderId, name, relativePath, rootName) {
+export function reviveLegacyFileHandle(folderId, name, relativePath, rootName, storedAs) {
   return permissiveHandle(name, {
-    getFile: () => readLegacyFile(folderId, relativePath),
+    getFile: () => readLegacyFile(folderId, storedAs),
     folderId,
     relativePath,
+    storedAs,
     fileKey: rootName ? fileKeyFor(rootName, relativePath) : undefined,
   });
 }
@@ -341,7 +354,8 @@ export function reviveLegacyManifest(folderId, manifest) {
         name: node.name,
         kind: "file",
         relativePath: node.relativePath,
-        handle: reviveLegacyFileHandle(folderId, node.name, node.relativePath, manifest.name),
+        storedAs: node.storedAs,
+        handle: reviveLegacyFileHandle(folderId, node.name, node.relativePath, manifest.name, node.storedAs),
       };
     }
     return { name: node.name, kind: "directory", children: node.children.map(walk) };

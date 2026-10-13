@@ -12,6 +12,7 @@ import {
   isMobileDevice,
   extrasKey,
   fileKeyFor,
+  newStoredName,
   pickPdfFiles,
   filesInDirectory,
   planAddedFiles,
@@ -231,16 +232,21 @@ function App() {
       setFolders(loaded);
       refreshStorageEstimate();
 
-      // Recents whose folder has since been removed are dead; drop them.
-      const rootNameOf = (folderId) => loaded.find((f) => f.folderId === folderId)?.tree.name;
+      // A saved file address points at the tree's own handle for that file;
+      // one whose folder or file has since been removed is dead, so it's dropped.
+      const fileNodeOf = (folderId, relativePath) => {
+        const folder = loaded.find((f) => f.folderId === folderId);
+        const node = folder && findNodeAt(folder.tree, relativePath);
+        return node?.kind === "file" ? node : null;
+      };
       const savedRecent = (await dbGet("recentFiles")) || [];
-      const keptRecent = savedRecent.filter((e) => rootNameOf(e.folderId));
+      const keptRecent = savedRecent.filter((e) => fileNodeOf(e.folderId, e.relativePath));
       if (keptRecent.length !== savedRecent.length) dbSet("recentFiles", keptRecent);
       setRecentFiles(
         keptRecent.map((e) => ({
           name: e.name,
           openedAt: e.openedAt,
-          fileHandle: reviveLegacyFileHandle(e.folderId, e.name, e.relativePath, rootNameOf(e.folderId)),
+          fileHandle: fileNodeOf(e.folderId, e.relativePath).handle,
         }))
       );
       setBookmarks((await dbGet("bookmarks")) || {});
@@ -250,10 +256,8 @@ function App() {
         // A file is saved as its OPFS address (see usePdfDocument.js) —
         // "still connected" just means its folder hasn't been removed.
         const lastFile = await dbGet("lastFileHandle");
-        const folder = lastFile && loaded.find((f) => f.folderId === lastFile.folderId);
-        if (folder) {
-          selectFile(reviveLegacyFileHandle(lastFile.folderId, lastFile.name, lastFile.relativePath, folder.tree.name));
-        }
+        const node = lastFile && fileNodeOf(lastFile.folderId, lastFile.relativePath);
+        if (node) selectFile(node.handle);
       }
     })();
     return () => {
@@ -794,12 +798,14 @@ function App() {
             const old = replaces ? existing.find((f) => f.name === name) : null;
             const oldSize = old ? ((await old.handle.getFile().catch(() => null))?.size ?? 0) : 0;
 
-            await writeLegacyFile(target.folderId, relativePath, file);
+            const storedAs = old?.storedAs ?? newStoredName();
+            await writeLegacyFile(target.folderId, storedAs, file);
             added.push({
               name,
               kind: "file",
               relativePath,
-              handle: reviveLegacyFileHandle(target.folderId, name, relativePath, target.tree.name),
+              storedAs,
+              handle: reviveLegacyFileHandle(target.folderId, name, relativePath, target.tree.name, storedAs),
             });
             bytesDelta += file.size - oldSize;
             if (old) replacedHandles.push(old.handle);
@@ -953,7 +959,8 @@ function App() {
   async function removePathsFromFolder(target, relPaths) {
     const nodes = relPaths.map((p) => findNodeAt(target.tree, p)).filter(Boolean);
     const leaves = nodes.flatMap((n) => flattenTreeFileHandles(n));
-    const paths = nodes.flatMap((n) => flattenTreeFiles(n).map((f) => f.relativePath));
+    const removedFiles = nodes.flatMap((n) => flattenTreeFiles(n));
+    const paths = removedFiles.map((f) => f.relativePath);
     let freedBytes = 0;
     for (const leaf of leaves) freedBytes += (await leaf.handle.getFile().catch(() => null))?.size ?? 0;
     await commitFolders(
@@ -967,7 +974,10 @@ function App() {
           : f
       )
     );
-    await deleteLegacyFiles(target.folderId, paths);
+    await deleteLegacyFiles(
+      target.folderId,
+      removedFiles.map((f) => f.storedAs)
+    );
     refreshStorageEstimate();
 
     // The open document, and Recent entries, may point at what was just
