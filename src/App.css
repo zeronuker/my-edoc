@@ -2193,7 +2193,8 @@ html,
   .search-wrap.open .search-bar { animation: ed-search-open var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
   .search-bar > button,
   .search-bar > .match-count { animation: ed-search-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
-  .dropdown-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
+  .dropdown-menu,
+  .tree-kebab-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
   .dropdown-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
   .search-wrap.open.closing .search-bar { animation: ed-search-shut var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; }
   .search-bar > button.is-closing,
@@ -2248,6 +2249,34 @@ html,
   }
 }
 
+/* Entry polish. The page pill keeps its translateX(-50%) centering through
+   the keyframe (it's the pill's own transform). Only the *content* of the
+   empty / reopen states fades — .viewer-empty itself is an opaque overlay
+   over the always-mounted PdfViewer, so fading it would flash the previous
+   document through. The loading label is left alone: it's feedback and
+   should show immediately. */
+@keyframes ed-pill-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-pill { animation: ed-pill-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .error-banner,
+  .empty-illustration,
+  .reopen-banner { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+}
+
+/* Menu chevrons turn over while their menu is open. */
+.zoom-more svg,
+.view-mode-trigger svg:last-child,
+.annotate-tool svg:last-child {
+  transition: transform var(--ed-hover) ease;
+}
+
+.zoom-more[aria-expanded="true"] svg,
+.view-mode-trigger[aria-expanded="true"] svg:last-child,
+.annotate-tool[aria-expanded="true"] svg:last-child {
+  transform: rotate(180deg);
+}
+
 /* Copies of the sidebar / top bar that slide out over the content when they
    close (see the sidebarOpen layout effect in App.jsx). */
 .slide-ghost {
@@ -2255,4 +2284,13 @@ html,
   z-index: 60;
   margin: 0;
   pointer-events: none;
+}
+
+/* The ghosts are cloneNode copies, and a freshly inserted clone replays every
+   CSS entry animation inside it (a re-faded tab body, kebab menu, ...) while
+   it slides away. Their own slide runs through the Web Animations API, which
+   this doesn't affect. */
+.slide-ghost,
+.slide-ghost * {
+  animation: none !important;
 }
