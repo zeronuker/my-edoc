@@ -23,6 +23,7 @@ import {
 import {
   deleteLegacyFolderFiles,
   deleteLegacyFiles,
+  sweepOrphanFolders,
   writeLegacyFile,
   listAnnotatedCopyNames,
   deleteAnnotatedCopy,
@@ -231,6 +232,10 @@ function App() {
       if (cancelled) return;
       setFolders(loaded);
       refreshStorageEstimate();
+      // Free any copy a killed app left half-written (see sweepOrphanFolders).
+      sweepOrphanFolders(loaded.map((f) => f.folderId))
+        .then((n) => n > 0 && refreshStorageEstimate())
+        .catch(() => {});
 
       // A saved file address points at the tree's own handle for that file;
       // one whose folder or file has since been removed is dead, so it's dropped.

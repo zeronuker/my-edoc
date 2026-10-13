@@ -38,6 +38,31 @@ export async function deleteLegacyFolderFiles(folderId) {
   await root.removeEntry(folderId, { recursive: true }).catch(() => {});
 }
 
+// Deletes every folder copy in OPFS that no saved folder refers to. A copy
+// cut short by the app being killed mid-copy (iOS does this under memory
+// pressure) is left behind in storage, unlisted and uncounted, and nothing
+// else would ever free it. A copy with any file written within `graceMs` is
+// skipped, so one still being written — say by another open tab — is never
+// swept. Returns how many it removed.
+export async function sweepOrphanFolders(keepFolderIds, graceMs = 10 * 60 * 1000) {
+  const root = await legacyFoldersRoot();
+  const keep = new Set(keepFolderIds);
+  const orphans = [];
+  for await (const [id, entry] of root.entries()) {
+    if (entry.kind !== "directory" || keep.has(id)) continue;
+    let fresh = false;
+    for await (const [, file] of entry.entries()) {
+      if (file.kind === "file" && Date.now() - (await file.getFile()).lastModified < graceMs) {
+        fresh = true;
+        break;
+      }
+    }
+    if (!fresh) orphans.push(id);
+  }
+  for (const id of orphans) await root.removeEntry(id, { recursive: true }).catch(() => {});
+  return orphans.length;
+}
+
 // Removes individual files from a folder's OPFS copy (the tree's ×), by
 // their stored names. A file that's already gone is skipped rather than
 // failing the whole batch.
