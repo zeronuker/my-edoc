@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { IconGripVertical } from "@tabler/icons-react";
+import { IconGripVertical, IconArrowsMove } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
 import { folderLevelColor, fileLevelColor } from "./appHelpers.js";
 
@@ -129,6 +129,7 @@ function Node({
   expandedPaths,
   onToggleOpen,
   onRemoveNode,
+  onMoveFolder,
   onDropNode,
   dragKeyRef,
   dropTarget,
@@ -245,6 +246,20 @@ function Node({
             <IconGripVertical size={12} />
           </span>
         )}
+        {isRoot && (
+          <button
+            className="tree-hide-btn"
+            title={`Move "${node.name}"`}
+            aria-label={`Move "${node.name}"`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMoveFolder(node);
+            }}
+          >
+            <IconArrowsMove size={12} />
+          </button>
+        )}
         <button
           className="tree-hide-btn"
           title={`Remove "${node.name}"`}
@@ -274,6 +289,7 @@ function Node({
               expandedPaths={expandedPaths}
               onToggleOpen={onToggleOpen}
               onRemoveNode={onRemoveNode}
+              onMoveFolder={onMoveFolder}
               onDropNode={onDropNode}
               dragKeyRef={dragKeyRef}
               dropTarget={dropTarget}
@@ -291,6 +307,7 @@ export default function TreeView({
   onSelectFile,
   selectedHandle,
   onRemoveNode,
+  onMoveFolder,
   onDropNode,
 }) {
   const [expandedPaths, setExpandedPaths] = useState(() => new Set());
@@ -350,6 +367,7 @@ export default function TreeView({
                 expandedPaths={expandedPaths}
                 onToggleOpen={toggleOpen}
                 onRemoveNode={onRemoveNode}
+                onMoveFolder={onMoveFolder}
                 onDropNode={onDropNode}
                 dragKeyRef={dragKeyRef}
                 dropTarget={dropTarget}

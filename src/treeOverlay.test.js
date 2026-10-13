@@ -8,7 +8,9 @@ import {
   hiddenRemovals,
   makeNodeKey,
   parseNodeKey,
+  pathKeys,
   releaseNestedRoots,
+  subtreeKeys,
 } from "./treeOverlay.js";
 
 function file(name) {
@@ -160,4 +162,38 @@ test("hiddenRemovals groups old hidden keys per folder and drops what an ancesto
   const result = hiddenRemovals(hidden, roots);
   const byRoot = Object.fromEntries(result.map((r) => [r.rootName, r.relPaths.sort()]));
   assert.deepEqual(byRoot, { Contracts: ["Signed", "a.pdf"], Manuals: ["m.pdf"] });
+});
+
+test("pathKeys lists the nodes from a top-level folder down to the node, nested folders included", () => {
+  const folders = [
+    { key: "k1", tree: dir("Contracts", [dir("Signed", [file("x.pdf")])]) },
+    { key: "k2", tree: dir("Manuals", [file("m.pdf")]) },
+  ];
+  const overlay = { ...emptyOverlay, moves: { [makeNodeKey("Manuals", "")]: makeNodeKey("Contracts", "Signed") } };
+  const [contracts] = applyOverlay(folders, overlay);
+  assert.deepEqual(pathKeys([contracts], makeNodeKey("Manuals", "")), [
+    makeNodeKey("Contracts", ""),
+    makeNodeKey("Contracts", "Signed"),
+    makeNodeKey("Manuals", ""),
+  ]);
+  assert.deepEqual(pathKeys([contracts], "nope"), []);
+});
+
+test("subtreeKeys covers a folder, what it holds, and folders placed inside it", () => {
+  const folders = [
+    { key: "k1", tree: dir("Contracts", [dir("Signed", [file("x.pdf")])]) },
+    { key: "k2", tree: dir("Manuals", [file("m.pdf")]) },
+  ];
+  const overlay = { ...emptyOverlay, moves: { [makeNodeKey("Manuals", "")]: makeNodeKey("Contracts", "Signed") } };
+  const [contracts] = applyOverlay(folders, overlay);
+  const keys = subtreeKeys(contracts.tree);
+  for (const k of [
+    makeNodeKey("Contracts", ""),
+    makeNodeKey("Contracts", "Signed"),
+    makeNodeKey("Contracts", "Signed/x.pdf"),
+    makeNodeKey("Manuals", ""),
+    makeNodeKey("Manuals", "m.pdf"),
+  ]) {
+    assert.ok(keys.has(k), k);
+  }
 });
