@@ -5,6 +5,7 @@ import {
   folderListRecords,
   freeSpaceWarning,
   namesToClean,
+  progressWindow,
   omitKeys,
   nextRecentFiles,
   toggleBookmarkList,
@@ -87,4 +88,12 @@ test("omitKeys drops only the named keys and leaves the original alone", () => {
   const src = { "a.pdf": 1, "b.pdf": 2 };
   assert.deepEqual(omitKeys(src, ["a.pdf", "zzz.pdf"]), { "b.pdf": 2 });
   assert.deepEqual(src, { "a.pdf": 1, "b.pdf": 2 });
+});
+
+test("progressWindow keeps a fixed-size slice around the file being copied", () => {
+  assert.deepEqual(progressWindow(10000, 0), [0, 13]);
+  assert.deepEqual(progressWindow(10000, 5000), [4996, 5009]);
+  assert.deepEqual(progressWindow(10000, 10000), [9987, 10000]);
+  assert.deepEqual(progressWindow(5, 2), [0, 5]);
+  assert.deepEqual(progressWindow(0, 0), [0, 0]);
 });

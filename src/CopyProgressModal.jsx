@@ -1,23 +1,13 @@
-import { useEffect, useRef } from "react";
+import { progressWindow } from "./appHelpers.js";
 
-// Shown while a legacy (Safari/iOS) folder's files are being copied into
-// OPFS — both on initial "Add folder" and on a per-folder "Refresh". Not
-// used for the live-handle (desktop Chrome/Edge) path, since nothing is
-// actually being copied there.
-export default function CopyProgressModal({ title, folderName, files, doneSet, onCancel, actionLabel = "copied" }) {
-  const doneCount = doneSet.size;
+// Shown while files are being copied into the app's storage — on Add folder,
+// Update and Add files. Only a short window of rows around the file being
+// copied is drawn, with a count and bar for the rest: drawing one row per
+// file made every finished file re-render the whole list, so a big folder
+// got slower the bigger it was.
+export default function CopyProgressModal({ title, folderName, files, doneCount, onCancel }) {
   const pct = files.length ? Math.round((doneCount / files.length) * 100) : 0;
-  // First not-yet-done file — the one currently being copied. -1 once
-  // everything's finished, at which point there's nothing left to track.
-  const activeIndex = files.findIndex((f) => !doneSet.has(f.relativePath));
-  const activeRowRef = useRef(null);
-
-  // Re-centers the active row every time it advances, so a long file list
-  // keeps scrolling itself and never looks stuck on whatever page it
-  // happened to load on.
-  useEffect(() => {
-    activeRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [activeIndex]);
+  const [start, end] = progressWindow(files.length, doneCount);
 
   return (
     <>
@@ -33,7 +23,7 @@ export default function CopyProgressModal({ title, folderName, files, doneSet, o
 
         <div className="copy-progress-line">
           <span>
-            {doneCount} of {files.length} {actionLabel}
+            {doneCount} of {files.length} copied
           </span>
           <span>{pct}%</span>
         </div>
@@ -42,14 +32,10 @@ export default function CopyProgressModal({ title, folderName, files, doneSet, o
         </div>
 
         <div className="copy-file-list">
-          {files.map((file, i) => {
-            const isDone = doneSet.has(file.relativePath);
+          {files.slice(start, end).map((file, i) => {
+            const isDone = start + i < doneCount;
             return (
-              <div
-                key={file.relativePath}
-                ref={i === activeIndex ? activeRowRef : undefined}
-                className={`copy-file-row${isDone ? " done" : ""}`}
-              >
+              <div key={start + i} className={`copy-file-row${isDone ? " done" : ""}`}>
                 <span className="copy-file-check">
                   {isDone && (
                     <svg width="10" height="10" viewBox="0 0 16 16">

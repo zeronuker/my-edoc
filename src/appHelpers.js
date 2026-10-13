@@ -12,6 +12,17 @@ export function formatBytes(bytes) {
   return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }
 
+// Which slice [start, end) of a long list of files to draw in the copy
+// progress window: a few finished ones above the file being copied and the
+// next few below, always the same number of rows (fewer only when the whole
+// list is shorter).
+export function progressWindow(total, doneCount, before = 4, after = 8) {
+  const size = before + after + 1;
+  const active = Math.min(Math.max(doneCount, 0), Math.max(total - 1, 0));
+  const start = Math.max(0, Math.min(active - before, total - size));
+  return [start, Math.min(total, start + size)];
+}
+
 // Names of removed files that no file still in the app carries. A file's
 // extras (bookmarks, saved page, annotated copy) are keyed by name, so they
 // can only be deleted when no other file with that name is left to use them.

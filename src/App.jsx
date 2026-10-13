@@ -150,7 +150,7 @@ function App() {
   // pdfViewer.annotationEditorMode by the effect below.
   const [annotationTool, setAnnotationTool] = useState(null);
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
-  const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
+  const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneCount } while copying files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
   const [removeRequest, setRemoveRequest] = useState(null); // { node, name, kind, isRoot?, folderKey, relPath, count, cleanNames, annotatedCount, otherCount } while the × confirmation is open
@@ -607,16 +607,31 @@ function App() {
   // finishing regardless. Always clears copyProgress when done, whether
   // that's success, a real failure, or a cancel (an AbortError, which
   // callers below catch and handle by cleaning up the partial OPFS copy).
+  // The count is pushed to the screen at most ~10 times a second: a state
+  // update per file re-renders the whole app per file, which is what made
+  // big folders crawl.
+  function makeProgressTicker() {
+    let done = 0;
+    let lastPush = 0;
+    return () => {
+      done += 1;
+      const now = performance.now();
+      if (now - lastPush < 100) return;
+      lastPush = now;
+      const count = done;
+      setCopyProgress((p) => (p ? { ...p, doneCount: count } : p));
+    };
+  }
+
   async function copyFolderFiles(folderId, tree, title, folderName) {
     const files = flattenTreeFiles(tree);
     const controller = new AbortController();
     copyControllerRef.current = controller;
-    setCopyProgress({ title, folderName, files, doneSet: new Set() });
+    setCopyProgress({ title, folderName, files, doneCount: 0 });
     try {
       await writeLegacyFiles(folderId, tree, {
         signal: controller.signal,
-        onFileDone: (relativePath) =>
-          setCopyProgress((p) => (p ? { ...p, doneSet: new Set(p.doneSet).add(relativePath) } : p)),
+        onFileDone: makeProgressTicker(),
       });
     } finally {
       setCopyProgress(null);
@@ -825,10 +840,11 @@ function App() {
       const controller = new AbortController();
       copyControllerRef.current = controller;
       setAddFiles(null);
-      setCopyProgress({ title: "Adding files", folderName: target.tree.name, files: progressFiles, doneSet: new Set() });
+      setCopyProgress({ title: "Adding files", folderName: target.tree.name, files: progressFiles, doneCount: 0 });
+      const tick = makeProgressTicker();
       try {
         const startedAt = Date.now();
-        for (const [i, { file, name, replaces }] of plan.entries()) {
+        for (const { file, name, replaces } of plan) {
           if (controller.signal.aborted) break; // Cancel: keep what's already copied
           try {
             const relativePath = destPath ? `${destPath}/${name}` : name;
@@ -844,14 +860,13 @@ function App() {
             });
             bytesDelta += file.size - oldSize;
             if (old) replacedHandles.push(old.handle);
-            setCopyProgress((p) =>
-              p ? { ...p, doneSet: new Set(p.doneSet).add(progressFiles[i].relativePath) } : p
-            );
+            tick();
           } catch (err) {
             setError(`Couldn't add "${name}": ${err.message}`);
             break;
           }
         }
+        setCopyProgress((p) => (p ? { ...p, doneCount: added.length } : p));
         // A one-or-two-file add can finish faster than the list is legible;
         // hold it just long enough to see the checkmarks land (skipped when
         // animations are off).
@@ -1170,7 +1185,7 @@ function App() {
           title={copyProgress.title}
           folderName={copyProgress.folderName}
           files={copyProgress.files}
-          doneSet={copyProgress.doneSet}
+          doneCount={copyProgress.doneCount}
           onCancel={() => copyControllerRef.current?.abort()}
         />
       )}
