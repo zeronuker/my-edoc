@@ -62,3 +62,24 @@ export function buildReadingFilter(theme, brightness, contrast) {
   if (contrast !== 100) parts.push(`contrast(${contrast}%)`);
   return parts.length ? parts.join(" ") : "none";
 }
+
+// One color per nesting depth (root, then each level under it), cycling
+// back to the start past the 5th level. A file has no depth-color of its
+// own — it takes its parent folder's color, tinted toward white so the
+// folder above it still reads as the "full strength" version.
+const LEVEL_COLORS = [
+  "hsl(210 65% 68%)",
+  "hsl(174 60% 58%)",
+  "hsl(140 45% 60%)",
+  "hsl(38 70% 62%)",
+  "hsl(10 65% 65%)",
+];
+
+export function folderLevelColor(depth) {
+  return LEVEL_COLORS[depth % LEVEL_COLORS.length];
+}
+
+export function fileLevelColor(depth) {
+  const parent = LEVEL_COLORS[(depth - 1) % LEVEL_COLORS.length];
+  return `color-mix(in srgb, ${parent} 50%, white)`;
+}

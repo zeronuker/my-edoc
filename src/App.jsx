@@ -1033,9 +1033,15 @@ function App() {
   if (addFiles) lastAddFilesRef.current = addFiles;
   const addFilesPresence = usePresence(!!addFiles);
   const addFilesShown = addFiles ?? lastAddFilesRef.current;
-  const addFilesTargets = folders
-    .filter((f) => f.tree)
-    .map((f) => ({ key: f.key, name: f.tree.name, tree: f.tree, writesToDisk: !f.dirHandle.__legacy }));
+  // tree is the displayed (hide/move/reorder-applied) one the picker draws;
+  // rawTree is the on-disk shape the files are actually written into.
+  const addFilesTargets = displayFolders.map((f) => ({
+    key: f.key,
+    name: f.tree.name,
+    tree: f.tree,
+    rawTree: folders.find((r) => r.key === f.key).tree,
+    writesToDisk: !f.dirHandle.__legacy,
+  }));
   const fabMenu = usePresence(fabMenuOpen);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 

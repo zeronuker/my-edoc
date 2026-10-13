@@ -10,6 +10,19 @@ export function makeNodeKey(folderKey, relPath) {
   return `${folderKey}:${relPath}`;
 }
 
+// Inverse of makeNodeKey: which connected folder (by its root name) a node
+// key belongs to, and the node's path inside it — i.e. where it physically
+// lives, regardless of where the overlay moved it to in the displayed tree.
+// Longest root name wins so "Lib" doesn't swallow a key of "Lib:Old". Null
+// if no root matches.
+export function parseNodeKey(key, rootNames) {
+  let best = null;
+  for (const name of rootNames) {
+    if (key.startsWith(`${name}:`) && (best === null || name.length > best.length)) best = name;
+  }
+  return best === null ? null : { rootName: best, relPath: key.slice(best.length + 1) };
+}
+
 // Walks up parentKey links to check whether `candidate` is `node` itself or
 // one of its descendants — used to reject a move that would drop a folder
 // inside its own subtree.

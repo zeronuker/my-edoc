@@ -2,29 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
 import { usePresence } from "./usePresence.js";
+import { folderLevelColor, fileLevelColor } from "./appHelpers.js";
 
-// One color per nesting depth (root, then each level under it), cycling
-// back to the start past the 5th level. A file has no depth-color of its
-// own — it takes its parent folder's color, tinted toward white so the
-// folder above it still reads as the "full strength" version.
-const LEVEL_COLORS = [
-  "hsl(210 65% 68%)",
-  "hsl(174 60% 58%)",
-  "hsl(140 45% 60%)",
-  "hsl(38 70% 62%)",
-  "hsl(10 65% 65%)",
-];
-
-function folderLevelColor(depth) {
-  return LEVEL_COLORS[depth % LEVEL_COLORS.length];
-}
-
-function fileLevelColor(depth) {
-  const parent = LEVEL_COLORS[(depth - 1) % LEVEL_COLORS.length];
-  return `color-mix(in srgb, ${parent} 50%, white)`;
-}
-
-function FolderIcon() {
+export function FolderIcon() {
   return (
     <svg className="tree-icon" viewBox="0 0 16 16" width="14" height="14" fill="none">
       <path
@@ -58,7 +38,7 @@ export function FileIcon() {
 // dashed one. ancestorsLast[i] is whether ancestor level i+1 has no more
 // siblings coming (so its passthrough lane should stay blank instead of
 // carrying a line past this row).
-function TreeRail({ ancestorsLast, isLast }) {
+export function TreeRail({ ancestorsLast, isLast }) {
   return (
     <span className="tree-rail">
       {ancestorsLast.map((ancestorIsLast, i) => (

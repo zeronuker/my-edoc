@@ -2032,23 +2032,77 @@ html,
   flex-direction: column;
 }
 
-.add-files-dest {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 14px;
+.add-files-label {
+  margin-bottom: 6px;
   font-size: 12px;
   color: var(--cb-ink-dim);
 }
 
-.add-files-dest select {
-  font-family: inherit;
-  font-size: 13px;
-  padding: 7px 8px;
-  background: var(--cb-surface-2);
-  color: var(--cb-ink);
-  border: 1px solid var(--cb-line-2);
+/* Folders-only destination tree. Rows are the sidebar's own
+   .tree-folder-label / rail / colour pieces; only selection, the chevron and
+   the file count are specific to the picker. */
+.add-dest-tree {
+  flex: 0 1 auto;
+  min-height: 60px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--cb-line);
   border-radius: var(--cb-radius-sm);
+  background: var(--cb-surface-2);
+  padding: 4px;
+  margin-bottom: 8px;
+}
+
+.add-dest-tree .tree-folder-label {
+  background: none;
+  align-items: center;
+  box-shadow: inset 2px 0 0 transparent;
+}
+
+.add-dest-tree .tree-folder-label.is-dest {
+  background: var(--cb-surface-3);
+  color: var(--cb-mint);
+  box-shadow: inset 2px 0 0 var(--cb-mint);
+}
+
+.add-dest-chevron {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cb-ink-dim);
+}
+
+.add-dest-chevron.open svg {
+  transform: rotate(90deg);
+}
+
+.add-dest-count {
+  flex-shrink: 0;
+  margin-left: 6px;
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  color: var(--cb-ink-dim);
+}
+
+.add-dest-check {
+  flex-shrink: 0;
+  margin-left: 6px;
+  color: var(--cb-mint);
+}
+
+.add-files-path {
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--cb-ink-dim);
+  overflow-wrap: anywhere;
+}
+
+.add-files-path b {
+  font-weight: 500;
+  color: var(--cb-ink);
 }
 
 .add-files-list {
@@ -2382,7 +2436,9 @@ html,
 @keyframes ed-row-in     { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .add-folder-fab svg { transition: transform var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1); }
+  .add-folder-fab svg,
+  .add-dest-chevron svg { transition: transform var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1); }
+  .add-dest-check { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
   .add-fab-menu { animation: ed-pop-up var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
   .add-fab-menu.is-closing { animation: ed-pop-up-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
   .add-fab-menu .tree-kebab-item {

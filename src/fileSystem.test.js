@@ -4,7 +4,6 @@ import {
   buildTreeFromFileList,
   flattenTreeFileHandlesWithPath,
   wrapDroppedFile,
-  listDirectoryPaths,
   filesInDirectory,
   uniqueFileName,
   planAddedFiles,
@@ -60,11 +59,6 @@ test("flattenTreeFileHandlesWithPath reports each nested file's folder path", ()
   const b = files.find((f) => f.name === "b.pdf");
   assert.equal(a.path, "");
   assert.equal(b.path, "Sub");
-});
-
-test("listDirectoryPaths lists the root first, then every nested folder", () => {
-  const tree = buildTreeFromFileList([mockFile("Lib/a.pdf"), mockFile("Lib/Sub/b.pdf"), mockFile("Lib/Sub/Deep/c.pdf")]);
-  assert.deepEqual(listDirectoryPaths(tree), ["", "Sub", "Sub/Deep"]);
 });
 
 test("uniqueFileName leaves a free name alone and numbers a taken one", () => {

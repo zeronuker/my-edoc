@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey, makeNodeKey } from "./treeOverlay.js";
+import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
 
 function file(name) {
   return { name, kind: "file", handle: { name } };
@@ -94,4 +94,18 @@ test("applyOverlay survives folder.key changing across reloads, since it keys by
   const [resultTwo] = applyOverlay(sessionTwo, overlay);
   assert.deepEqual(resultOne.tree.children.map((c) => c.name), ["b.pdf"]);
   assert.deepEqual(resultTwo.tree.children.map((c) => c.name), ["b.pdf"]);
+});
+
+test("parseNodeKey recovers a node's physical root and path from its key", () => {
+  const roots = ["Contracts", "Manuals"];
+  assert.deepEqual(parseNodeKey(makeNodeKey("Contracts", ""), roots), { rootName: "Contracts", relPath: "" });
+  assert.deepEqual(parseNodeKey(makeNodeKey("Manuals", "Signed/2025"), roots), {
+    rootName: "Manuals",
+    relPath: "Signed/2025",
+  });
+  assert.equal(parseNodeKey("Other:x", roots), null);
+});
+
+test("parseNodeKey prefers the longest matching root name", () => {
+  assert.deepEqual(parseNodeKey("Lib:Old:sub", ["Lib", "Lib:Old"]), { rootName: "Lib:Old", relPath: "sub" });
 });

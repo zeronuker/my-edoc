@@ -152,19 +152,6 @@ export function buildTreeFromFileList(fileList, folderId = null) {
 // root itself or "Work/Q1". Names are matched case-insensitively since the
 // most common backing store (a Windows/Mac disk) is.
 
-// Every directory in the tree, root first — the "where should it go" list.
-export function listDirectoryPaths(tree) {
-  const out = [];
-  function walk(node, path) {
-    out.push(path);
-    for (const child of node.children) {
-      if (child.kind === "directory") walk(child, path ? `${path}/${child.name}` : child.name);
-    }
-  }
-  walk(tree, "");
-  return out;
-}
-
 function findDirectory(tree, path) {
   let dir = tree;
   for (const part of path ? path.split("/") : []) {
