@@ -2292,6 +2292,17 @@ html,
   transform: rotate(180deg);
 }
 
+/* Folder / outline expand: the children fade and settle down a few px. Only
+   a fade-in — they unmount on collapse, so there's no exit. Capped at 180ms
+   even on "Slower" since expanding is a frequent action. The ghost guard
+   above stops a sliding-away sidebar copy from replaying this. */
+@keyframes ed-expand { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .tree-children,
+  .outline-children { animation: ed-expand min(var(--ed-dur, 180ms), 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+}
+
 /* Small confirmations. Bookmark pop is click-triggered (.pop is set from
    Toolbar.jsx, not derived from state). Copy-progress ticks draw their
    checkmark in (path length is ~17, so 18 covers it) and the row dims to
