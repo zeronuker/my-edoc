@@ -4,7 +4,7 @@ import {
   formatBytes,
   folderListRecords,
   freeSpaceWarning,
-  namesToClean,
+  planExtrasMigration,
   progressWindow,
   omitKeys,
   nextRecentFiles,
@@ -36,7 +36,7 @@ test("folderListRecords saves each folder's id, time, manifest and size", () => 
 });
 
 test("nextRecentFiles de-dupes by name and caps at 10", () => {
-  const prev = [{ fileHandle: {}, name: "a.pdf", openedAt: 1 }];
+  const prev = [{ fileHandle: { name: "a.pdf" }, name: "a.pdf", openedAt: 1 }];
   const next = nextRecentFiles(prev, { name: "a.pdf" });
   assert.equal(next.length, 1);
   assert.equal(next[0].name, "a.pdf");
@@ -79,11 +79,6 @@ test("freeSpaceWarning only speaks up when it won't fit, and stays quiet if free
   assert.match(note, /^This file \(3\.0 MB\) is bigger than the space free on this device \(1\.0 MB\)/);
 });
 
-test("namesToClean keeps extras for a name that another file still carries", () => {
-  assert.deepEqual(namesToClean(["a.pdf", "b.pdf", "a.pdf"], ["b.pdf", "c.pdf"]), ["a.pdf"]);
-  assert.deepEqual(namesToClean([], ["x.pdf"]), []);
-});
-
 test("omitKeys drops only the named keys and leaves the original alone", () => {
   const src = { "a.pdf": 1, "b.pdf": 2 };
   assert.deepEqual(omitKeys(src, ["a.pdf", "zzz.pdf"]), { "b.pdf": 2 });
@@ -96,4 +91,24 @@ test("progressWindow keeps a fixed-size slice around the file being copied", () 
   assert.deepEqual(progressWindow(10000, 10000), [9987, 10000]);
   assert.deepEqual(progressWindow(5, 2), [0, 5]);
   assert.deepEqual(progressWindow(0, 0), [0, 0]);
+});
+
+test("planExtrasMigration moves a unique name to its file's key and drops names shared by several files", () => {
+  const files = [
+    { name: "a.pdf", key: "Boeing:a.pdf" },
+    { name: "Index.pdf", key: "Boeing:Index.pdf" },
+    { name: "Index.pdf", key: "Airbus:Index.pdf" },
+  ];
+  const { move, drop } = planExtrasMigration(files);
+  assert.deepEqual(move, [{ name: "a.pdf", key: "Boeing:a.pdf" }]);
+  assert.deepEqual(drop, ["Index.pdf"]);
+});
+
+test("nextRecentFiles keeps two same-named files from different folders as separate entries", () => {
+  const a = { name: "Index.pdf", fileKey: "Boeing:Index.pdf" };
+  const b = { name: "Index.pdf", fileKey: "Airbus:Index.pdf" };
+  const afterBoth = nextRecentFiles(nextRecentFiles([], a), b);
+  assert.equal(afterBoth.length, 2);
+  const reopened = nextRecentFiles(afterBoth, a);
+  assert.deepEqual(reopened.map((e) => e.fileHandle.fileKey), ["Boeing:Index.pdf", "Airbus:Index.pdf"]);
 });

@@ -1,4 +1,4 @@
-import { buildLegacyManifest } from "./fileSystem.js";
+import { buildLegacyManifest, extrasKey } from "./fileSystem.js";
 
 export function formatBytes(bytes) {
   if (bytes == null) return "";
@@ -23,12 +23,18 @@ export function progressWindow(total, doneCount, before = 4, after = 8) {
   return [start, Math.min(total, start + size)];
 }
 
-// Names of removed files that no file still in the app carries. A file's
-// extras (bookmarks, saved page, annotated copy) are keyed by name, so they
-// can only be deleted when no other file with that name is left to use them.
-export function namesToClean(removedNames, remainingNames) {
-  const keep = new Set(remainingNames);
-  return [...new Set(removedNames)].filter((n) => !keep.has(n));
+// One-time move of per-file extras from being filed by file name to being
+// filed by folder + path. `files` is [{ name, key }] for every file in the
+// app. A name carried by one file moves to that file's key; a name carried
+// by several can't be told apart (they shared one set), so it's dropped
+// rather than guessed at.
+export function planExtrasMigration(files) {
+  const counts = new Map();
+  for (const f of files) counts.set(f.name, (counts.get(f.name) || 0) + 1);
+  return {
+    move: files.filter((f) => counts.get(f.name) === 1),
+    drop: [...counts].filter(([, n]) => n > 1).map(([name]) => name),
+  };
 }
 
 // A copy of `obj` without the given keys.
@@ -57,11 +63,12 @@ export function folderListRecords(folders) {
   }));
 }
 
-// De-dupes by filename and caps at 10, most recent first.
+// De-dupes by file (folder + path, so two same-named files stay separate)
+// and caps at 10, most recent first.
 export function nextRecentFiles(prev, fileHandle) {
   return [
     { fileHandle, name: fileHandle.name, openedAt: Date.now() },
-    ...prev.filter((e) => e.name !== fileHandle.name),
+    ...prev.filter((e) => extrasKey(e.fileHandle) !== extrasKey(fileHandle)),
   ].slice(0, 10);
 }
 

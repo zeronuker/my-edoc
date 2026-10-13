@@ -10,6 +10,8 @@ import {
   insertFilesIntoTree,
   findNodeAt,
   removeNodeFromTree,
+  extrasKey,
+  reviveLegacyFileHandle,
 } from "./fileSystem.js";
 
 function mockFile(webkitRelativePath) {
@@ -123,4 +125,16 @@ test("removeNodeFromTree removes a whole folder and its parents if that empties 
   assert.equal(next.name, "Lib");
   assert.deepEqual(next.children, []);
   assert.equal(removeNodeFromTree(tree, ""), tree);
+});
+
+test("a copied file's extras are keyed by folder name and path, a dropped file's by name", () => {
+  const tree = buildTreeFromFileList([mockFile("Lib/a.pdf"), mockFile("Lib/Sub/a.pdf")], "id");
+  const keys = [];
+  (function walk(n) {
+    if (n.kind === "file") keys.push(extrasKey(n.handle));
+    else n.children.forEach(walk);
+  })(tree);
+  assert.deepEqual(keys.sort(), ["Lib:Sub/a.pdf", "Lib:a.pdf"]);
+  assert.equal(extrasKey(reviveLegacyFileHandle("id", "a.pdf", "Sub/a.pdf", "Lib")), "Lib:Sub/a.pdf");
+  assert.equal(extrasKey(wrapDroppedFile({ name: "dropped.pdf" })), "dropped.pdf");
 });

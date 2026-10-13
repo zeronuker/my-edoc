@@ -51,45 +51,55 @@ export async function deleteLegacyFiles(folderId, relativePaths) {
   for (const path of relativePaths) await dir.removeEntry(escapeName(path)).catch(() => {});
 }
 
-// Annotated copies (see annotations.js): one flat file per original
-// filename, holding the most recently saved "sidecar" version — used
-// instead of the original when a file's annotation mode is "sidecar" (the
-// original is never touched in that mode). Separate root directory from
-// legacy-folders above since these aren't tied to any particular folder.
+// Annotated copies (see annotations.js): one flat file per saved file, holding
+// the most recently saved version — opened instead of the original. Filed by
+// the file's key (folder name + path, see fileKeyFor), URL-encoded into a
+// single safe name so different paths can never collide. Copies saved before
+// that were filed under the bare file name; reading and deleting also look
+// there. Separate root directory from legacy-folders above since these
+// aren't tied to any particular folder.
 async function annotatedCopiesRoot() {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle("annotated-copies", { create: true });
 }
 
-// Names (as passed to writeAnnotatedCopy) of every file that has one.
+// Keys of every file that has one.
 export async function listAnnotatedCopyNames() {
   const root = await annotatedCopiesRoot();
-  const names = [];
-  for await (const [name] of root.entries()) names.push(name);
-  return names;
+  const keys = [];
+  for await (const [stored] of root.entries()) {
+    try {
+      keys.push(decodeURIComponent(stored));
+    } catch {
+      keys.push(stored);
+    }
+  }
+  return keys;
 }
 
-export async function writeAnnotatedCopy(name, bytes) {
+export async function writeAnnotatedCopy(key, bytes) {
   const root = await annotatedCopiesRoot();
-  const fileHandle = await root.getFileHandle(escapeName(name), { create: true });
+  const fileHandle = await root.getFileHandle(encodeURIComponent(key), { create: true });
   const writable = await fileHandle.createWritable();
   await writable.write(bytes);
   await writable.close();
 }
 
-// Returns the sidecar File, or null if this file has never been saved in
-// sidecar mode.
-export async function readAnnotatedCopy(name) {
+// Returns the saved copy, or null if this file has never had one.
+export async function readAnnotatedCopy(key) {
   const root = await annotatedCopiesRoot();
-  try {
-    const fileHandle = await root.getFileHandle(escapeName(name));
-    return await fileHandle.getFile();
-  } catch {
-    return null;
+  for (const stored of [encodeURIComponent(key), escapeName(key)]) {
+    try {
+      return await (await root.getFileHandle(stored)).getFile();
+    } catch {
+      // not under this name; try the next
+    }
   }
+  return null;
 }
 
-export async function deleteAnnotatedCopy(name) {
+export async function deleteAnnotatedCopy(key) {
   const root = await annotatedCopiesRoot();
-  await root.removeEntry(escapeName(name)).catch(() => {});
+  await root.removeEntry(encodeURIComponent(key)).catch(() => {});
+  await root.removeEntry(escapeName(key)).catch(() => {});
 }

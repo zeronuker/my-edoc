@@ -11,6 +11,8 @@ import {
   flattenTreeFiles,
   flattenTreeFileHandles,
   isMobileDevice,
+  extrasKey,
+  fileKeyFor,
   pickPdfFiles,
   filesInDirectory,
   planAddedFiles,
@@ -23,6 +25,8 @@ import {
   deleteLegacyFiles,
   writeLegacyFile,
   listAnnotatedCopyNames,
+  readAnnotatedCopy,
+  writeAnnotatedCopy,
   deleteAnnotatedCopy,
 } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
@@ -38,7 +42,7 @@ import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
   freeSpaceWarning,
-  namesToClean,
+  planExtrasMigration,
   omitKeys,
   folderListRecords,
   nextRecentFiles,
@@ -269,16 +273,19 @@ function App() {
 
       // Recents saved from a disk-linked folder hold a real disk handle that
       // can't be opened any more — keep only the app's own copies.
+      const rootNameOf = (folderId) => loaded.find((f) => f.folderId === folderId)?.tree.name;
       const savedRecent = (await dbGet("recentFiles")) || [];
-      const keptRecent = savedRecent.filter((e) => e.legacy);
+      // ...and entries whose folder has since been removed are dead too.
+      const keptRecent = savedRecent.filter((e) => e.legacy && rootNameOf(e.folderId));
       if (keptRecent.length !== savedRecent.length) dbSet("recentFiles", keptRecent);
       setRecentFiles(
         keptRecent.map((e) => ({
           name: e.name,
           openedAt: e.openedAt,
-          fileHandle: reviveLegacyFileHandle(e.folderId, e.name, e.relativePath),
+          fileHandle: reviveLegacyFileHandle(e.folderId, e.name, e.relativePath, rootNameOf(e.folderId)),
         }))
       );
+      await migrateExtrasToPaths(loaded);
       setBookmarks((await dbGet("bookmarks")) || {});
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
       // One-time cleanup: content search (and the indexed text it stored
@@ -295,10 +302,15 @@ function App() {
         if (lastFileHandle?.legacy) {
           // A file is saved as its OPFS address (see usePdfDocument.js) —
           // "still connected" just means its folder hasn't been removed.
-          const stillConnected = loaded.some((f) => f.folderId === lastFileHandle.folderId);
-          if (stillConnected) {
+          const folder = loaded.find((f) => f.folderId === lastFileHandle.folderId);
+          if (folder) {
             selectFile(
-              reviveLegacyFileHandle(lastFileHandle.folderId, lastFileHandle.name, lastFileHandle.relativePath)
+              reviveLegacyFileHandle(
+                lastFileHandle.folderId,
+                lastFileHandle.name,
+                lastFileHandle.relativePath,
+                folder.tree.name
+              )
             );
           }
         } else if (lastFileHandle) {
@@ -565,12 +577,12 @@ function App() {
 
   function toggleBookmark() {
     if (!selectedHandle) return;
-    updateBookmarks(selectedHandle.name, (existing) => toggleBookmarkList(existing, currentPage));
+    updateBookmarks(extrasKey(selectedHandle), (existing) => toggleBookmarkList(existing, currentPage));
   }
 
   function removeBookmark(page) {
     if (!selectedHandle) return;
-    updateBookmarks(selectedHandle.name, (existing) => removeBookmarkFromList(existing, page));
+    updateBookmarks(extrasKey(selectedHandle), (existing) => removeBookmarkFromList(existing, page));
   }
 
   // Same read-modify-write shape as updateBookmarks, one entry per outline
@@ -578,7 +590,7 @@ function App() {
   function toggleOutlineNode(path) {
     if (!selectedHandle) return;
     setOutlineExpanded((prev) => {
-      const name = selectedHandle.name;
+      const name = extrasKey(selectedHandle);
       const nextPaths = toggleOutlinePath(prev[name] || [], path);
       const next = { ...prev };
       if (nextPaths.length) next[name] = nextPaths;
@@ -677,7 +689,8 @@ function App() {
     // A saved annotated copy is opened instead of the file with the same
     // name, so it would keep hiding the new version — ask what to do.
     const annotated = new Set(await listAnnotatedCopyNames());
-    const affected = [...new Set(newFiles.map((f) => f.name).filter((n) => annotated.has(n)))];
+    const affectedFiles = newFiles.filter((f) => annotated.has(fileKeyFor(name, f.relativePath)));
+    const affected = affectedFiles.map((f) => f.relativePath);
     let discard = false;
     if (affected.length > 0) {
       const c = await askChoice({
@@ -716,7 +729,7 @@ function App() {
       )
     );
     await deleteLegacyFolderFiles(oldFolderId);
-    if (discard) for (const n of affected) await deleteAnnotatedCopy(n);
+    if (discard) for (const f of affectedFiles) await deleteAnnotatedCopy(fileKeyFor(name, f.relativePath));
     // The open document and Recent entries pointed at the old copy.
     handleFilesRemovedFromView(oldHandles);
     setRecentFiles((prev) => {
@@ -822,7 +835,14 @@ function App() {
       // version — ask what to do with it first (the dialog stays open if
       // this is cancelled).
       const annotated = new Set(await listAnnotatedCopyNames());
-      const affected = [...new Set(plan.filter((p) => p.replaces && annotated.has(p.name)).map((p) => p.name))];
+      const pathOf = (name) => (destPath ? `${destPath}/${name}` : name);
+      const affected = [
+        ...new Set(
+          plan
+            .filter((p) => p.replaces && annotated.has(fileKeyFor(target.tree.name, pathOf(p.name))))
+            .map((p) => pathOf(p.name))
+        ),
+      ];
       let discardNames = [];
       if (affected.length > 0) {
         const c = await askChoice({
@@ -865,7 +885,7 @@ function App() {
               name,
               kind: "file",
               relativePath,
-              handle: reviveLegacyFileHandle(target.folderId, name, relativePath),
+              handle: reviveLegacyFileHandle(target.folderId, name, relativePath, target.tree.name),
             });
             bytesDelta += file.size - oldSize;
             if (old) replacedHandles.push(old.handle);
@@ -886,8 +906,10 @@ function App() {
         copyControllerRef.current = null;
       }
 
-      for (const name of discardNames) {
-        if (added.some((n) => n.name === name)) await deleteAnnotatedCopy(name);
+      for (const path of discardNames) {
+        if (added.some((n) => n.relativePath === path)) {
+          await deleteAnnotatedCopy(fileKeyFor(target.tree.name, path));
+        }
       }
       if (added.length > 0) {
         setFolders((prev) => {
@@ -945,39 +967,57 @@ function App() {
     }
   }
 
-  // Names of every file still in the app once `excludedPaths` (a Set of
-  // relativePaths, or null for the whole folder) of folder `excludeKey` are
-  // gone — what decides whether a removed file's extras can go too.
-  function namesRemainingAfter(excludeKey, excludedPaths) {
-    const names = [];
-    for (const f of folders) {
-      if (!f.tree) continue;
-      for (const file of flattenTreeFiles(f.tree)) {
-        if (f.key === excludeKey && (!excludedPaths || excludedPaths.has(file.relativePath))) continue;
-        names.push(file.name);
+  // One-time: bookmarks, saved page, outline state and annotated copies used
+  // to be filed under a file's bare name, so same-named files in different
+  // folders shared them (opening one could show the other's annotations).
+  // They're filed by folder + path now. A name carried by one file moves to
+  // it; a name carried by several is dropped (see planExtrasMigration). Names
+  // no folder file carries are left alone — they may belong to a dropped
+  // file. Safe to repeat if a launch is cut short before it's marked done.
+  async function migrateExtrasToPaths(foldersList) {
+    if (await dbGet("extrasKeyedByPath")) return;
+    const files = foldersList.flatMap((f) =>
+      flattenTreeFiles(f.tree).map((x) => ({ name: x.name, key: fileKeyFor(f.tree.name, x.relativePath) }))
+    );
+    const { move, drop } = planExtrasMigration(files);
+    const maps = {
+      bookmarks: (await dbGet("bookmarks")) || {},
+      outlineExpanded: (await dbGet("outlineExpanded")) || {},
+      filePositions: (await dbGet("filePositions")) || {},
+    };
+    for (const { name, key } of move) {
+      for (const map of Object.values(maps)) {
+        if (map[name] !== undefined && map[key] === undefined) map[key] = map[name];
       }
+      const annotated = await readAnnotatedCopy(name);
+      if (annotated) await writeAnnotatedCopy(key, annotated);
     }
-    return names;
+    for (const name of [...move.map((m) => m.name), ...drop]) {
+      for (const map of Object.values(maps)) delete map[name];
+      await deleteAnnotatedCopy(name);
+    }
+    for (const [key, map] of Object.entries(maps)) await dbSet(key, map);
+    await dbSet("extrasKeyedByPath", true);
   }
 
-  // Removing a file also drops what the app keeps for it by name: bookmarks,
-  // saved page, outline state and its annotated app copy — but only if no
-  // other file with that name is left, since they'd belong to that one.
-  async function forgetFileExtras(names) {
-    if (names.length === 0) return;
-    for (const n of names) await deleteAnnotatedCopy(n);
+  // Removing a file also drops what the app keeps for it: bookmarks, saved
+  // page, outline state and its annotated app copy. They're filed per file
+  // (folder + path), so they belong to nothing else.
+  async function forgetFileExtras(keys) {
+    if (keys.length === 0) return;
+    for (const k of keys) await deleteAnnotatedCopy(k);
     setBookmarks((prev) => {
-      const next = omitKeys(prev, names);
+      const next = omitKeys(prev, keys);
       dbSet("bookmarks", next);
       return next;
     });
     setOutlineExpanded((prev) => {
-      const next = omitKeys(prev, names);
+      const next = omitKeys(prev, keys);
       dbSet("outlineExpanded", next);
       return next;
     });
     const positions = (await dbGet("filePositions")) || {};
-    await dbSet("filePositions", omitKeys(positions, names));
+    await dbSet("filePositions", omitKeys(positions, keys));
   }
 
   // TreeView's × on a subfolder, file or whole folder: ask first. A node's
@@ -1004,8 +1044,7 @@ function App() {
     if (!rawNode) return;
 
     const files = rawNode.kind === "file" ? [rawNode] : flattenTreeFiles(rawNode);
-    const paths = isRoot ? null : new Set(files.map((f) => f.relativePath));
-    const cleanNames = namesToClean(files.map((f) => f.name), namesRemainingAfter(folder.key, paths));
+    const cleanNames = files.map((f) => fileKeyFor(folder.tree.name, f.relativePath));
     const annotated = new Set(await listAnnotatedCopyNames());
     const positions = (await dbGet("filePositions")) || {};
     const annotatedCount = cleanNames.filter((n) => annotated.has(n)).length;
@@ -1129,9 +1168,9 @@ function App() {
     closeDocument();
   }
 
-  const currentBookmarks = selectedHandle ? bookmarks[selectedHandle.name] || [] : [];
+  const currentBookmarks = selectedHandle ? bookmarks[extrasKey(selectedHandle)] || [] : [];
   const isBookmarked = currentBookmarks.some((b) => b.page === currentPage);
-  const currentOutlineExpanded = new Set(selectedHandle ? outlineExpanded[selectedHandle.name] || [] : []);
+  const currentOutlineExpanded = new Set(selectedHandle ? outlineExpanded[extrasKey(selectedHandle)] || [] : []);
   const tabAvailable = {
     folders: true,
     recent: recentFiles.length > 0,

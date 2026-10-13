@@ -26,6 +26,18 @@ function permissiveHandle(name, extra = {}) {
   return { name, __legacy: true, ...extra };
 }
 
+// What a file's bookmarks, saved page, outline state and annotated copy are
+// filed under: its folder's name plus its path inside it, so two same-named
+// files in different places never share them, and they survive an Update or
+// a re-add of the folder. A dropped file has no folder, so it's just its name.
+export function fileKeyFor(rootName, relativePath) {
+  return `${rootName}:${relativePath}`;
+}
+
+export function extrasKey(handle) {
+  return handle.fileKey ?? handle.name;
+}
+
 // Wraps a single dropped File (from drag-and-drop) in the same handle shape
 // a copied file has, so selectFile() can treat it identically regardless of
 // how it was opened.
@@ -100,7 +112,13 @@ export function buildTreeFromFileList(fileList, folderId = null) {
       name: file.name,
       kind: "file",
       relativePath,
-      handle: permissiveHandle(file.name, { getFile: async () => file, file, folderId, relativePath }),
+      handle: permissiveHandle(file.name, {
+        getFile: async () => file,
+        file,
+        folderId,
+        relativePath,
+        fileKey: fileKeyFor(rootName, relativePath),
+      }),
     });
   }
 
@@ -305,8 +323,13 @@ export function buildLegacyManifest(tree) {
 // Rebuilds a single legacy file's handle from its OPFS address — used both
 // by reviveLegacyManifest below and by App.jsx to bring back a Recent Files
 // entry that was saved as {folderId, relativePath} instead of a live handle.
-export function reviveLegacyFileHandle(folderId, name, relativePath) {
-  return permissiveHandle(name, { getFile: () => readLegacyFile(folderId, relativePath), folderId, relativePath });
+export function reviveLegacyFileHandle(folderId, name, relativePath, rootName) {
+  return permissiveHandle(name, {
+    getFile: () => readLegacyFile(folderId, relativePath),
+    folderId,
+    relativePath,
+    fileKey: rootName ? fileKeyFor(rootName, relativePath) : undefined,
+  });
 }
 
 // Rebuilds the buildTreeFromFileList shape from a saved manifest, wiring
@@ -318,7 +341,7 @@ export function reviveLegacyManifest(folderId, manifest) {
         name: node.name,
         kind: "file",
         relativePath: node.relativePath,
-        handle: reviveLegacyFileHandle(folderId, node.name, node.relativePath),
+        handle: reviveLegacyFileHandle(folderId, node.name, node.relativePath, manifest.name),
       };
     }
     return { name: node.name, kind: "directory", children: node.children.map(walk) };
@@ -341,7 +364,11 @@ export function reviveInlineLegacyFolder(serialized) {
         name: node.name,
         kind: "file",
         relativePath,
-        handle: permissiveHandle(node.name, { getFile: async () => node.file, file: node.file }),
+        handle: permissiveHandle(node.name, {
+          getFile: async () => node.file,
+          file: node.file,
+          fileKey: fileKeyFor(serialized.name, relativePath),
+        }),
       };
     }
     return { name: node.name, kind: "directory", children: node.children.map((c) => walk(c, relativePath)) };

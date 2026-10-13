@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadDocument } from "./edoc.js";
 import { loadAnnotatedCopy } from "./annotations.js";
+import { extrasKey } from "./fileSystem.js";
 import { dbGet, dbSet } from "./db.js";
 import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 
@@ -49,7 +50,7 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     if (!selectedHandle || !pdf || restoringRef.current) return;
     (async () => {
       const all = (await dbGet("filePositions")) || {};
-      all[selectedHandle.name] = { page: currentPage, scale, numPages };
+      all[extrasKey(selectedHandle)] = { page: currentPage, scale, numPages };
       await dbSet("filePositions", all);
     })();
   }, [selectedHandle, pdf, currentPage, scale, numPages]);
@@ -150,7 +151,7 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       // annotations when its mode is "sidecar" — load that instead of the
       // original so they carry across sessions; the original is only ever
       // touched in "writeback" mode.
-      const file = (await loadAnnotatedCopy(fileHandle.name)) || (await fileHandle.getFile());
+      const file = (await loadAnnotatedCopy(extrasKey(fileHandle))) || (await fileHandle.getFile());
       const timeout = new Promise((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
       });
@@ -166,7 +167,7 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       // result instead of overwriting the newer call's already-applied state.
       if (loadTokenRef.current !== token) return;
       const positions = (await dbGet("filePositions")) || {};
-      pendingRestoreRef.current = positions[fileHandle.name] || null;
+      pendingRestoreRef.current = positions[extrasKey(fileHandle)] || null;
       setPdf(doc);
       // A handle can't be cloned into IndexedDB (function properties), so
       // the file's OPFS address is saved instead and turned back into a

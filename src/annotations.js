@@ -1,11 +1,11 @@
 import { writeAnnotatedCopy, readAnnotatedCopy } from "./opfs.js";
+import { extrasKey } from "./fileSystem.js";
 
 // The app copy of this file's saved annotations, if one exists — callers
 // load this instead of the file itself so accumulated edits carry across
-// sessions. Keyed by filename, same one-blob-per-key convention as
-// bookmarks/filePositions/recentFiles.
-export async function loadAnnotatedCopy(fileName) {
-  return readAnnotatedCopy(fileName);
+// sessions. `key` is the file's extrasKey (folder + path), not its name.
+export async function loadAnnotatedCopy(key) {
+  return readAnnotatedCopy(key);
 }
 
 // Bakes the document's current annotation edits into real PDF bytes
@@ -13,5 +13,5 @@ export async function loadAnnotatedCopy(fileName) {
 // file itself is never modified.
 export async function saveAnnotations(fileHandle, pdfDocument) {
   const bytes = await pdfDocument.saveDocument();
-  await writeAnnotatedCopy(fileHandle.name, bytes);
+  await writeAnnotatedCopy(extrasKey(fileHandle), bytes);
 }
