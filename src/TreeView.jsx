@@ -3,6 +3,11 @@ import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
 import { folderLevelColor, fileLevelColor } from "./appHelpers.js";
 
+// A folder draws this many of its children at a time, with a row to reveal
+// the next batch. Drawing (and fitting the name of) every row of a folder
+// holding thousands of files made opening it crawl.
+const CHILD_PAGE = 200;
+
 export function FolderIcon() {
   return (
     <svg className="tree-icon" viewBox="0 0 16 16" width="14" height="14" fill="none">
@@ -134,6 +139,7 @@ function Node({
   dropTarget,
   setDropTarget,
 }) {
+  const [shown, setShown] = useState(CHILD_PAGE);
   // A connected folder's root, whether at the top level or placed inside
   // another folder (see applyOverlay): has the × (removes the whole
   // folder) but no drag handle — it can't be reordered or moved.
@@ -260,7 +266,7 @@ function Node({
       </div>
       {isOpen && (
         <div className="tree-children">
-          {node.children.map((child, childIndex) => (
+          {node.children.slice(0, shown).map((child, childIndex) => (
             <Node
               key={child.key}
               node={child}
@@ -280,6 +286,26 @@ function Node({
               setDropTarget={setDropTarget}
             />
           ))}
+          {node.children.length > shown && (
+            <div
+              className="tree-file tree-show-more"
+              role="button"
+              tabIndex={0}
+              onClick={() => setShown((n) => n + CHILD_PAGE)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShown((n) => n + CHILD_PAGE);
+                }
+              }}
+              style={{ "--level-color": fileLevelColor(depth + 1) }}
+            >
+              <TreeRail ancestorsLast={[...ancestorsLast, isLast]} isLast />
+              <span className="tree-label">
+                Show {Math.min(CHILD_PAGE, node.children.length - shown)} more ({node.children.length - shown} left)
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>

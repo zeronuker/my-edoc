@@ -1775,6 +1775,15 @@ html,
   background: none;
 }
 
+.tree-show-more {
+  color: var(--cb-ink-dim);
+  font-size: 12px;
+}
+
+.tree-show-more:hover {
+  color: var(--cb-mint);
+}
+
 .storage-usage {
   margin: 6px 2px;
   font-family: var(--cb-font-mono);
