@@ -963,7 +963,7 @@ function App() {
       </div>
       </div>
       <div className="app-row">
-        {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+        <div className={`sidebar-backdrop${sidebarOpen ? " open" : ""}`} onClick={() => setSidebarOpen(false)} />
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           {folders.length > 0 && (
             <div className="global-search">

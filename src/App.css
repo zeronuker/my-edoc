@@ -226,6 +226,20 @@ html,
     inset: 0;
     background: rgba(0, 0, 0, 0.4);
     z-index: 40;
+    /* Always mounted, faded with the drawer's own slide (same duration/ease)
+       instead of popping in/out. visibility waits out the fade-out so the
+       closed backdrop is non-interactive and out of the tab order. */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity var(--ed-dur, 200ms) ease, visibility 0s linear var(--ed-dur, 200ms);
+  }
+
+  .sidebar-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity var(--ed-dur, 200ms) ease, visibility 0s;
   }
 
   .sidebar {
@@ -2204,7 +2218,7 @@ html,
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-dialog, .modal-backdrop, .modal-dialog.is-closing, .modal-backdrop.is-closing { animation: none; }
-  .sidebar, .topbar-wrap { transition: none; }
+  .sidebar, .topbar-wrap, .sidebar-backdrop, .sidebar-backdrop.open { transition: none; }
   :root { --ed-hover: 0ms; }
 }
 
