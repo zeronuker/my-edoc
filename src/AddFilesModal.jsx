@@ -1,118 +1,28 @@
 import { useState } from "react";
-import { IconCheck, IconChevronRight } from "@tabler/icons-react";
 import { filesInDirectory, planAddedFiles } from "./fileSystem.js";
-import { parseNodeKey } from "./treeOverlay.js";
-import { FolderIcon, TreeRail } from "./TreeView.jsx";
-import { folderLevelColor } from "./appHelpers.js";
-
-function countFiles(node) {
-  return node.kind === "file" ? 1 : node.children.reduce((sum, c) => sum + countFiles(c), 0);
-}
-
-// One folder row of the destination picker — same row, rail, colour and
-// expand animation as the sidebar tree (folders only). Tapping the row picks
-// it (and opens it, to show what's inside); the chevron only opens/closes.
-function DestNode({ node, depth, ancestorsLast, isLast, selectedKey, expanded, onSelect, onToggle, disabled }) {
-  const subfolders = node.children.filter((c) => c.kind === "directory");
-  const isOpen = expanded.has(node.key);
-  const selected = selectedKey === node.key;
-
-  function pick() {
-    if (disabled) return;
-    onSelect(node.key);
-    if (subfolders.length > 0 && !isOpen) onToggle(node.key);
-  }
-
-  return (
-    <div className="tree-folder">
-      <div
-        className={`tree-folder-label add-dest-row${selected ? " is-dest" : ""}`}
-        style={{ "--level-color": folderLevelColor(depth) }}
-        role="radio"
-        aria-checked={selected}
-        tabIndex={0}
-        onClick={pick}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            pick();
-          }
-        }}
-      >
-        {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
-        <span
-          className={`add-dest-chevron${isOpen ? " open" : ""}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (subfolders.length > 0) onToggle(node.key);
-          }}
-        >
-          {subfolders.length > 0 && <IconChevronRight size={12} aria-hidden="true" />}
-        </span>
-        <FolderIcon />
-        <span className="tree-label">{node.name}</span>
-        <span className="add-dest-count">{countFiles(node)}</span>
-        {selected && <IconCheck className="add-dest-check" size={14} aria-hidden="true" />}
-      </div>
-      {isOpen && subfolders.length > 0 && (
-        <div className="tree-children">
-          {subfolders.map((child, i) => (
-            <DestNode
-              key={child.key}
-              node={child}
-              depth={depth + 1}
-              ancestorsLast={[...ancestorsLast, isLast]}
-              isLast={i === subfolders.length - 1}
-              selectedKey={selectedKey}
-              expanded={expanded}
-              onSelect={onSelect}
-              onToggle={onToggle}
-              disabled={disabled}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// "Contracts › Signed › 2025" for the selected node, from the displayed tree.
-function displayedPath(folders, nodeKey) {
-  function walk(node, trail) {
-    const next = [...trail, node.name];
-    if (node.key === nodeKey) return next;
-    for (const c of node.children) {
-      if (c.kind !== "directory") continue;
-      const hit = walk(c, next);
-      if (hit) return hit;
-    }
-    return null;
-  }
-  for (const f of folders) {
-    const hit = walk(f.tree, []);
-    if (hit) return hit;
-  }
-  return [];
-}
+import { displayedPath, parseNodeKey } from "./treeOverlay.js";
+import DestinationTree from "./DestinationTree.jsx";
 
 // Same modal shell as AnnotationModePicker.jsx. Shown after the user has
 // picked PDFs from the sidebar's floating + menu → "Add files": the
 // destination is chosen in a folders-only tree that mirrors the sidebar
-// (including hidden/moved/reordered folders), then any name already taken
-// there gets Replace / Keep both.
+// (including hidden/moved/reordered folders and folders placed inside
+// others), then any name already taken there gets Replace / Keep both.
 //
-// `folders` is [{ key, name, tree, rawTree, writesToDisk }]: `tree` is the
-// displayed (overlaid) tree this picker draws; `rawTree` is the real
-// on-disk shape, which is where files physically land — a node's key
-// always points back at its real folder (see parseNodeKey), wherever the
-// overlay shows it.
+// `folders` is every connected folder, [{ key, name, tree, rawTree,
+// writesToDisk, nested }]: `tree` is the displayed (overlaid) root this
+// picker draws — nested ones are drawn inside their parent, not as a row of
+// their own; `rawTree` is the real on-disk shape, which is where files
+// physically land — a node's key always points back at its real folder
+// (see parseNodeKey), wherever the overlay shows it.
 export default function AddFilesModal({ folders, files, busy, onConfirm, onClose, closing }) {
-  const [selectedKey, setSelectedKey] = useState(folders[0].tree.key);
-  const [expanded, setExpanded] = useState(() => new Set([folders[0].tree.key]));
+  const topLevel = folders.filter((f) => !f.nested);
+  const [selectedKey, setSelectedKey] = useState(topLevel[0].tree.key);
+  const [expanded, setExpanded] = useState(() => new Set([topLevel[0].tree.key]));
   const [choices, setChoices] = useState({});
 
   const parsed = parseNodeKey(selectedKey, folders.map((f) => f.name));
-  const target = folders.find((f) => f.name === parsed?.rootName) ?? folders[0];
+  const target = folders.find((f) => f.name === parsed?.rootName) ?? topLevel[0];
   const destPath = parsed?.relPath ?? "";
 
   const plan = planAddedFiles(
@@ -149,24 +59,17 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
         </div>
 
         <div className="add-files-label">Save to</div>
-        <div className="add-dest-tree" role="radiogroup" aria-label="Save to">
-          {folders.map((f, i) => (
-            <DestNode
-              key={f.key}
-              node={f.tree}
-              depth={0}
-              ancestorsLast={[]}
-              isLast={i === folders.length - 1}
-              selectedKey={selectedKey}
-              expanded={expanded}
-              onSelect={setSelectedKey}
-              onToggle={toggle}
-              disabled={busy}
-            />
-          ))}
-        </div>
+        <DestinationTree
+          folders={topLevel}
+          selectedKey={selectedKey}
+          expanded={expanded}
+          onSelect={setSelectedKey}
+          onToggle={toggle}
+          disabled={busy}
+          ariaLabel="Save to"
+        />
         <div className="add-files-path">
-          Saving to <b>{displayedPath(folders, selectedKey).join(" › ")}</b>
+          Saving to <b>{displayedPath(topLevel, selectedKey).join(" › ")}</b>
         </div>
 
         <div className="add-files-list">

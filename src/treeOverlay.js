@@ -10,6 +10,19 @@ export function makeNodeKey(folderKey, relPath) {
   return `${folderKey}:${relPath}`;
 }
 
+// Drops the placement of every connected folder that was shown inside the
+// folder named `parentName` (a root key ends in ":", see makeNodeKey) —
+// used when that folder is removed, so they stay at the top level instead
+// of jumping back inside it if a same-named folder is added again later.
+export function releaseNestedRoots(overlay, parentName) {
+  const moves = {};
+  for (const [key, target] of Object.entries(overlay.moves || {})) {
+    if (key.endsWith(":") && target.startsWith(`${parentName}:`)) continue;
+    moves[key] = target;
+  }
+  return { ...overlay, moves };
+}
+
 // Un-hides the given node keys — used when a file is (re-)added, since
 // adding something means wanting to see it, even if an earlier copy of the
 // same name had been removed from view.
@@ -70,16 +83,23 @@ export function applyOverlay(folders, overlay) {
   // persistence (see TreeView.jsx).
   const rootByFolderKey = new Map();
   for (const folder of folders) {
-    if (folder.tree) rootByFolderKey.set(folder.tree.name, clone(folder.tree, "", folder.tree.name, null));
+    if (!folder.tree) continue;
+    const root = clone(folder.tree, "", folder.tree.name, null);
+    // The connected folder this root belongs to — lets the tree draw its
+    // Refresh/Remove menu on it even when it's been placed inside another
+    // folder rather than sitting at the top level.
+    root.folderRef = folder;
+    rootByFolderKey.set(folder.tree.name, root);
   }
 
   // Reparent per saved moves, skipping anything that would create a cycle
-  // or whose source/target no longer exists (folder removed, node deleted,
-  // or the target folder itself since a root can't be moved).
+  // or whose source/target no longer exists (folder removed, node deleted).
+  // A connected folder's root can be moved too — that's how a folder added
+  // "inside" another one is shown there while staying its own folder.
   for (const [key, newParentKey] of Object.entries(moves)) {
     const node = nodesByKey.get(key);
     const newParent = nodesByKey.get(newParentKey);
-    if (!node || !newParent || newParent.kind !== "directory" || node.parentKey === null) continue;
+    if (!node || !newParent || newParent.kind !== "directory") continue;
     if (isSelfOrDescendant(newParent, node, nodesByKey)) continue;
     node.parentKey = newParentKey;
   }
@@ -120,9 +140,11 @@ export function applyOverlay(folders, overlay) {
     });
   }
 
+  // `nested` marks a root that ended up inside another folder: it's drawn
+  // there (as part of that folder's tree), not as a top-level row.
   return folders.map((folder) => {
     const root = folder.tree ? rootByFolderKey.get(folder.tree.name) : undefined;
-    return root ? { ...folder, tree: root } : folder;
+    return root ? { ...folder, tree: root, nested: root.parentKey !== null } : folder;
   });
 }
 
@@ -149,4 +171,24 @@ export function collectFileHandles(node) {
   }
   walk(node);
   return out;
+}
+
+// "Contracts › Signed › 2025" for the node with this key, from the
+// displayed trees (nested folders are found through their parent).
+export function displayedPath(folders, nodeKey) {
+  function walk(node, trail) {
+    const next = [...trail, node.name];
+    if (node.key === nodeKey) return next;
+    for (const c of node.children) {
+      if (c.kind !== "directory") continue;
+      const hit = walk(c, next);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  for (const f of folders) {
+    const hit = walk(f.tree, []);
+    if (hit) return hit;
+  }
+  return [];
 }

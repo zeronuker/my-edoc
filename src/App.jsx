@@ -72,6 +72,7 @@ import CopyProgressModal from "./CopyProgressModal.jsx";
 import AnnotationModePicker from "./AnnotationModePicker.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
+import PlaceFolderModal from "./PlaceFolderModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
@@ -153,6 +154,8 @@ function App() {
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
   const [removeRequest, setRemoveRequest] = useState(null); // { node, name, kind, isLegacy, folderKey, relPath, count } while the × confirmation is open
   const [removeBusy, setRemoveBusy] = useState(false);
+  const [placement, setPlacement] = useState(null); // { folderName, resolve } while the Add folder "where to show it" dialog is open
+  const lastPlacementRef = useRef(null); // keeps that dialog's content on screen through its exit animation
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabRef = useRef(null);
@@ -186,7 +189,7 @@ function App() {
   // Shared between the sidebar tree (renders/edits it) and search (needs the
   // same filtered/reordered view so a hidden file doesn't still show up as a
   // result) — see useTreeOverlay.js.
-  const { displayFolders, hideNode, unhideNodes, dropNode } = useTreeOverlay(folders.filter((f) => f.tree));
+  const { displayFolders, allDisplayFolders, hideNode, unhideNodes, placeRoot, releaseNested, dropNode } = useTreeOverlay(folders.filter((f) => f.tree));
 
   // Restore last session: directory handles need a user gesture to
   // re-request permission in most browsers, so folders without it show
@@ -690,10 +693,20 @@ function App() {
     }
   }
 
+  // Resolves to a node key (show the new folder inside that one), null
+  // (top level), or undefined (cancelled). Doesn't ask at all when there's
+  // nothing yet to put it inside.
+  function askPlacement(folderName) {
+    if (displayFolders.length === 0) return Promise.resolve(null);
+    return new Promise((resolve) => setPlacement({ folderName, resolve }));
+  }
+
   async function handleAddFolder() {
-    let dirHandle, tree, folderId, sizeBytes;
+    let dirHandle, tree, folderId, sizeBytes, parentKey;
     if (supportsDirectoryPicker()) {
       dirHandle = await pickFolder();
+      parentKey = await askPlacement(dirHandle.name);
+      if (parentKey === undefined) return;
       setAddingFolder(true);
       try {
         tree = await scanDirectory(dirHandle);
@@ -715,6 +728,8 @@ function App() {
         return;
       }
       dirHandle = tree.handle;
+      parentKey = await askPlacement(dirHandle.name);
+      if (parentKey === undefined) return;
       sizeBytes = treeByteSize(tree);
 
       const estimate = await getStorageEstimate();
@@ -734,6 +749,8 @@ function App() {
     }
     const connectedAt = Date.now();
     const key = crypto.randomUUID();
+    // Also clears any stale placement left by an earlier, same-named folder.
+    placeRoot(makeNodeKey(dirHandle.name, ""), parentKey);
     setFolders((prev) => {
       const next = [...prev, { key, dirHandle, tree, connectedAt, folderId, sizeBytes }];
       saveFolderList(next);
@@ -964,6 +981,11 @@ function App() {
   // since the file has to still be in the tree being removed to match.
   function handleRemoveFolder(key) {
     const removedFolder = folders.find((f) => f.key === key);
+    if (removedFolder) {
+      const name = removedFolder.tree?.name ?? removedFolder.dirHandle.name;
+      placeRoot(makeNodeKey(name, ""), null);
+      releaseNested(name);
+    }
     setFolders((prev) => {
       const target = prev.find((f) => f.key === key);
       if (target?.folderId) deleteLegacyFolderFiles(target.folderId);
@@ -1102,6 +1124,7 @@ function App() {
         const handle = await item.getAsFileSystemHandle();
         if (handle.kind === "directory") {
           const tree = await scanDirectory(handle);
+          placeRoot(makeNodeKey(handle.name, ""), null);
           setFolders((prev) => {
             const next = [...prev, { key: crypto.randomUUID(), dirHandle: handle, tree, connectedAt: Date.now() }];
             saveFolderList(next);
@@ -1156,16 +1179,20 @@ function App() {
   const addFilesShown = addFiles ?? lastAddFilesRef.current;
   // tree is the displayed (hide/move/reorder-applied) one the picker draws;
   // rawTree is the on-disk shape the files are actually written into.
-  const addFilesTargets = displayFolders.map((f) => ({
+  const addFilesTargets = allDisplayFolders.map((f) => ({
     key: f.key,
     name: f.tree.name,
     tree: f.tree,
+    nested: f.nested,
     rawTree: folders.find((r) => r.key === f.key).tree,
     writesToDisk: !f.dirHandle.__legacy,
   }));
   const fabMenu = usePresence(fabMenuOpen);
   if (removeRequest) lastRemoveRef.current = removeRequest;
   const removePresence = usePresence(!!removeRequest);
+  if (placement) lastPlacementRef.current = placement;
+  const placementPresence = usePresence(!!placement);
+  const placementShown = placement ?? lastPlacementRef.current;
   const removeShown = removeRequest ?? lastRemoveRef.current;
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
@@ -1202,6 +1229,21 @@ function App() {
           busy={addFilesBusy}
           onConfirm={handleAddFilesConfirm}
           onClose={() => setAddFiles(null)}
+        />
+      )}
+      {placementPresence.present && placementShown && (
+        <PlaceFolderModal
+          closing={placementPresence.closing}
+          folderName={placementShown.folderName}
+          folders={displayFolders}
+          onConfirm={(parentKey) => {
+            placement?.resolve(parentKey);
+            setPlacement(null);
+          }}
+          onClose={() => {
+            placement?.resolve(undefined);
+            setPlacement(null);
+          }}
         />
       )}
       {removePresence.present && removeShown && (

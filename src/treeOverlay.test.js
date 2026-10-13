@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import {
   applyOverlay,
   collectFileHandles,
+  displayedPath,
   emptyOverlay,
   flattenByKey,
   makeNodeKey,
   parseNodeKey,
+  releaseNestedRoots,
   unhideKeys,
 } from "./treeOverlay.js";
 
@@ -126,4 +128,42 @@ test("unhideKeys brings a hidden file back and leaves other hidden nodes alone",
   const [result] = applyOverlay(folders, next);
   assert.deepEqual(result.tree.children.map((c) => c.name), ["a.pdf"]);
   assert.deepEqual(hidden.hidden.length, 2);
+});
+
+test("applyOverlay can place a connected folder's root inside another folder and flags it nested", () => {
+  const folders = [
+    { key: "k1", tree: dir("Contracts", [dir("Signed", [file("x.pdf")]), file("a.pdf")]) },
+    { key: "k2", tree: dir("Manuals", [file("m.pdf")]) },
+  ];
+  const overlay = { ...emptyOverlay, moves: { [makeNodeKey("Manuals", "")]: makeNodeKey("Contracts", "Signed") } };
+  const [contracts, manuals] = applyOverlay(folders, overlay);
+  assert.equal(manuals.nested, true);
+  assert.equal(contracts.nested, false);
+  const signed = contracts.tree.children.find((c) => c.name === "Signed");
+  assert.deepEqual(signed.children.map((c) => c.name).sort(), ["Manuals", "x.pdf"]);
+  assert.equal(signed.children.find((c) => c.name === "Manuals").folderRef, folders[1]);
+  assert.deepEqual(displayedPath([contracts], makeNodeKey("Manuals", "")), ["Contracts", "Signed", "Manuals"]);
+});
+
+test("a folder placed inside another returns to the top level once its parent is gone", () => {
+  const folders = [{ key: "k2", tree: dir("Manuals", [file("m.pdf")]) }];
+  const overlay = { ...emptyOverlay, moves: { [makeNodeKey("Manuals", "")]: makeNodeKey("Contracts", "Signed") } };
+  const [manuals] = applyOverlay(folders, overlay);
+  assert.equal(manuals.nested, false);
+});
+
+test("releaseNestedRoots frees only the folders placed inside the removed one", () => {
+  const overlay = {
+    ...emptyOverlay,
+    moves: {
+      [makeNodeKey("Manuals", "")]: makeNodeKey("Contracts", "Signed"),
+      [makeNodeKey("Other", "")]: makeNodeKey("Elsewhere", ""),
+      [makeNodeKey("Contracts", "Signed/2024")]: makeNodeKey("Contracts", "Archive"),
+    },
+  };
+  const next = releaseNestedRoots(overlay, "Contracts");
+  assert.deepEqual(Object.keys(next.moves).sort(), [
+    makeNodeKey("Contracts", "Signed/2024"),
+    makeNodeKey("Other", ""),
+  ]);
 });

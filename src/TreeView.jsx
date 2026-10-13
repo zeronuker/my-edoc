@@ -268,7 +268,7 @@ function Node({
   isLast,
   onSelectFile,
   selectedHandle,
-  actions,
+  renderActions,
   expandedPaths,
   onToggleOpen,
   onRemoveNode,
@@ -277,7 +277,9 @@ function Node({
   dropTarget,
   setDropTarget,
 }) {
-  const isRoot = node.parentKey === null;
+  // A connected folder's root, whether at the top level or placed inside
+  // another folder (see applyOverlay): gets the ⋮ menu, no drag/× handles.
+  const isRoot = !!node.folderRef;
   const isFolder = node.kind === "directory";
   const zone = dropTarget?.key === node.key ? dropTarget.zone : null;
 
@@ -371,7 +373,7 @@ function Node({
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FolderIcon />
         <TreeLabel name={node.name} />
-        {actions}
+        {renderActions?.(node)}
         {!isRoot && (
           <>
             <span
@@ -414,6 +416,7 @@ function Node({
               isLast={childIndex === node.children.length - 1}
               onSelectFile={onSelectFile}
               selectedHandle={selectedHandle}
+              renderActions={renderActions}
               expandedPaths={expandedPaths}
               onToggleOpen={onToggleOpen}
               onRemoveNode={onRemoveNode}
@@ -473,6 +476,19 @@ export default function TreeView({
     });
   };
 
+  const renderActions = (node) =>
+    node.folderRef && (
+      <FolderActions
+        folder={node.folderRef}
+        isOpen={openActionsKey === node.folderRef.key}
+        onToggle={() => setOpenActionsKey((k) => (k === node.folderRef.key ? null : node.folderRef.key))}
+        onClose={() => setOpenActionsKey(null)}
+        onRefreshFolder={onRefreshFolder}
+        onRemoveFolder={onRemoveFolder}
+        isRefreshing={refreshingKeys.has(node.folderRef.key)}
+      />
+    );
+
   if (!displayFolders.length) return null;
 
   return (
@@ -502,17 +518,7 @@ export default function TreeView({
                 dragKeyRef={dragKeyRef}
                 dropTarget={dropTarget}
                 setDropTarget={setDropTarget}
-                actions={
-                  <FolderActions
-                    folder={folder}
-                    isOpen={openActionsKey === folder.key}
-                    onToggle={() => setOpenActionsKey((k) => (k === folder.key ? null : folder.key))}
-                    onClose={() => setOpenActionsKey(null)}
-                    onRefreshFolder={onRefreshFolder}
-                    onRemoveFolder={onRemoveFolder}
-                    isRefreshing={refreshingKeys.has(folder.key)}
-                  />
-                }
+                renderActions={renderActions}
               />
             )
         )}
