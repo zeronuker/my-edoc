@@ -120,6 +120,8 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const onSplashFinish = useCallback(() => setShowSplash(false), []);
   const [folders, setFolders] = useState([]); // [{ key, dirHandle, tree, connectedAt, folderId, sizeBytes }] — every folder is a copy in the app's own OPFS storage (see fileSystem.js)
+  const foldersRef = useRef([]); // always the latest `folders`, for async code that must not read a stale closure
+  foldersRef.current = folders;
   const [isNarrow, setIsNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
   const [error, setError] = useState(null);
   const [viewerApi, setViewerApi] = useState(null);
@@ -500,6 +502,15 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foldersReady, legacyHidden]);
 
+  // Applies a new folder list and waits until it is written to storage. Used
+  // before deleting stored files, in that order, so a launch cut short in
+  // between can never be left listing files that no longer exist.
+  async function commitFolders(next) {
+    foldersRef.current = next;
+    setFolders(next);
+    await dbSet("legacyFolders", folderListRecords(next));
+  }
+
   // Saves the lightweight folder list only — each folder's manifest (its
   // shape), not file bytes. Never call this expecting it to write any file
   // content; that only happens in writeLegacyFiles.
@@ -697,16 +708,14 @@ function App() {
 
     const oldFolderId = existing.folderId;
     const oldHandles = flattenTreeFileHandles(existing.tree).map((l) => l.handle);
-    await deleteLegacyFolderFiles(oldFolderId);
-    setFolders((prev) => {
-      const next = prev.map((f) =>
+    await commitFolders(
+      foldersRef.current.map((f) =>
         f.key === existing.key
           ? { ...f, dirHandle: tree.handle, tree, connectedAt: Date.now(), folderId, sizeBytes }
           : f
-      );
-      saveFolderList(next);
-      return next;
-    });
+      )
+    );
+    await deleteLegacyFolderFiles(oldFolderId);
     if (discard) for (const n of affected) await deleteAnnotatedCopy(n);
     // The open document and Recent entries pointed at the old copy.
     handleFilesRemovedFromView(oldHandles);
@@ -908,20 +917,15 @@ function App() {
   // to the folder being removed — otherwise it'd stay open, orphaned, with
   // no folder backing it. Looked up from the pre-removal `folders` closure
   // since the file has to still be in the tree being removed to match.
-  function handleRemoveFolder(key) {
-    const removedFolder = folders.find((f) => f.key === key);
+  async function handleRemoveFolder(key) {
+    const removedFolder = foldersRef.current.find((f) => f.key === key);
     if (removedFolder) {
       const name = removedFolder.tree?.name ?? removedFolder.dirHandle.name;
       placeRoot(makeNodeKey(name, ""), null);
       releaseNested(name);
     }
-    setFolders((prev) => {
-      const target = prev.find((f) => f.key === key);
-      if (target?.folderId) deleteLegacyFolderFiles(target.folderId);
-      const next = prev.filter((f) => f.key !== key);
-      saveFolderList(next);
-      return next;
-    });
+    await commitFolders(foldersRef.current.filter((f) => f.key !== key));
+    if (removedFolder?.folderId) await deleteLegacyFolderFiles(removedFolder.folderId);
     refreshStorageEstimate();
     if (
       removedFolder?.tree &&
@@ -1032,9 +1036,8 @@ function App() {
     const paths = nodes.flatMap((n) => flattenTreeFiles(n).map((f) => f.relativePath));
     let freedBytes = 0;
     for (const leaf of leaves) freedBytes += (await leaf.handle.getFile().catch(() => null))?.size ?? 0;
-    await deleteLegacyFiles(target.folderId, paths);
-    setFolders((prev) => {
-      const next = prev.map((f) =>
+    await commitFolders(
+      foldersRef.current.map((f) =>
         f.key === target.key
           ? {
               ...f,
@@ -1042,10 +1045,9 @@ function App() {
               sizeBytes: Math.max(0, (f.sizeBytes || 0) - freedBytes),
             }
           : f
-      );
-      saveFolderList(next);
-      return next;
-    });
+      )
+    );
+    await deleteLegacyFiles(target.folderId, paths);
     refreshStorageEstimate();
 
     // The open document, and Recent entries, may point at what was just
@@ -1067,7 +1069,7 @@ function App() {
     setRemoveBusy(true);
     try {
       if (req.isRoot) {
-        handleRemoveFolder(req.folderKey);
+        await handleRemoveFolder(req.folderKey);
       } else {
         const target = folders.find((f) => f.key === req.folderKey);
         if (target?.tree) await removePathsFromFolder(target, [req.relPath]);
