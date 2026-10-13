@@ -869,29 +869,53 @@ function App() {
       const added = [];
       const replacedHandles = [];
       let bytesDelta = 0;
-      for (const { file, name, replaces } of plan) {
-        try {
-          const relativePath = destPath ? `${destPath}/${name}` : name;
-          const old = replaces ? existing.find((f) => f.name === name) : null;
-          let oldSize = 0;
-          if (isLegacy && old) oldSize = (await old.handle.getFile().catch(() => null))?.size ?? 0;
 
-          let handle;
-          if (isLegacy) {
-            await writeLegacyFile(target.folderId, relativePath, file);
-            handle = reviveLegacyFileHandle(target.folderId, name, relativePath);
-          } else {
-            handle = await writeFileIntoFolder(target.dirHandle, destPath, name, file);
+      // Same progress list as adding a folder (CopyProgressModal), one row
+      // per file. The row id is index-prefixed so two picked files that end
+      // up with the same name still get separate rows.
+      const progressFiles = plan.map((p, i) => ({ name: p.name, relativePath: `${i}/${p.name}` }));
+      const controller = new AbortController();
+      copyControllerRef.current = controller;
+      setAddFiles(null);
+      setCopyProgress({ title: "Adding files", folderName: target.tree.name, files: progressFiles, doneSet: new Set() });
+      try {
+        const startedAt = Date.now();
+        for (const [i, { file, name, replaces }] of plan.entries()) {
+          if (controller.signal.aborted) break; // Cancel: keep what's already copied
+          try {
+            const relativePath = destPath ? `${destPath}/${name}` : name;
+            const old = replaces ? existing.find((f) => f.name === name) : null;
+            let oldSize = 0;
+            if (isLegacy && old) oldSize = (await old.handle.getFile().catch(() => null))?.size ?? 0;
+
+            let handle;
+            if (isLegacy) {
+              await writeLegacyFile(target.folderId, relativePath, file);
+              handle = reviveLegacyFileHandle(target.folderId, name, relativePath);
+            } else {
+              handle = await writeFileIntoFolder(target.dirHandle, destPath, name, file);
+            }
+            added.push(
+              isLegacy ? { name, kind: "file", relativePath, handle } : { name, kind: "file", handle }
+            );
+            bytesDelta += file.size - oldSize;
+            if (old) replacedHandles.push(old.handle);
+            setCopyProgress((p) =>
+              p ? { ...p, doneSet: new Set(p.doneSet).add(progressFiles[i].relativePath) } : p
+            );
+          } catch (err) {
+            setError(`Couldn't add "${name}": ${err.message}`);
+            break;
           }
-          added.push(
-            isLegacy ? { name, kind: "file", relativePath, handle } : { name, kind: "file", handle }
-          );
-          bytesDelta += file.size - oldSize;
-          if (old) replacedHandles.push(old.handle);
-        } catch (err) {
-          setError(`Couldn't add "${name}": ${err.message}`);
-          break;
         }
+        // A one-or-two-file add can finish faster than the list is legible;
+        // hold it just long enough to see the checkmarks land (skipped when
+        // animations are off).
+        const hold = animDurationMs() ? 500 - (Date.now() - startedAt) : 0;
+        if (hold > 0 && !controller.signal.aborted) await new Promise((r) => setTimeout(r, hold));
+      } finally {
+        setCopyProgress(null);
+        copyControllerRef.current = null;
       }
 
       if (added.length > 0) {
@@ -913,7 +937,6 @@ function App() {
         // as when its folder is removed.
         handleFilesRemovedFromView(replacedHandles);
       }
-      setAddFiles(null);
     } finally {
       setAddFilesBusy(false);
     }
