@@ -4,7 +4,7 @@ import { freeSpaceWarning } from "./appHelpers.js";
 import { displayedPath, parseNodeKey } from "./treeOverlay.js";
 import DestinationTree from "./DestinationTree.jsx";
 
-// Same modal shell as AnnotationModePicker.jsx. Shown after the user has
+// Same modal shell as ConfirmRemoveModal.jsx. Shown after the user has
 // picked PDFs from the sidebar's floating + menu → "Add files": the
 // destination is chosen in a folders-only tree that mirrors the sidebar
 // (including hidden/moved/reordered folders and folders placed inside
