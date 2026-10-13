@@ -37,24 +37,6 @@ export function parseNodeKey(key, rootNames) {
   return best === null ? null : { rootName: best, relPath: key.slice(best.length + 1) };
 }
 
-// One-time migration: the old "hidden" list (node keys) turned into the
-// paths to remove for good from each connected folder, [{ rootName,
-// relPaths }]. Keys no connected folder owns are dropped, and a path whose
-// ancestor is also listed is dropped since removing the ancestor covers it.
-export function hiddenRemovals(hiddenKeys, rootNames) {
-  const byRoot = new Map();
-  for (const key of hiddenKeys) {
-    const parsed = parseNodeKey(key, rootNames);
-    if (!parsed || !parsed.relPath) continue;
-    if (!byRoot.has(parsed.rootName)) byRoot.set(parsed.rootName, new Set());
-    byRoot.get(parsed.rootName).add(parsed.relPath);
-  }
-  return [...byRoot].map(([rootName, paths]) => ({
-    rootName,
-    relPaths: [...paths].filter((p) => ![...paths].some((q) => q !== p && p.startsWith(`${q}/`))),
-  }));
-}
-
 // Walks up parentKey links to check whether `candidate` is `node` itself or
 // one of its descendants — used to reject a move that would drop a folder
 // inside its own subtree.

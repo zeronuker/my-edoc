@@ -6,7 +6,6 @@ import {
   writeLegacyFiles,
   reviveLegacyManifest,
   reviveLegacyFileHandle,
-  reviveInlineLegacyFolder,
   treeByteSize,
   flattenTreeFiles,
   flattenTreeFileHandles,
@@ -25,8 +24,6 @@ import {
   deleteLegacyFiles,
   writeLegacyFile,
   listAnnotatedCopyNames,
-  readAnnotatedCopy,
-  writeAnnotatedCopy,
   deleteAnnotatedCopy,
 } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
@@ -37,12 +34,11 @@ import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { usePresence } from "./usePresence.js";
-import { hiddenRemovals, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
-import { dbGet, dbSet, dbDelete } from "./db.js";
+import { makeNodeKey, parseNodeKey } from "./treeOverlay.js";
+import { dbGet, dbSet } from "./db.js";
 import {
   formatBytes,
   freeSpaceWarning,
-  planExtrasMigration,
   omitKeys,
   folderListRecords,
   nextRecentFiles,
@@ -77,7 +73,6 @@ import ThumbnailView from "./ThumbnailView.jsx";
 import PdfViewer from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
-import LinkedFoldersNotice from "./LinkedFoldersNotice.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
@@ -169,8 +164,6 @@ function App() {
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
-  const [foldersReady, setFoldersReady] = useState(false); // the load effect has put the saved folders in `folders`
-  const [linkedNotice, setLinkedNotice] = useState(null); // names of old disk-linked folders, until the one-time notice is dismissed
   const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
@@ -197,16 +190,16 @@ function App() {
   // Shared between the sidebar tree (renders/edits it) and search (needs the
   // same arranged view so results show where things are drawn) — see
   // useTreeOverlay.js.
-  const { displayFolders, allDisplayFolders, legacyHidden, clearLegacyHidden, placeRoot, releaseNested, dropNode } =
-    useTreeOverlay(folders.filter((f) => f.tree));
+  const { displayFolders, allDisplayFolders, placeRoot, releaseNested, dropNode } = useTreeOverlay(
+    folders.filter((f) => f.tree)
+  );
 
   // Restore last session. Every folder is a copy in the app's own storage,
   // so there's no permission to re-grant and nothing to reconnect.
   useEffect(() => {
     // StrictMode (dev) mounts this twice and the two async loads overlap.
-    // Only the latest may apply its result: a stale one finishing after the
-    // one-time hidden clean-up (or any removal) would put back the folder
-    // state it read before that, and re-save it.
+    // Only the latest may apply its result: a stale one finishing after a
+    // removal would put back the folder state it read before that.
     let cancelled = false;
     (async () => {
       // Exempts our storage from Safari's "clear untouched site data"
@@ -219,64 +212,29 @@ function App() {
       setSettings(resolvedSettings);
       initializedRef.current = true;
 
-      const loaded = [];
-
-      // Folders from before everything became a copy were links to the
-      // user's disk (a live handle, re-granted per session). They can't be
-      // converted without the user picking them again, so they're dropped
-      // and named in a one-time notice; the record is deleted once that's
-      // dismissed, so closing the app early just shows it again.
-      const oldLinks = (await dbGet("rootDirHandles")) || [];
-      const linkedNames = oldLinks.map((r) => (r?.dirHandle ?? r)?.name).filter(Boolean);
-
       // The file copies live in OPFS already, so they're ready to browse
       // immediately.
-      const legacyRecords = (await dbGet("legacyFolders")) || [];
-      let legacyNeedsResave = false;
-      for (const record of legacyRecords) {
-        if (record.manifest) {
-          const tree = reviveLegacyManifest(record.id, record.manifest);
-          loaded.push({
-            key: crypto.randomUUID(),
-            dirHandle: tree.handle,
-            tree,
-            connectedAt: record.connectedAt,
-            folderId: record.id,
-            sizeBytes: record.sizeBytes ?? 0,
-          });
-        } else {
-          // Backward-compat: the very first version of this feature stored
-          // file bytes inline in IndexedDB instead of in OPFS. Migrate it:
-          // revive the old shape, write the bytes into OPFS under a fresh
-          // folderId, then let the resave below drop the old inline copy.
-          const tree = reviveInlineLegacyFolder(record);
-          const folderId = crypto.randomUUID();
-          await writeLegacyFiles(folderId, tree);
-          loaded.push({
-            key: crypto.randomUUID(),
-            dirHandle: tree.handle,
-            tree,
-            connectedAt: null,
-            folderId,
-            sizeBytes: treeByteSize(tree),
-          });
-          legacyNeedsResave = true;
-        }
-      }
+      const records = (await dbGet("legacyFolders")) || [];
+      const loaded = records.map((record) => {
+        const tree = reviveLegacyManifest(record.id, record.manifest);
+        return {
+          key: crypto.randomUUID(),
+          dirHandle: tree.handle,
+          tree,
+          connectedAt: record.connectedAt,
+          folderId: record.id,
+          sizeBytes: record.sizeBytes ?? 0,
+        };
+      });
 
       if (cancelled) return;
       setFolders(loaded);
-      setFoldersReady(true);
-      if (linkedNames.length > 0) setLinkedNotice(linkedNames);
-      if (legacyNeedsResave) saveFolderList(loaded);
       refreshStorageEstimate();
 
-      // Recents saved from a disk-linked folder hold a real disk handle that
-      // can't be opened any more — keep only the app's own copies.
+      // Recents whose folder has since been removed are dead; drop them.
       const rootNameOf = (folderId) => loaded.find((f) => f.folderId === folderId)?.tree.name;
       const savedRecent = (await dbGet("recentFiles")) || [];
-      // ...and entries whose folder has since been removed are dead too.
-      const keptRecent = savedRecent.filter((e) => e.legacy && rootNameOf(e.folderId));
+      const keptRecent = savedRecent.filter((e) => rootNameOf(e.folderId));
       if (keptRecent.length !== savedRecent.length) dbSet("recentFiles", keptRecent);
       setRecentFiles(
         keptRecent.map((e) => ({
@@ -285,36 +243,16 @@ function App() {
           fileHandle: reviveLegacyFileHandle(e.folderId, e.name, e.relativePath, rootNameOf(e.folderId)),
         }))
       );
-      await migrateExtrasToPaths(loaded);
       setBookmarks((await dbGet("bookmarks")) || {});
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
-      // One-time cleanup: content search (and the indexed text it stored
-      // under these keys) has been removed — reclaim whatever was already
-      // saved instead of leaving it orphaned in IndexedDB forever.
-      dbDelete("textIndex");
-      dbDelete("indexFailCounts");
-      // Annotations now always save as an app copy, so the per-file
-      // "where do I save" choice is gone.
-      dbDelete("annotationModes");
 
       if (resolvedSettings.resumePosition) {
-        const lastFileHandle = await dbGet("lastFileHandle");
-        if (lastFileHandle?.legacy) {
-          // A file is saved as its OPFS address (see usePdfDocument.js) —
-          // "still connected" just means its folder hasn't been removed.
-          const folder = loaded.find((f) => f.folderId === lastFileHandle.folderId);
-          if (folder) {
-            selectFile(
-              reviveLegacyFileHandle(
-                lastFileHandle.folderId,
-                lastFileHandle.name,
-                lastFileHandle.relativePath,
-                folder.tree.name
-              )
-            );
-          }
-        } else if (lastFileHandle) {
-          dbDelete("lastFileHandle"); // a disk handle from before; can't be opened now
+        // A file is saved as its OPFS address (see usePdfDocument.js) —
+        // "still connected" just means its folder hasn't been removed.
+        const lastFile = await dbGet("lastFileHandle");
+        const folder = lastFile && loaded.find((f) => f.folderId === lastFile.folderId);
+        if (folder) {
+          selectFile(reviveLegacyFileHandle(lastFile.folderId, lastFile.name, lastFile.relativePath, folder.tree.name));
         }
       }
     })();
@@ -490,30 +428,6 @@ function App() {
     };
   }, [fabMenuOpen]);
 
-  // One-time clean-up of the old "hidden" list. Removing now means removing
-  // for good, so whatever was hidden before is removed here once the folders
-  // have loaded (the stored copies are deleted, freeing the space). The old
-  // list is only cleared at the end, so a launch cut short just repeats
-  // this next time.
-  const hiddenCleanupStartedRef = useRef(false);
-  useEffect(() => {
-    if (!foldersReady || legacyHidden.length === 0 || hiddenCleanupStartedRef.current) return;
-    hiddenCleanupStartedRef.current = true;
-    (async () => {
-      try {
-        const nameOf = (f) => f.tree.name;
-        for (const { rootName, relPaths } of hiddenRemovals(legacyHidden, folders.map(nameOf))) {
-          const folder = folders.find((f) => nameOf(f) === rootName);
-          if (folder) await removePathsFromFolder(folder, relPaths);
-        }
-        clearLegacyHidden();
-      } catch (err) {
-        console.error(err);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [foldersReady, legacyHidden]);
-
   // Applies a new folder list and waits until it is written to storage. Used
   // before deleting stored files, in that order, so a launch cut short in
   // between can never be left listing files that no longer exist.
@@ -542,7 +456,7 @@ function App() {
       list
         .map((e) => {
           if (!e.fileHandle.folderId) return null;
-          return { name: e.name, openedAt: e.openedAt, legacy: true, folderId: e.fileHandle.folderId, relativePath: e.fileHandle.relativePath };
+          return { name: e.name, openedAt: e.openedAt, folderId: e.fileHandle.folderId, relativePath: e.fileHandle.relativePath };
         })
         .filter(Boolean)
     );
@@ -967,39 +881,6 @@ function App() {
     }
   }
 
-  // One-time: bookmarks, saved page, outline state and annotated copies used
-  // to be filed under a file's bare name, so same-named files in different
-  // folders shared them (opening one could show the other's annotations).
-  // They're filed by folder + path now. A name carried by one file moves to
-  // it; a name carried by several is dropped (see planExtrasMigration). Names
-  // no folder file carries are left alone — they may belong to a dropped
-  // file. Safe to repeat if a launch is cut short before it's marked done.
-  async function migrateExtrasToPaths(foldersList) {
-    if (await dbGet("extrasKeyedByPath")) return;
-    const files = foldersList.flatMap((f) =>
-      flattenTreeFiles(f.tree).map((x) => ({ name: x.name, key: fileKeyFor(f.tree.name, x.relativePath) }))
-    );
-    const { move, drop } = planExtrasMigration(files);
-    const maps = {
-      bookmarks: (await dbGet("bookmarks")) || {},
-      outlineExpanded: (await dbGet("outlineExpanded")) || {},
-      filePositions: (await dbGet("filePositions")) || {},
-    };
-    for (const { name, key } of move) {
-      for (const map of Object.values(maps)) {
-        if (map[name] !== undefined && map[key] === undefined) map[key] = map[name];
-      }
-      const annotated = await readAnnotatedCopy(name);
-      if (annotated) await writeAnnotatedCopy(key, annotated);
-    }
-    for (const name of [...move.map((m) => m.name), ...drop]) {
-      for (const map of Object.values(maps)) delete map[name];
-      await deleteAnnotatedCopy(name);
-    }
-    for (const [key, map] of Object.entries(maps)) await dbSet(key, map);
-    await dbSet("extrasKeyedByPath", true);
-  }
-
   // Removing a file also drops what the app keeps for it: bookmarks, saved
   // page, outline state and its annotated app copy. They're filed per file
   // (folder + path), so they belong to nothing else.
@@ -1277,15 +1158,6 @@ function App() {
           busy={removeBusy}
           onConfirm={confirmRemoveNode}
           onClose={() => setRemoveRequest(null)}
-        />
-      )}
-      {linkedNotice && (
-        <LinkedFoldersNotice
-          names={linkedNotice}
-          onClose={() => {
-            dbDelete("rootDirHandles");
-            setLinkedNotice(null);
-          }}
         />
       )}
       <div className={`topbar-wrap${sidebarOpen ? "" : " collapsed"}`}>

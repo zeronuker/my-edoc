@@ -5,7 +5,6 @@ import {
   displayedPath,
   emptyOverlay,
   flattenByKey,
-  hiddenRemovals,
   makeNodeKey,
   parseNodeKey,
   releaseNestedRoots,
@@ -145,19 +144,4 @@ test("releaseNestedRoots frees only the folders placed inside the removed one", 
     makeNodeKey("Contracts", "Signed/2024"),
     makeNodeKey("Other", ""),
   ]);
-});
-
-test("hiddenRemovals groups old hidden keys per folder and drops what an ancestor already covers", () => {
-  const roots = ["Contracts", "Manuals"];
-  const hidden = [
-    makeNodeKey("Contracts", "Signed"),
-    makeNodeKey("Contracts", "Signed/2025/x.pdf"),
-    makeNodeKey("Contracts", "a.pdf"),
-    makeNodeKey("Manuals", "m.pdf"),
-    makeNodeKey("Gone", "z.pdf"),
-    makeNodeKey("Contracts", ""),
-  ];
-  const result = hiddenRemovals(hidden, roots);
-  const byRoot = Object.fromEntries(result.map((r) => [r.rootName, r.relPaths.sort()]));
-  assert.deepEqual(byRoot, { Contracts: ["Signed", "a.pdf"], Manuals: ["m.pdf"] });
 });

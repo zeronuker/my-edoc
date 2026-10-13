@@ -23,20 +23,6 @@ export function progressWindow(total, doneCount, before = 4, after = 8) {
   return [start, Math.min(total, start + size)];
 }
 
-// One-time move of per-file extras from being filed by file name to being
-// filed by folder + path. `files` is [{ name, key }] for every file in the
-// app. A name carried by one file moves to that file's key; a name carried
-// by several can't be told apart (they shared one set), so it's dropped
-// rather than guessed at.
-export function planExtrasMigration(files) {
-  const counts = new Map();
-  for (const f of files) counts.set(f.name, (counts.get(f.name) || 0) + 1);
-  return {
-    move: files.filter((f) => counts.get(f.name) === 1),
-    drop: [...counts].filter(([, n]) => n > 1).map(([name]) => name),
-  };
-}
-
 // A copy of `obj` without the given keys.
 export function omitKeys(obj, keys) {
   const drop = new Set(keys);

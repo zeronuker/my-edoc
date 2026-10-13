@@ -176,7 +176,6 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       // so there's nothing to resume to.
       if (fileHandle.folderId) {
         await dbSet("lastFileHandle", {
-          legacy: true,
           name: fileHandle.name,
           folderId: fileHandle.folderId,
           relativePath: fileHandle.relativePath,

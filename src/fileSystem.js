@@ -350,30 +350,3 @@ export function reviveLegacyManifest(folderId, manifest) {
   tree.handle = permissiveHandle(manifest.name);
   return tree;
 }
-
-// One-time migration path only: the very first version of legacy-folder
-// persistence stored File blobs directly inside IndexedDB (see git history)
-// instead of in OPFS. This revives that old shape back into an in-memory
-// tree so App.jsx can re-save it through writeLegacyFiles/buildLegacyManifest
-// and drop the old inline-blob copy for good.
-export function reviveInlineLegacyFolder(serialized) {
-  function walk(node, pathSoFar) {
-    const relativePath = pathSoFar ? `${pathSoFar}/${node.name}` : node.name;
-    if (node.kind === "file") {
-      return {
-        name: node.name,
-        kind: "file",
-        relativePath,
-        handle: permissiveHandle(node.name, {
-          getFile: async () => node.file,
-          file: node.file,
-          fileKey: fileKeyFor(serialized.name, relativePath),
-        }),
-      };
-    }
-    return { name: node.name, kind: "directory", children: node.children.map((c) => walk(c, relativePath)) };
-  }
-  const tree = { name: serialized.name, kind: "directory", children: serialized.children.map((c) => walk(c, "")) };
-  tree.handle = permissiveHandle(serialized.name);
-  return tree;
-}

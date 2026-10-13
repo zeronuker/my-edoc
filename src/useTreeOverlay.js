@@ -6,32 +6,22 @@ import { applyOverlay, emptyOverlay, flattenByKey, releaseNestedRoots } from "./
 // top of the real folder trees — see treeOverlay.js. Shared by both TreeView
 // (which renders it and lets the user edit it) and search (which needs the
 // same arranged view so results show where things are drawn).
-//
-// legacyHidden carries the old "hidden" list from before hiding was removed.
-// It is kept in storage until App.jsx has removed those items for good and
-// calls clearLegacyHidden, so an app closed halfway just redoes the
-// (idempotent) clean-up on the next launch.
 export function useTreeOverlay(folders) {
   const [overlay, setOverlay] = useState(emptyOverlay);
-  const [legacyHidden, setLegacyHidden] = useState([]);
   const overlayLoadedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
       const saved = await dbGet("treeOverlay");
-      if (saved) {
-        const { hidden, ...rest } = saved;
-        setOverlay({ ...emptyOverlay, ...rest });
-        if (hidden?.length) setLegacyHidden(hidden);
-      }
+      if (saved) setOverlay({ ...emptyOverlay, ...saved });
       overlayLoadedRef.current = true;
     })();
   }, []);
 
   useEffect(() => {
     if (!overlayLoadedRef.current) return;
-    dbSet("treeOverlay", legacyHidden.length ? { ...overlay, hidden: legacyHidden } : overlay);
-  }, [overlay, legacyHidden]);
+    dbSet("treeOverlay", overlay);
+  }, [overlay]);
 
   // allDisplayFolders keeps every connected folder (a nested one is flagged
   // `nested`); displayFolders is just the top-level rows, since a nested
@@ -55,10 +45,6 @@ export function useTreeOverlay(folders) {
     setOverlay((prev) => releaseNestedRoots(prev, parentName));
   }
 
-  function clearLegacyHidden() {
-    setLegacyHidden([]);
-  }
-
   function dropNode(draggedKey, targetParentKey, index) {
     const nodesByKey = flattenByKey(displayFolders);
     const targetParent = nodesByKey.get(targetParentKey);
@@ -78,5 +64,5 @@ export function useTreeOverlay(folders) {
     }));
   }
 
-  return { displayFolders, allDisplayFolders, legacyHidden, clearLegacyHidden, placeRoot, releaseNested, dropNode };
+  return { displayFolders, allDisplayFolders, placeRoot, releaseNested, dropNode };
 }

@@ -54,10 +54,9 @@ export async function deleteLegacyFiles(folderId, relativePaths) {
 // Annotated copies (see annotations.js): one flat file per saved file, holding
 // the most recently saved version — opened instead of the original. Filed by
 // the file's key (folder name + path, see fileKeyFor), URL-encoded into a
-// single safe name so different paths can never collide. Copies saved before
-// that were filed under the bare file name; reading and deleting also look
-// there. Separate root directory from legacy-folders above since these
-// aren't tied to any particular folder.
+// single safe name so different paths can never collide. Separate root
+// directory from legacy-folders above since these aren't tied to any
+// particular folder.
 async function annotatedCopiesRoot() {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle("annotated-copies", { create: true });
@@ -88,18 +87,14 @@ export async function writeAnnotatedCopy(key, bytes) {
 // Returns the saved copy, or null if this file has never had one.
 export async function readAnnotatedCopy(key) {
   const root = await annotatedCopiesRoot();
-  for (const stored of [encodeURIComponent(key), escapeName(key)]) {
-    try {
-      return await (await root.getFileHandle(stored)).getFile();
-    } catch {
-      // not under this name; try the next
-    }
+  try {
+    return await (await root.getFileHandle(encodeURIComponent(key))).getFile();
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function deleteAnnotatedCopy(key) {
   const root = await annotatedCopiesRoot();
   await root.removeEntry(encodeURIComponent(key)).catch(() => {});
-  await root.removeEntry(escapeName(key)).catch(() => {});
 }

@@ -4,7 +4,6 @@ import {
   formatBytes,
   folderListRecords,
   freeSpaceWarning,
-  planExtrasMigration,
   progressWindow,
   omitKeys,
   nextRecentFiles,
@@ -91,17 +90,6 @@ test("progressWindow keeps a fixed-size slice around the file being copied", () 
   assert.deepEqual(progressWindow(10000, 10000), [9987, 10000]);
   assert.deepEqual(progressWindow(5, 2), [0, 5]);
   assert.deepEqual(progressWindow(0, 0), [0, 0]);
-});
-
-test("planExtrasMigration moves a unique name to its file's key and drops names shared by several files", () => {
-  const files = [
-    { name: "a.pdf", key: "Boeing:a.pdf" },
-    { name: "Index.pdf", key: "Boeing:Index.pdf" },
-    { name: "Index.pdf", key: "Airbus:Index.pdf" },
-  ];
-  const { move, drop } = planExtrasMigration(files);
-  assert.deepEqual(move, [{ name: "a.pdf", key: "Boeing:a.pdf" }]);
-  assert.deepEqual(drop, ["Index.pdf"]);
 });
 
 test("nextRecentFiles keeps two same-named files from different folders as separate entries", () => {
