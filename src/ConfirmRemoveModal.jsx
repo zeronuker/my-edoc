@@ -1,14 +1,22 @@
 // Same modal shell as the other dialogs. Asked before the tree's × does
 // anything. `request` is { name, kind, count }: the × deletes the app's own
 // copy of the file(s) — the user's original files are never touched, and
-// the copy says so.
+// the copy says so. annotatedCount / otherCount are how many of the files
+// also lose saved annotations / bookmarks and a saved page.
 export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, closing }) {
-  const { name, kind, count } = request;
+  const { name, kind, count, annotatedCount = 0, otherCount = 0 } = request;
   const isFolder = kind === "directory";
 
   const body = isFolder
     ? `Remove "${name}" and its ${count} file${count === 1 ? "" : "s"} from this device? Your original files aren't touched.`
     : `Remove "${name}" from this device? Your original file isn't touched.`;
+
+  let extra = null;
+  if (annotatedCount > 0) {
+    extra = `This also deletes your saved annotations${annotatedCount > 1 ? ` on ${annotatedCount} files` : ""}, and their bookmarks and saved page.`;
+  } else if (otherCount > 0) {
+    extra = `This also deletes the bookmarks and saved page for ${otherCount > 1 ? `${otherCount} files` : "it"}.`;
+  }
 
   return (
     <>
@@ -22,7 +30,10 @@ export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, 
           </div>
         </div>
 
-        <div className="update-dialog-body">{body}</div>
+        <div className="update-dialog-body">
+          {body}
+          {extra && <> {extra}</>}
+        </div>
 
         <div className="update-dialog-actions">
           <button className="cb-btn" onClick={onClose} disabled={busy}>

@@ -38,6 +38,8 @@ import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
   freeSpaceWarning,
+  namesToClean,
+  omitKeys,
   folderListRecords,
   nextRecentFiles,
   toggleBookmarkList,
@@ -151,7 +153,7 @@ function App() {
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
-  const [removeRequest, setRemoveRequest] = useState(null); // { node, name, kind, isLegacy, folderKey, relPath, count } while the × confirmation is open
+  const [removeRequest, setRemoveRequest] = useState(null); // { node, name, kind, isRoot?, folderKey, relPath, count, cleanNames, annotatedCount, otherCount } while the × confirmation is open
   const [removeBusy, setRemoveBusy] = useState(false);
   const [placement, setPlacement] = useState(null); // { folderName, resolve } while the Add folder "where to show it" dialog is open
   const lastPlacementRef = useRef(null); // keeps that dialog's content on screen through its exit animation
@@ -790,6 +792,28 @@ function App() {
     try {
       const existing = filesInDirectory(target.tree, destPath);
       const plan = planAddedFiles(addFiles.files, existing.map((f) => f.name), choices);
+
+      // A saved annotated copy is opened instead of the file with the same
+      // name, so replacing a file that has one would keep showing the old
+      // version — ask what to do with it first (the dialog stays open if
+      // this is cancelled).
+      const annotated = new Set(await listAnnotatedCopyNames());
+      const affected = [...new Set(plan.filter((p) => p.replaces && annotated.has(p.name)).map((p) => p.name))];
+      let discardNames = [];
+      if (affected.length > 0) {
+        const c = await askChoice({
+          title: "SAVED ANNOTATIONS",
+          subtitle: target.tree.name,
+          body: `${affected.length} file${affected.length === 1 ? " you're replacing has" : "s you're replacing have"} your saved annotations. The annotated version keeps opening instead of the new file unless you discard it.`,
+          items: affected.length > 8 ? [...affected.slice(0, 8), `…and ${affected.length - 8} more`] : affected,
+          actions: [
+            { label: "Discard annotations", value: "discard", primary: true },
+            { label: "Keep annotations", value: "keep" },
+          ],
+        });
+        if (c === undefined) return;
+        if (c === "discard") discardNames = affected;
+      }
       const added = [];
       const replacedHandles = [];
       let bytesDelta = 0;
@@ -838,6 +862,9 @@ function App() {
         copyControllerRef.current = null;
       }
 
+      for (const name of discardNames) {
+        if (added.some((n) => n.name === name)) await deleteAnnotatedCopy(name);
+      }
       if (added.length > 0) {
         setFolders((prev) => {
           const next = prev.map((f) =>
@@ -899,40 +926,84 @@ function App() {
     }
   }
 
+  // Names of every file still in the app once `excludedPaths` (a Set of
+  // relativePaths, or null for the whole folder) of folder `excludeKey` are
+  // gone — what decides whether a removed file's extras can go too.
+  function namesRemainingAfter(excludeKey, excludedPaths) {
+    const names = [];
+    for (const f of folders) {
+      if (!f.tree) continue;
+      for (const file of flattenTreeFiles(f.tree)) {
+        if (f.key === excludeKey && (!excludedPaths || excludedPaths.has(file.relativePath))) continue;
+        names.push(file.name);
+      }
+    }
+    return names;
+  }
+
+  // Removing a file also drops what the app keeps for it by name: bookmarks,
+  // saved page, outline state and its annotated app copy — but only if no
+  // other file with that name is left, since they'd belong to that one.
+  async function forgetFileExtras(names) {
+    if (names.length === 0) return;
+    for (const n of names) await deleteAnnotatedCopy(n);
+    setBookmarks((prev) => {
+      const next = omitKeys(prev, names);
+      dbSet("bookmarks", next);
+      return next;
+    });
+    setOutlineExpanded((prev) => {
+      const next = omitKeys(prev, names);
+      dbSet("outlineExpanded", next);
+      return next;
+    });
+    const positions = (await dbGet("filePositions")) || {};
+    await dbSet("filePositions", omitKeys(positions, names));
+  }
+
   // TreeView's × on a subfolder, file or whole folder: ask first. A node's
   // key always points back at the folder it physically lives in (see
   // parseNodeKey), so this finds the right connected folder and path even if
   // the overlay has moved the node somewhere else in the displayed tree.
-  function requestRemoveNode(node) {
+  async function requestRemoveNode(node) {
     const roots = folders.filter((f) => f.tree);
-    // A connected folder's own root (top level or placed inside another):
+    let folder;
+    let relPath = "";
+    let isRoot = false;
+    // A connected folder's own root (top level or placed inside another)
     // removes the whole folder.
     if (node.folderRef) {
-      const folder = roots.find((f) => f.key === node.folderRef.key);
-      if (!folder) return;
-      setRemoveRequest({
-        node,
-        name: node.name,
-        kind: "directory",
-        isRoot: true,
-        folderKey: folder.key,
-        relPath: "",
-        count: flattenTreeFiles(folder.tree).length,
-      });
-      return;
+      folder = roots.find((f) => f.key === node.folderRef.key);
+      isRoot = true;
+    } else {
+      const parsed = parseNodeKey(node.key, roots.map((f) => f.tree.name));
+      folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
+      relPath = parsed?.relPath ?? "";
     }
-    const parsed = parseNodeKey(node.key, roots.map((f) => f.tree.name));
-    const folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
     if (!folder) return;
-    const rawNode = findNodeAt(folder.tree, parsed.relPath);
+    const rawNode = findNodeAt(folder.tree, relPath);
     if (!rawNode) return;
+
+    const files = rawNode.kind === "file" ? [rawNode] : flattenTreeFiles(rawNode);
+    const paths = isRoot ? null : new Set(files.map((f) => f.relativePath));
+    const cleanNames = namesToClean(files.map((f) => f.name), namesRemainingAfter(folder.key, paths));
+    const annotated = new Set(await listAnnotatedCopyNames());
+    const positions = (await dbGet("filePositions")) || {};
+    const annotatedCount = cleanNames.filter((n) => annotated.has(n)).length;
+    const otherCount = cleanNames.filter(
+      (n) => !annotated.has(n) && (bookmarks[n] || positions[n] || outlineExpanded[n])
+    ).length;
     setRemoveRequest({
       node,
       name: node.name,
-      kind: node.kind,
+      kind: isRoot ? "directory" : node.kind,
+      isRoot,
       folderKey: folder.key,
-      relPath: parsed.relPath,
-      count: rawNode.kind === "file" ? 1 : flattenTreeFiles(rawNode).length,
+      relPath,
+      count: files.length,
+      cleanNames,
+      annotatedCount,
+      otherCount,
     });
   }
 
@@ -986,6 +1057,7 @@ function App() {
         const target = folders.find((f) => f.key === req.folderKey);
         if (target?.tree) await removePathsFromFolder(target, [req.relPath]);
       }
+      await forgetFileExtras(req.cleanNames ?? []);
       setRemoveRequest(null);
     } catch (err) {
       setError(`Couldn't remove "${req.name}": ${err.message}`);

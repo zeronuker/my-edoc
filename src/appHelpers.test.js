@@ -4,6 +4,8 @@ import {
   formatBytes,
   folderListRecords,
   freeSpaceWarning,
+  namesToClean,
+  omitKeys,
   nextRecentFiles,
   toggleBookmarkList,
   removeBookmarkFromList,
@@ -74,4 +76,15 @@ test("freeSpaceWarning only speaks up when it won't fit, and stays quiet if free
   assert.equal(freeSpaceWarning("These files", 100, null), null);
   const note = freeSpaceWarning("This file", 3 * 1024 * 1024, 1024 * 1024);
   assert.match(note, /^This file \(3\.0 MB\) is bigger than the space free on this device \(1\.0 MB\)/);
+});
+
+test("namesToClean keeps extras for a name that another file still carries", () => {
+  assert.deepEqual(namesToClean(["a.pdf", "b.pdf", "a.pdf"], ["b.pdf", "c.pdf"]), ["a.pdf"]);
+  assert.deepEqual(namesToClean([], ["x.pdf"]), []);
+});
+
+test("omitKeys drops only the named keys and leaves the original alone", () => {
+  const src = { "a.pdf": 1, "b.pdf": 2 };
+  assert.deepEqual(omitKeys(src, ["a.pdf", "zzz.pdf"]), { "b.pdf": 2 });
+  assert.deepEqual(src, { "a.pdf": 1, "b.pdf": 2 });
 });

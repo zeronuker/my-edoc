@@ -12,6 +12,20 @@ export function formatBytes(bytes) {
   return `${value < 10 && i > 0 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
 }
 
+// Names of removed files that no file still in the app carries. A file's
+// extras (bookmarks, saved page, annotated copy) are keyed by name, so they
+// can only be deleted when no other file with that name is left to use them.
+export function namesToClean(removedNames, remainingNames) {
+  const keep = new Set(remainingNames);
+  return [...new Set(removedNames)].filter((n) => !keep.has(n));
+}
+
+// A copy of `obj` without the given keys.
+export function omitKeys(obj, keys) {
+  const drop = new Set(keys);
+  return Object.fromEntries(Object.entries(obj).filter(([k]) => !drop.has(k)));
+}
+
 // The note shown when something being copied in is bigger than the space
 // left (null when it fits, or when the free space isn't known). It only
 // warns — a copy that doesn't fit fails on its own with an error.
