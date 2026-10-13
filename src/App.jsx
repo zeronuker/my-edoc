@@ -33,7 +33,7 @@ import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { usePresence } from "./usePresence.js";
-import { hiddenRemovals, makeNodeKey, parseNodeKey, subtreeKeys } from "./treeOverlay.js";
+import { hiddenRemovals, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
@@ -703,26 +703,12 @@ function App() {
     refreshStorageEstimate();
   }
 
-  // Resolves to a node key (show the folder inside that one), null (top
-  // level), or undefined (cancelled). Doesn't ask at all when there's
-  // nothing yet to put it inside. `options` turns it into the move dialog
-  // (title, confirmLabel, initialKey, excludeKeys — see PlaceFolderModal).
-  function askPlacement(folderName, options = {}) {
+  // Resolves to a node key (show the new folder inside that one), null
+  // (top level), or undefined (cancelled). Doesn't ask at all when there's
+  // nothing yet to put it inside.
+  function askPlacement(folderName) {
     if (displayFolders.length === 0) return Promise.resolve(null);
-    return new Promise((resolve) => setPlacement({ folderName, resolve, ...options }));
-  }
-
-  // The move button on a folder's own row: pick a new spot for it (or the
-  // top level). Nothing is copied — only where it's shown changes.
-  async function requestMoveFolder(node) {
-    const parentKey = await askPlacement(node.name, {
-      title: "MOVE FOLDER",
-      confirmLabel: "Move here",
-      initialKey: node.parentKey,
-      excludeKeys: subtreeKeys(node),
-    });
-    if (parentKey === undefined) return;
-    placeRoot(makeNodeKey(node.name, ""), parentKey);
+    return new Promise((resolve) => setPlacement({ folderName, resolve }));
   }
 
   async function handleAddFolder() {
@@ -1204,10 +1190,6 @@ function App() {
           closing={placementPresence.closing}
           folderName={placementShown.folderName}
           folders={displayFolders}
-          title={placementShown.title}
-          confirmLabel={placementShown.confirmLabel}
-          initialKey={placementShown.initialKey}
-          excludeKeys={placementShown.excludeKeys}
           onConfirm={(parentKey) => {
             placement?.resolve(parentKey);
             setPlacement(null);
@@ -1407,7 +1389,6 @@ function App() {
               onSelectFile={selectFile}
               selectedHandle={selectedHandle}
               onRemoveNode={requestRemoveNode}
-              onMoveFolder={requestMoveFolder}
               onDropNode={dropNode}
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the

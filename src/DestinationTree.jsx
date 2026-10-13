@@ -18,19 +18,8 @@ function onEnterOrSpace(fn) {
 // One folder row of a destination picker — same row, rail, colour and
 // expand animation as the sidebar tree (folders only). Tapping the row picks
 // it (and opens it, to show what's inside); the chevron only opens/closes.
-function DestNode({
-  node,
-  depth,
-  ancestorsLast,
-  isLast,
-  selectedKey,
-  expanded,
-  onSelect,
-  onToggle,
-  disabled,
-  excludeKeys,
-}) {
-  const subfolders = node.children.filter((c) => c.kind === "directory" && !excludeKeys.has(c.key));
+function DestNode({ node, depth, ancestorsLast, isLast, selectedKey, expanded, onSelect, onToggle, disabled }) {
+  const subfolders = node.children.filter((c) => c.kind === "directory");
   const isOpen = expanded.has(node.key);
   const selected = selectedKey === node.key;
 
@@ -80,7 +69,6 @@ function DestNode({
               onSelect={onSelect}
               onToggle={onToggle}
               disabled={disabled}
-              excludeKeys={excludeKeys}
             />
           ))}
         </div>
@@ -102,9 +90,7 @@ export default function DestinationTree({
   disabled,
   topLevelLabel,
   ariaLabel,
-  excludeKeys = new Set(),
 }) {
-  const shown = folders.filter((f) => !excludeKeys.has(f.tree.key));
   return (
     <div className="add-dest-tree" role="radiogroup" aria-label={ariaLabel}>
       {topLevelLabel && (
@@ -123,19 +109,18 @@ export default function DestinationTree({
           {selectedKey === null && <IconCheck className="add-dest-check" size={14} aria-hidden="true" />}
         </div>
       )}
-      {shown.map((f, i) => (
+      {folders.map((f, i) => (
         <DestNode
           key={f.key}
           node={f.tree}
           depth={0}
           ancestorsLast={[]}
-          isLast={i === shown.length - 1}
+          isLast={i === folders.length - 1}
           selectedKey={selectedKey}
           expanded={expanded}
           onSelect={onSelect}
           onToggle={onToggle}
           disabled={disabled}
-          excludeKeys={excludeKeys}
         />
       ))}
     </div>

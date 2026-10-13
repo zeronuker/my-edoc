@@ -172,35 +172,3 @@ export function displayedPath(folders, nodeKey) {
   }
   return [];
 }
-
-// Keys of every node from a top-level folder's root down to `nodeKey`
-// (itself included), or [] if it isn't in the displayed trees — what has to
-// be open for that node to be visible.
-export function pathKeys(folders, nodeKey) {
-  function walk(node, trail) {
-    const next = [...trail, node.key];
-    if (node.key === nodeKey) return next;
-    for (const c of node.children) {
-      if (c.kind !== "directory") continue;
-      const hit = walk(c, next);
-      if (hit) return hit;
-    }
-    return null;
-  }
-  for (const f of folders) {
-    const hit = walk(f.tree, []);
-    if (hit) return hit;
-  }
-  return [];
-}
-
-// Every node key in a displayed subtree, the node itself included — what a
-// folder being moved can't be moved into (itself and what it holds).
-export function subtreeKeys(node) {
-  const keys = new Set();
-  (function walk(n) {
-    keys.add(n.key);
-    n.children.forEach(walk);
-  })(node);
-  return keys;
-}
