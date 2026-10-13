@@ -264,7 +264,10 @@ function App() {
         const node = lastFile && fileNodeOf(lastFile.folderId, lastFile.relativePath);
         if (node) selectFile(node.handle);
       }
-    })();
+    })().catch((err) => {
+      console.error(err);
+      setError(`Couldn't load your folders: ${err.message}`);
+    });
     return () => {
       cancelled = true;
     };
@@ -604,7 +607,7 @@ function App() {
     const go = await askChoice({
       title: "UPDATE FOLDER",
       subtitle: name,
-      body: `"${name}" is already in the app. Update it with the folder you picked? Its ${oldCount} file${oldCount === 1 ? "" : "s"} are replaced by these ${newFiles.length}, and anything you removed from it comes back.`,
+      body: `"${name}" is already in the app. Update it with the folder you picked? Its ${oldCount} file${oldCount === 1 ? "" : "s"} are replaced by these ${newFiles.length}, and anything you removed from it comes back. If this is a different folder that just has the same name, cancel and rename it first.`,
       actions: [{ label: "Update", value: "update", primary: true }],
     });
     if (go !== "update") return;
@@ -916,7 +919,11 @@ function App() {
   // key always points back at the folder it physically lives in (see
   // parseNodeKey), so this finds the right connected folder and path even if
   // the overlay has moved the node somewhere else in the displayed tree.
-  async function requestRemoveNode(node) {
+  function requestRemoveNode(node) {
+    buildRemoveRequest(node).catch((err) => setError(`Couldn't prepare the removal: ${err.message}`));
+  }
+
+  async function buildRemoveRequest(node) {
     const roots = folders.filter((f) => f.tree);
     let folder;
     let relPath = "";
@@ -1133,7 +1140,9 @@ function App() {
           files={addFilesShown.files}
           busy={addFilesBusy}
           freeBytes={storageEstimate ? storageEstimate.quota - foldersBytesUsed : null}
-          onConfirm={handleAddFilesConfirm}
+          onConfirm={(...args) =>
+            handleAddFilesConfirm(...args).catch((err) => setError(`Couldn't add the files: ${err.message}`))
+          }
           onClose={() => setAddFiles(null)}
         />
       )}
@@ -1344,7 +1353,7 @@ function App() {
                     style={{ "--i": 0 }}
                     onClick={() => {
                       setFabMenuOpen(false);
-                      handleAddFolder();
+                      handleAddFolder().catch((err) => setError(`Couldn't add the folder: ${err.message}`));
                     }}
                   >
                     <IconFolderPlus size={16} /> Add folder
@@ -1356,7 +1365,7 @@ function App() {
                     title={addFilesTargets.length === 0 ? "Add a folder first" : undefined}
                     onClick={() => {
                       setFabMenuOpen(false);
-                      handleAddFiles();
+                      handleAddFiles().catch((err) => setError(`Couldn't add the files: ${err.message}`));
                     }}
                   >
                     <IconFilePlus size={16} /> Add files
