@@ -15,8 +15,13 @@ import {
   flattenTreeFilesWithPath,
   flattenTreeFileHandles,
   isMobileDevice,
+  pickPdfFiles,
+  filesInDirectory,
+  planAddedFiles,
+  insertFilesIntoTree,
+  writeFileIntoFolder,
 } from "./fileSystem.js";
-import { deleteLegacyFolderFiles } from "./opfs.js";
+import { deleteLegacyFolderFiles, writeLegacyFile } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { getAnnotationMode, saveAnnotations } from "./annotations.js";
 import { usePdfDocument } from "./usePdfDocument.js";
@@ -61,6 +66,7 @@ import PdfViewer from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import AnnotationModePicker from "./AnnotationModePicker.jsx";
+import AddFilesModal from "./AddFilesModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
@@ -139,6 +145,9 @@ function App() {
   const [addingFolder, setAddingFolder] = useState(false); // live-handle (desktop) scan only — legacy copies use copyProgress instead
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneSet } while copying a legacy folder's files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
+  const [addFiles, setAddFiles] = useState(null); // { folderKey, files: File[] } while the Add files dialog is open
+  const [addFilesBusy, setAddFilesBusy] = useState(false);
+  const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
   const copyControllerRef = useRef(null); // AbortController for the in-progress copy, so the modal's Cancel button can reach it
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
@@ -795,6 +804,99 @@ function App() {
     }
   }
 
+  // "Add files" (folder ⋮ menu): the native file picker has to open straight
+  // from the click, so it comes first; the dialog then asks where to put the
+  // files and what to do about name clashes (see AddFilesModal).
+  async function handleAddFiles(key) {
+    let picked;
+    try {
+      picked = await pickPdfFiles();
+    } catch {
+      return; // cancelled
+    }
+    const files = picked.filter((f) => f.name.toLowerCase().endsWith(".pdf"));
+    if (files.length === 0) {
+      setError("No PDF files were selected.");
+      return;
+    }
+    setAddFiles({ folderKey: key, files });
+  }
+
+  // Legacy (iPad/phone) folders get each file written into the folder's OPFS
+  // copy; desktop folders get it written into the real folder on disk, which
+  // needs readwrite permission. Either way only the picked files are
+  // touched — the folder's other files are never re-read or re-copied — and
+  // the tree is patched in memory instead of rescanned.
+  async function handleAddFilesConfirm(destPath, choices) {
+    const target = folders.find((f) => f.key === addFiles?.folderKey);
+    if (!target?.tree) {
+      setAddFiles(null);
+      return;
+    }
+    const isLegacy = !!target.dirHandle.__legacy;
+    setAddFilesBusy(true);
+    try {
+      // Must be the first await: the permission prompt needs the click's
+      // user activation, which is gone after any other async work.
+      if (!isLegacy && (await target.dirHandle.requestPermission({ mode: "readwrite" })) !== "granted") {
+        setError(`Couldn't add files: edit permission for "${target.dirHandle.name}" wasn't granted.`);
+        return;
+      }
+      const existing = filesInDirectory(target.tree, destPath);
+      const plan = planAddedFiles(addFiles.files, existing.map((f) => f.name), choices);
+      const added = [];
+      const replacedHandles = [];
+      let bytesDelta = 0;
+      for (const { file, name, replaces } of plan) {
+        try {
+          const relativePath = destPath ? `${destPath}/${name}` : name;
+          const old = replaces ? existing.find((f) => f.name === name) : null;
+          let oldSize = 0;
+          if (isLegacy && old) oldSize = (await old.handle.getFile().catch(() => null))?.size ?? 0;
+
+          let handle;
+          if (isLegacy) {
+            await writeLegacyFile(target.folderId, relativePath, file);
+            handle = reviveLegacyFileHandle(target.folderId, name, relativePath);
+          } else {
+            handle = await writeFileIntoFolder(target.dirHandle, destPath, name, file);
+          }
+          added.push(
+            isLegacy ? { name, kind: "file", relativePath, handle } : { name, kind: "file", handle }
+          );
+          bytesDelta += file.size - oldSize;
+          if (old) replacedHandles.push(old.handle);
+        } catch (err) {
+          setError(`Couldn't add "${name}": ${err.message}`);
+          break;
+        }
+      }
+
+      if (added.length > 0) {
+        setFolders((prev) => {
+          const next = prev.map((f) =>
+            f.key === target.key
+              ? {
+                  ...f,
+                  tree: insertFilesIntoTree(f.tree, destPath, added),
+                  ...(isLegacy ? { sizeBytes: (f.sizeBytes || 0) + bytesDelta } : {}),
+                }
+              : f
+          );
+          saveFolderList(next);
+          return next;
+        });
+        refreshStorageEstimate();
+        // A replaced file that's open now shows stale bytes — close it, same
+        // as when its folder is removed.
+        handleFilesRemovedFromView(replacedHandles);
+      }
+      setAddFiles(null);
+    } finally {
+      setAddFilesBusy(false);
+    }
+  }
+
   // Closes the open document if it (or a subfolder containing it) belongs
   // to the folder being removed — otherwise it'd stay open, orphaned, with
   // no folder backing it. Looked up from the pre-removal `folders` closure
@@ -906,6 +1008,10 @@ function App() {
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const sidebarAnim = useTransitionAnim(activeTab, SIDEBAR_TAB_ORDER, settings.animStyle);
   const modePicker = usePresence(modePickerOpen && !!selectedHandle);
+  if (addFiles) lastAddFilesRef.current = addFiles;
+  const addFilesPresence = usePresence(!!addFiles);
+  const addFilesShown = addFiles ?? lastAddFilesRef.current;
+  const addFilesFolder = addFilesShown && folders.find((f) => f.key === addFilesShown.folderKey);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -931,6 +1037,18 @@ function App() {
           files={copyProgress.files}
           doneSet={copyProgress.doneSet}
           onCancel={() => copyControllerRef.current?.abort()}
+        />
+      )}
+      {addFilesPresence.present && addFilesFolder?.tree && (
+        <AddFilesModal
+          closing={addFilesPresence.closing}
+          folderName={addFilesFolder.tree.name}
+          tree={addFilesFolder.tree}
+          files={addFilesShown.files}
+          writesToDisk={!addFilesFolder.dirHandle.__legacy}
+          busy={addFilesBusy}
+          onConfirm={handleAddFilesConfirm}
+          onClose={() => setAddFiles(null)}
         />
       )}
       {modePicker.present && selectedHandle && (
@@ -1130,6 +1248,7 @@ function App() {
               selectedHandle={selectedHandle}
               onRemoveFolder={handleRemoveFolder}
               onRefreshFolder={handleRefreshFolder}
+              onAddFiles={handleAddFiles}
               refreshingKeys={refreshingKeys}
               onHide={handleHideNode}
               onDropNode={dropNode}

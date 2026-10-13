@@ -1999,6 +1999,96 @@ html,
   line-height: 1.5;
 }
 
+.add-files-dialog {
+  width: min(400px, calc(100vw - 48px));
+  max-height: min(560px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+}
+
+.add-files-dest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: var(--cb-ink-dim);
+}
+
+.add-files-dest select {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 7px 8px;
+  background: var(--cb-surface-2);
+  color: var(--cb-ink);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+}
+
+.add-files-list {
+  overflow-y: auto;
+  border: 1px solid var(--cb-line);
+  border-radius: var(--cb-radius-sm);
+  background: var(--cb-surface-2);
+  margin-bottom: 16px;
+}
+
+.add-files-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--cb-ink-2);
+  border-bottom: 1px solid var(--cb-line);
+}
+
+.add-files-row:last-child {
+  border-bottom: none;
+}
+
+.add-files-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-files-choice {
+  display: flex;
+  flex-shrink: 0;
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  overflow: hidden;
+}
+
+.add-files-choice button {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--cb-ink-dim);
+  cursor: pointer;
+}
+
+.add-files-choice button.active {
+  background: var(--cb-surface-3);
+  color: var(--cb-mint);
+}
+
+.add-files-choice button:disabled {
+  cursor: default;
+}
+
+.add-files-warning {
+  margin: -6px 0 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cb-ink-dim);
+}
+
 .copy-progress-dialog {
   width: min(380px, calc(100vw - 48px));
   max-height: min(520px, calc(100vh - 48px));

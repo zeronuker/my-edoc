@@ -70,23 +70,38 @@ export function wrapDroppedFile(file) {
 // folders there go through the older <input webkitdirectory> mechanism
 // instead: a one-time flat file list with relative paths, which we
 // rebuild into the same tree shape scanDirectory produces.
-export function pickFolderLegacy() {
+function openFileInput(configure) {
   return new Promise((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.webkitdirectory = true;
     input.multiple = true;
+    configure(input);
     input.style.display = "none";
     input.addEventListener("change", () => {
-      resolve(input.files);
+      resolve([...input.files]);
       input.remove();
     });
     input.addEventListener("cancel", () => {
-      reject(new Error("Folder selection cancelled"));
+      reject(new Error("File selection cancelled"));
       input.remove();
     });
     document.body.appendChild(input);
     input.click();
+  });
+}
+
+export function pickFolderLegacy() {
+  return openFileInput((input) => {
+    input.webkitdirectory = true;
+  });
+}
+
+// Plain multi-select of PDFs, for adding individual files into an already-
+// connected folder (see insertFilesIntoTree below). Must be called straight
+// from a click handler — the browser only allows opening a picker there.
+export function pickPdfFiles() {
+  return openFileInput((input) => {
+    input.accept = ".pdf,application/pdf";
   });
 }
 
@@ -130,6 +145,101 @@ export function buildTreeFromFileList(fileList, folderId = null) {
     dir.children.sort((a, b) => a.name.localeCompare(b.name));
   }
   return root;
+}
+
+// ---- Adding individual files into an already-connected folder ----
+// Paths below are directory paths within the connected root, e.g. "" for the
+// root itself or "Work/Q1". Names are matched case-insensitively since the
+// most common backing store (a Windows/Mac disk) is.
+
+// Every directory in the tree, root first — the "where should it go" list.
+export function listDirectoryPaths(tree) {
+  const out = [];
+  function walk(node, path) {
+    out.push(path);
+    for (const child of node.children) {
+      if (child.kind === "directory") walk(child, path ? `${path}/${child.name}` : child.name);
+    }
+  }
+  walk(tree, "");
+  return out;
+}
+
+function findDirectory(tree, path) {
+  let dir = tree;
+  for (const part of path ? path.split("/") : []) {
+    dir = dir?.children.find((c) => c.kind === "directory" && c.name === part);
+  }
+  return dir ?? null;
+}
+
+// The file nodes sitting directly inside `path` (empty if it doesn't exist).
+export function filesInDirectory(tree, path) {
+  return findDirectory(tree, path)?.children.filter((c) => c.kind === "file") ?? [];
+}
+
+// "a.pdf" -> "a (1).pdf" -> "a (2).pdf" ... first name not in `taken`
+// (a Set of lowercase names).
+export function uniqueFileName(name, taken) {
+  if (!taken.has(name.toLowerCase())) return name;
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  for (let n = 1; ; n++) {
+    const candidate = `${base} (${n})${ext}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+}
+
+// Decides the final name for each picked file. `existingNames` are the files
+// already in the destination; `choices[i]` is "replace" or (default) "keep"
+// for the i-th file. A replace reuses the existing file's exact name; every
+// other file gets a "(n)" suffix if its name is taken, including by an
+// earlier file in this same batch.
+export function planAddedFiles(files, existingNames, choices = {}) {
+  const taken = new Map(existingNames.map((n) => [n.toLowerCase(), n]));
+  return files.map((file, i) => {
+    const existing = taken.get(file.name.toLowerCase());
+    if (existing && choices[i] === "replace") return { file, name: existing, replaces: true };
+    const name = uniqueFileName(file.name, new Set(taken.keys()));
+    taken.set(name.toLowerCase(), name);
+    return { file, name, replaces: false };
+  });
+}
+
+// Returns a new tree with `fileNodes` placed in directory `path`, replacing
+// any same-named file already there. Only the directories along `path` are
+// copied; every other node is shared with the old tree.
+export function insertFilesIntoTree(tree, path, fileNodes) {
+  const parts = path ? path.split("/") : [];
+  const incoming = new Set(fileNodes.map((f) => f.name.toLowerCase()));
+  function rebuild(dir, depth) {
+    if (depth === parts.length) {
+      const kept = dir.children.filter((c) => !(c.kind === "file" && incoming.has(c.name.toLowerCase())));
+      return { ...dir, children: [...kept, ...fileNodes].sort((a, b) => a.name.localeCompare(b.name)) };
+    }
+    return {
+      ...dir,
+      children: dir.children.map((c) =>
+        c.kind === "directory" && c.name === parts[depth] ? rebuild(c, depth + 1) : c
+      ),
+    };
+  }
+  return rebuild(tree, 0);
+}
+
+// Desktop (live-handle) folders: writes `file` straight into the real folder
+// on disk, under directory `path` of the connected root. Needs readwrite
+// permission on rootHandle — see handleAddFiles in App.jsx. Returns the new
+// file's handle, in the same shape scanDirectory gives file nodes.
+export async function writeFileIntoFolder(rootHandle, path, name, file) {
+  let dir = rootHandle;
+  for (const part of path ? path.split("/") : []) dir = await dir.getDirectoryHandle(part);
+  const fileHandle = await dir.getFileHandle(name, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(file);
+  await writable.close();
+  return fileHandle;
 }
 
 // Flat, ordered list of a tree's file leaves — used to show the full file
