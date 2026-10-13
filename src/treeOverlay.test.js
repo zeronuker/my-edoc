@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyOverlay, collectFileHandles, emptyOverlay, flattenByKey, makeNodeKey, parseNodeKey } from "./treeOverlay.js";
+import {
+  applyOverlay,
+  collectFileHandles,
+  emptyOverlay,
+  flattenByKey,
+  makeNodeKey,
+  parseNodeKey,
+  unhideKeys,
+} from "./treeOverlay.js";
 
 function file(name) {
   return { name, kind: "file", handle: { name } };
@@ -108,4 +116,14 @@ test("parseNodeKey recovers a node's physical root and path from its key", () =>
 
 test("parseNodeKey prefers the longest matching root name", () => {
   assert.deepEqual(parseNodeKey("Lib:Old:sub", ["Lib", "Lib:Old"]), { rootName: "Lib:Old", relPath: "sub" });
+});
+
+test("unhideKeys brings a hidden file back and leaves other hidden nodes alone", () => {
+  const folders = [{ key: "k", tree: dir("Lib", [file("a.pdf"), file("b.pdf")]) }];
+  const hidden = { ...emptyOverlay, hidden: [makeNodeKey("Lib", "a.pdf"), makeNodeKey("Lib", "b.pdf")] };
+  const next = unhideKeys(hidden, [makeNodeKey("Lib", "a.pdf")]);
+  assert.deepEqual(next.hidden, [makeNodeKey("Lib", "b.pdf")]);
+  const [result] = applyOverlay(folders, next);
+  assert.deepEqual(result.tree.children.map((c) => c.name), ["a.pdf"]);
+  assert.deepEqual(hidden.hidden.length, 2);
 });

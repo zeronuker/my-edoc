@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dbGet, dbSet } from "./db.js";
-import { applyOverlay, emptyOverlay, flattenByKey } from "./treeOverlay.js";
+import { applyOverlay, emptyOverlay, flattenByKey, unhideKeys } from "./treeOverlay.js";
 
 // Owns the "hide / move / reorder" virtual layer on top of the real folder
 // trees — see treeOverlay.js. Shared by both TreeView (which renders it and
@@ -33,6 +33,10 @@ export function useTreeOverlay(folders) {
     setOverlay((prev) => ({ ...prev, hidden: [...prev.hidden, node.key] }));
   }
 
+  function unhideNodes(keys) {
+    setOverlay((prev) => unhideKeys(prev, keys));
+  }
+
   function dropNode(draggedKey, targetParentKey, index) {
     const nodesByKey = flattenByKey(displayFolders);
     const targetParent = nodesByKey.get(targetParentKey);
@@ -52,5 +56,5 @@ export function useTreeOverlay(folders) {
     }));
   }
 
-  return { displayFolders, hideNode, dropNode };
+  return { displayFolders, hideNode, unhideNodes, dropNode };
 }

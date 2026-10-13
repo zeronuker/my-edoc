@@ -30,7 +30,7 @@ import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { usePresence } from "./usePresence.js";
-import { collectFileHandles } from "./treeOverlay.js";
+import { collectFileHandles, makeNodeKey } from "./treeOverlay.js";
 import { dbGet, dbSet, dbDelete } from "./db.js";
 import {
   formatBytes,
@@ -180,7 +180,7 @@ function App() {
   // Shared between the sidebar tree (renders/edits it) and search (needs the
   // same filtered/reordered view so a hidden file doesn't still show up as a
   // result) — see useTreeOverlay.js.
-  const { displayFolders, hideNode, dropNode } = useTreeOverlay(folders.filter((f) => f.tree));
+  const { displayFolders, hideNode, unhideNodes, dropNode } = useTreeOverlay(folders.filter((f) => f.tree));
 
   // Restore last session: directory handles need a user gesture to
   // re-request permission in most browsers, so folders without it show
@@ -933,6 +933,12 @@ function App() {
           return next;
         });
         refreshStorageEstimate();
+        // Adding a file means wanting to see it: if an earlier copy with the
+        // same name had been hidden with ×, the new one would otherwise be
+        // saved but stay invisible (hidden is keyed by folder + path).
+        unhideNodes(
+          added.map((n) => makeNodeKey(target.tree.name, destPath ? `${destPath}/${n.name}` : n.name))
+        );
         // A replaced file that's open now shows stale bytes — close it, same
         // as when its folder is removed.
         handleFilesRemovedFromView(replacedHandles);

@@ -10,6 +10,14 @@ export function makeNodeKey(folderKey, relPath) {
   return `${folderKey}:${relPath}`;
 }
 
+// Un-hides the given node keys — used when a file is (re-)added, since
+// adding something means wanting to see it, even if an earlier copy of the
+// same name had been removed from view.
+export function unhideKeys(overlay, keys) {
+  const drop = new Set(keys);
+  return { ...overlay, hidden: (overlay.hidden || []).filter((k) => !drop.has(k)) };
+}
+
 // Inverse of makeNodeKey: which connected folder (by its root name) a node
 // key belongs to, and the node's path inside it — i.e. where it physically
 // lives, regardless of where the overlay moved it to in the displayed tree.
