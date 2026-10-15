@@ -14,11 +14,13 @@ export const SCROLL_MODE_BY_VIEW = {
   single: ScrollMode.PAGE,
   continuous: ScrollMode.VERTICAL,
   "two-up": ScrollMode.PAGE,
+  "two-up-continuous": ScrollMode.VERTICAL,
 };
 export const SPREAD_MODE_BY_VIEW = {
   single: SpreadMode.NONE,
   continuous: SpreadMode.NONE,
   "two-up": SpreadMode.ODD,
+  "two-up-continuous": SpreadMode.ODD,
 };
 
 export const MIN_SCALE = 0.25;
@@ -26,7 +28,7 @@ export const MAX_SCALE = 5;
 
 // Touch gestures: tap zones (single/two-up) to flip a page, horizontal
 // swipe (two-up only) to flip a spread, pinch (all modes) to zoom.
-// Continuous mode gets none of this — native scroll already does the
+// The two continuous modes get none of this — native scroll already does the
 // "swipe to move through the document" job.
 function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
   const pointers = new Map();
@@ -82,7 +84,7 @@ function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
     // near the margins.
     const annotating = !!annotationTool;
     const enableSwipe = viewMode === "two-up" && !annotating;
-    const enableTap = viewMode !== "continuous" && !annotating;
+    const enableTap = viewMode !== "continuous" && viewMode !== "two-up-continuous" && !annotating;
 
     if (enableSwipe && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
       if (dx < 0) pdfViewer.nextPage();

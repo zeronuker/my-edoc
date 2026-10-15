@@ -707,7 +707,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.9', date: 'Oct 2026', current: true, title: 'Disable auto-update setting',
+    v: 'v10.9', date: 'Oct 2026', title: 'Disable auto-update setting',
     notes: [
       "NEW: The floating + button opens a small menu: Add folder or Add files. Add files lets you pick one or more PDFs, choose where they go in a folder tree that matches the sidebar (the first folder's top level by default), and for any name that's already taken choose Replace or Keep both (saved as 'name (1).pdf'). Only the picked files are copied into the app — the rest of the folder isn't re-copied — with the same per-file progress list as adding a folder, and Cancel keeps whatever was already copied.",
       "NEW: Add folder now asks where to show the new folder — at the top level (as before) or inside any existing folder or subfolder, in a tree that matches the sidebar. A folder placed inside another is only shown there: it stays its own folder with its own copy, and has its own ×. Removing the folder it sits in puts it back at the top level.",
@@ -723,6 +723,12 @@ export const CHANGELOG = [
       "IMP: The floating page pill now also shows in continuous scroll mode, and is more transparent (less opaque, lighter blur) so it covers less of the page behind it.",
       "FIX: The selected file's tree guide line sat 1px right of its neighbours' because the selected row's border plus padding was 1px wider than a normal row's padding; the two now match.",
       "FIX: iPadOS 27 drew a blur over the top of the installed app (a system effect, not an app element) while the app extended under the status bar. Removed the apple-mobile-web-app-capable / status-bar-style tags and added a permanent 11px top-edge strip in the top bar's colour; the status bar now blends into the top bar. Needs the Home Screen icon removed and re-added once to take effect.",
+    ],
+  },
+  {
+    v: 'v10.10', date: 'Oct 2026', current: true, title: 'Two-page continuous view',
+    notes: [
+      'NEW: Two-page continuous page view. Pages sit side by side in pairs, like an open book, and you scroll down through the whole document. Pick it from the page view menu in the toolbar.',
     ],
   },
 ]

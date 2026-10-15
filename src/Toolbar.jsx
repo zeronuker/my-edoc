@@ -29,6 +29,7 @@ const VIEW_MODES = [
   { value: "single", label: "Single page" },
   { value: "continuous", label: "Continuous" },
   { value: "two-up", label: "Two-page" },
+  { value: "two-up-continuous", label: "Two-page continuous" },
 ];
 
 const READING_THEMES = [
@@ -183,6 +184,7 @@ export default function Toolbar({
             <option value="single">Single page</option>
             <option value="continuous">Continuous</option>
             <option value="two-up">Two-page</option>
+            <option value="two-up-continuous">Two-page continuous</option>
           </select>
 
           <span className="view-mode-dropdown dropdown" ref={viewModeMenu.ref}>
