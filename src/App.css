@@ -161,6 +161,27 @@ html,
   }
 }
 
+/* Colours, hover, press and update dot match superapp's settings button. */
+.toolbar .settings-toggle,
+.topbar .settings-toggle {
+  color: var(--cb-ink-dim);
+  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
+}
+.toolbar .settings-toggle:hover,
+.topbar .settings-toggle:hover {
+  border-color: var(--cb-blue);
+  color: var(--cb-ink-2);
+}
+.settings-toggle .update-dot {
+  top: -2px;
+  right: -2px;
+  background: var(--cb-mint);
+}
+@media (prefers-reduced-motion: reduce) {
+  .toolbar .settings-toggle,
+  .topbar .settings-toggle { transition: none; }
+}
+
 @media (max-width: 880px) {
   .toolbar .settings-toggle {
     display: none;
