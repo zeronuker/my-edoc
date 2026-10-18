@@ -10,12 +10,12 @@ import {
   IconRotate,
   IconRotateClockwise,
   IconMoon,
-  IconSettings,
   IconFileText,
   IconSearch,
   IconX,
   IconEdit,
 } from "@tabler/icons-react";
+import SettingsIcon from "@brand/SettingsIcon";
 import SearchBar from "./SearchBar.jsx";
 import { MIN_SCALE, MAX_SCALE } from "./PdfViewer.jsx";
 
@@ -445,7 +445,7 @@ export default function Toolbar({
             onClick={onOpenSettings}
             aria-label={settingsUpdateAvailable ? "Settings · update available" : "Settings"}
           >
-            <IconSettings size={16} />
+            <SettingsIcon size={16} />
             {settingsUpdateAvailable && <span className="update-dot" />}
           </button>
         </>

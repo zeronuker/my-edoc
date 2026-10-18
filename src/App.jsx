@@ -60,7 +60,6 @@ import {
   IconListTree,
   IconLayoutGrid,
   IconLayoutSidebar,
-  IconSettings,
   IconSearch,
   IconArrowLeft,
   IconChevronLeft,
@@ -80,6 +79,7 @@ import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
 import ChoiceModal from "./ChoiceModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
+import SettingsIcon from "@brand/SettingsIcon";
 import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
 import { useUpdate } from "@brand/useUpdate";
@@ -1203,7 +1203,7 @@ function App() {
         >
           {/* Gear's teeth-and-ring shape is optically lighter than the
               sidebar icon's solid rectangle at the same nominal size. */}
-          <IconSettings size={32} />
+          <SettingsIcon size={32} />
           {update.needRefresh && <span className="update-dot" />}
         </button>
       </div>
