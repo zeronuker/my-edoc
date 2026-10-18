@@ -140,11 +140,25 @@ html,
      from the left edge; nothing did the same on this side, so it sat
      flush against the screen edge. */
   margin-right: 16px;
-  /* Bigger box than .icon-btn's 32px base, settings-only — gives the
-     gear icon room to grow past 32px without .icon-btn's border/padding
-     clamping it back down. Sidebar-toggle stays at the 32px base. */
-  width: 42px;
-  height: 42px;
+}
+
+/* Settings box matches superapp's: 32px, 42px at <=880px. Wins over the
+   pointer:coarse 44px toolbar-button rule so touch devices match too. */
+.toolbar .settings-toggle,
+.topbar .settings-toggle {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+}
+@media (max-width: 880px) {
+  .toolbar .settings-toggle,
+  .topbar .settings-toggle {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
+  }
 }
 
 @media (max-width: 880px) {
