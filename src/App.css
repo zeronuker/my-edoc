@@ -1912,9 +1912,12 @@ html,
 }
 
 .settings-dialog {
-  width: min(360px, calc(100vw - 48px));
-  max-height: min(600px, calc(100vh - 48px));
-  overflow-y: auto;
+  width: min(560px, calc(100vw - 16px));
+  height: min(620px, calc(100dvh - 16px));
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .mode-picker-dialog {
@@ -2178,68 +2181,206 @@ html,
   white-space: nowrap;
 }
 
+/* Settings panel — layout mirrors superapp's SettingsPanel: header, tab rail
+   (wide) / tab strip (narrow), titled sections, segmented toggles. */
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--cb-line-2);
+  flex-shrink: 0;
+}
+
+.settings-header-title {
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--cb-mint);
+}
+
+.settings-close {
+  background: transparent;
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  color: var(--cb-ink-dim);
+  padding: 3px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.settings-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 150px;
+  flex-shrink: 0;
+  padding: 10px 8px;
+  border-right: 1px solid var(--cb-line-2);
+  overflow-y: auto;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--cb-radius-sm);
+  background: transparent;
+  color: var(--cb-ink-dim);
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-tab-icon { font-size: 14px; }
+
+.settings-tab.is-active {
+  background: color-mix(in srgb, var(--cb-mint) 14%, transparent);
+  color: var(--cb-mint);
+}
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+}
+
+.settings-section { margin-bottom: 24px; }
+
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--cb-mint);
+}
+
+.settings-section-line {
+  flex: 1;
+  height: 1px;
+  background: var(--cb-line-2);
+}
+
 .settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--cb-line);
+  margin-bottom: 12px;
 }
 
-.settings-row:last-child {
-  border-bottom: none;
-}
-
-.settings-row label {
-  font-size: 13px;
-  color: var(--cb-ink-2);
-}
-
-.settings-row select {
-  font-family: inherit;
-  background: var(--cb-surface-2);
-  color: var(--cb-ink);
-  border: 1px solid var(--cb-line-2);
-  border-radius: var(--cb-radius-sm);
-}
-
-.settings-actions {
-  margin-top: 16px;
-}
-
-.settings-section-head {
+.settings-row-label {
   font-family: var(--cb-font-mono);
   font-size: 10px;
-  letter-spacing: 0.14em;
-  color: var(--cb-ink-dim);
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--cb-line);
-}
-
-.settings-value {
-  font-family: var(--cb-font-mono);
-  font-size: 13px;
+  letter-spacing: 0.12em;
   color: var(--cb-ink-dim);
 }
 
-.settings-update-row {
+.settings-seg {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 0;
+  flex-shrink: 0;
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  overflow: hidden;
+}
+
+.settings-seg button {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--cb-line-2);
+  color: var(--cb-ink-dim);
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 5px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.settings-seg button:last-child { border-right: none; }
+
+.settings-seg button.is-active {
+  background: color-mix(in srgb, var(--cb-mint) 14%, transparent);
+  color: var(--cb-mint);
+}
+
+.settings-meta {
+  font-family: var(--cb-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--cb-ink-dim);
+  margin-bottom: 8px;
+}
+
+.settings-wide-btn {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 8px;
 }
 
 .settings-update-status {
   font-family: var(--cb-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 9px;
+  letter-spacing: 0.12em;
   color: var(--cb-ink-dim);
+  text-align: center;
+  margin-bottom: 12px;
 }
 
 .settings-update-status--available {
   color: var(--cb-mint);
+}
+
+.settings-foot {
+  text-align: center;
+  font-family: var(--cb-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--cb-ink-dim);
+}
+
+/* Narrow: tab rail becomes a strip across the top. */
+@media (max-width: 767px) {
+  .settings-layout { flex-direction: column; }
+  .settings-tabs {
+    flex-direction: row;
+    width: auto;
+    padding: 0;
+    gap: 0;
+    border-right: none;
+    border-bottom: 1px solid var(--cb-line-2);
+    overflow: visible;
+  }
+  .settings-tab {
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+    padding: 10px 4px;
+    min-height: 52px;
+    font-size: 9px;
+  }
+  .settings-tab.is-active { border-bottom-color: var(--cb-mint); }
+  .settings-tab-icon { font-size: 15px; }
+  .settings-content { padding: 16px; }
 }
 
 
