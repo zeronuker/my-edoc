@@ -249,6 +249,71 @@ html,
   display: block;
 }
 
+/* Narrow phones: the topbar carries only the title. Both buttons live in the
+   toolbar instead, in the desktop order: sidebar, page view, zoom group, more
+   view, bookmark, annotate, reading theme, search, settings (the orders above
+   already put search before zoom, so search and settings are pushed to the end). */
+@media (max-width: 520px) {
+  .toolbar .search-wrap {
+    order: 8;
+  }
+
+  .toolbar .settings-toggle {
+    order: 9;
+  }
+
+  /* Tidy grid: both rows start at the same left edge, every control is 44px
+     tall and the gap is the toolbar's 8px (no extra .icon-btn margin). */
+  .toolbar .sidebar-toggle,
+  .toolbar .settings-toggle {
+    margin-left: 0;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .toolbar .view-mode-select {
+    width: 44px;
+    height: 44px;
+  }
+
+  .toolbar .zoom-pill button {
+    height: 42px; /* + the pill's 1px borders = 44px */
+    min-height: 42px;
+  }
+
+  .toolbar .zoom {
+    gap: 8px;
+  }
+
+  .topbar .sidebar-toggle,
+  .topbar .settings-toggle {
+    display: none;
+  }
+
+  .topbar {
+    justify-content: flex-start;
+  }
+
+  /* brand.css gives the banner 12px of side padding on phones; 8px lines the
+     logo up with the toolbar's left edge below it. */
+  .topbar .cb-banner {
+    padding-left: 8px !important;
+  }
+
+  .toolbar .sidebar-toggle,
+  .toolbar .settings-toggle {
+    display: inline-flex;
+  }
+
+  .toolbar .sidebar-toggle + .toolbar-divider,
+  .app.is-phone .toolbar .sidebar-toggle + .toolbar-divider,
+  .toolbar-divider:has(+ .settings-toggle) {
+    display: none;
+  }
+}
+
 /* No extra padding needed here — BrandBanner already carries its own
    20px left padding (see brand-kit/component/BrandBanner.jsx), which is
    plenty of edge breathing room once the toggle's own 8px margin is gone
@@ -590,6 +655,23 @@ html,
   .reading-theme .dropdown-menu {
     left: auto;
     right: 0;
+  }
+
+  /* On a phone the toolbar wraps, so these buttons can land anywhere (left,
+     middle or right) and the right-anchored menu spills off the left edge.
+     Anchor the menu to the toolbar instead: below it, 8px from the left. */
+  @media (max-width: 520px) {
+    .annotate.dropdown,
+    .reading-theme.dropdown {
+      position: static;
+    }
+
+    .annotate .dropdown-menu,
+    .reading-theme .dropdown-menu {
+      left: 8px;
+      right: auto;
+      top: calc(100% + 4px);
+    }
   }
 
   .zoom {
