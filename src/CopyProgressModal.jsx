@@ -1,4 +1,5 @@
 import { progressWindow } from "./appHelpers.js";
+import ChamferFrame from "@brand/ChamferFrame";
 
 // Shown while files are being copied into the app's storage — on Add folder,
 // Update and Add files. Only a short window of rows around the file being
@@ -12,7 +13,7 @@ export default function CopyProgressModal({ title, folderName, files, doneCount,
   return (
     <>
       <div className="modal-backdrop" />
-      <div className="modal-dialog copy-progress-dialog">
+      <ChamferFrame className="modal-dialog copy-progress-dialog">
         <div className="update-dialog-header">
           <span className={`copy-progress-icon${doneCount === files.length ? " done" : ""}`} />
           <div>
@@ -61,7 +62,7 @@ export default function CopyProgressModal({ title, folderName, files, doneCount,
             Cancel
           </button>
         </div>
-      </div>
+      </ChamferFrame>
     </>
   );
 }

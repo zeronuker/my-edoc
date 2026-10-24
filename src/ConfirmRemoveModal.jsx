@@ -1,3 +1,4 @@
+import ChamferFrame from "@brand/ChamferFrame";
 // Same modal shell as the other dialogs. Asked before the tree's × does
 // anything. `request` is { name, kind, count }: the × deletes the app's own
 // copy of the file(s) — the user's original files are never touched, and
@@ -21,7 +22,7 @@ export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, 
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={busy ? undefined : onClose} />
-      <div className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <span className="update-dialog-icon">×</span>
           <div>
@@ -43,7 +44,7 @@ export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, 
             {busy ? "Removing…" : "Remove"}
           </button>
         </div>
-      </div>
+      </ChamferFrame>
     </>
   );
 }

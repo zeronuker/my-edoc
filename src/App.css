@@ -1935,11 +1935,7 @@ html,
   transform: translate(-50%, -50%);
   z-index: 9999;
   width: min(320px, calc(100vw - 48px));
-  background: var(--cb-surface-1);
-  border: 1px solid var(--cb-line-2);
-  border-radius: var(--cb-radius-lg);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
-  padding: 24px 22px 20px;
+  --cf-pad: 24px 22px 20px;
   font-family: var(--cb-font-body);
   animation: ed-pop var(--ed-dur, 180ms) ease both;
 }
@@ -1996,11 +1992,10 @@ html,
 .settings-dialog {
   width: min(560px, calc(100vw - 16px));
   height: min(620px, calc(100dvh - 16px));
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  --cf-pad: 0;
 }
+
+.settings-dialog .cf-l4 { overflow: hidden; }
 
 .mode-picker-dialog {
   width: min(380px, calc(100vw - 48px));
@@ -2009,8 +2004,6 @@ html,
 .add-files-dialog {
   width: min(400px, calc(100vw - 48px));
   max-height: min(560px, calc(100vh - 48px));
-  display: flex;
-  flex-direction: column;
 }
 
 .add-files-label {
@@ -2171,8 +2164,6 @@ html,
 .copy-progress-dialog {
   width: min(380px, calc(100vw - 48px));
   max-height: min(520px, calc(100vh - 48px));
-  display: flex;
-  flex-direction: column;
 }
 
 .copy-progress-icon {
@@ -2448,11 +2439,10 @@ html,
     transform: none;
     width: 100%;
     height: 100dvh;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    /* a full-screen sheet has no edge to frame: no cut corners, and the lines blend into the fill */
+    --cf-c: 0px;
+    --cf-line: var(--cb-surface-1);
+    --cf-pad: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   }
   @media (prefers-reduced-motion: no-preference) {
     .modal-dialog.settings-dialog { animation: ed-sheet-up var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) backwards; }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { displayedPath } from "./treeOverlay.js";
 import DestinationTree from "./DestinationTree.jsx";
+import ChamferFrame from "@brand/ChamferFrame";
 
 // Same modal shell as AddFilesModal.jsx. Shown after the user has picked a
 // folder with + → Add folder (and at least one folder is already connected):
@@ -26,7 +27,7 @@ export default function PlaceFolderModal({ folderName, folders, onConfirm, onClo
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
-      <div className={`modal-dialog add-files-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog add-files-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <span className="update-dialog-icon">+</span>
           <div>
@@ -57,7 +58,7 @@ export default function PlaceFolderModal({ folderName, folders, onConfirm, onClo
             Add folder
           </button>
         </div>
-      </div>
+      </ChamferFrame>
     </>
   );
 }

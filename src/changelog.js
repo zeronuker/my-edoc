@@ -731,6 +731,7 @@ export const CHANGELOG = [
       'NEW: Two-page continuous page view. Pages sit side by side in pairs, like an open book, and you scroll down through the whole document. Pick it from the page view menu in the toolbar.',
       'FIX: On phones the Reading theme and Annotate menus could open partly off the left edge of the screen, out of reach. They now open below the toolbar, inside the screen.',
       'IMP: On phones the top bar now shows only the title, aligned to the left. The sidebar and Settings buttons moved into the toolbar, which follows the desktop order and sits in two even rows.',
+      'IMP: Settings and every dialog now share one look: a double-line border with cut corners that follows the theme.',
     ],
   },
 ]

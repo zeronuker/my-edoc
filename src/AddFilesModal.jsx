@@ -3,6 +3,7 @@ import { filesInDirectory, planAddedFiles } from "./fileSystem.js";
 import { freeSpaceWarning } from "./appHelpers.js";
 import { displayedPath, parseNodeKey } from "./treeOverlay.js";
 import DestinationTree from "./DestinationTree.jsx";
+import ChamferFrame from "@brand/ChamferFrame";
 
 // Same modal shell as ConfirmRemoveModal.jsx. Shown after the user has
 // picked PDFs from the sidebar's floating + menu → "Add files": the
@@ -54,7 +55,7 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={busy ? undefined : onClose} />
-      <div className={`modal-dialog add-files-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog add-files-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <span className="update-dialog-icon">+</span>
           <div>
@@ -121,7 +122,7 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
             {busy ? "Adding…" : `Add ${files.length} file${files.length === 1 ? "" : "s"}`}
           </button>
         </div>
-      </div>
+      </ChamferFrame>
     </>
   );
 }

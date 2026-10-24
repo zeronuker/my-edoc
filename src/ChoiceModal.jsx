@@ -1,3 +1,4 @@
+import ChamferFrame from "@brand/ChamferFrame";
 // A small "pick one" dialog, same shell as the other modals. `actions` is
 // [{ label, value, primary? }]; Cancel is always offered and resolves
 // undefined. Used where the app has to ask something before it goes on —
@@ -8,7 +9,7 @@ export default function ChoiceModal({ spec, onChoose, onClose, closing }) {
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
-      <div className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <span className="update-dialog-icon">?</span>
           <div>
@@ -40,7 +41,7 @@ export default function ChoiceModal({ spec, onChoose, onClose, closing }) {
             </button>
           ))}
         </div>
-      </div>
+      </ChamferFrame>
     </>
   );
 }

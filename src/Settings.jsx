@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CHANGELOG } from "./changelog";
 import Changelog, { currentVersion } from "@brand/Changelog";
 import { useTransitionAnim } from "./useTransitionAnim.js";
+import ChamferFrame from "@brand/ChamferFrame";
 
 // Single source of truth: the app's displayed version is always the newest
 // changelog entry, so it can never drift out of sync with a hand-maintained
@@ -58,7 +59,7 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
-      <div
+      <ChamferFrame
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
@@ -228,7 +229,7 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
             </div>
           </div>
         </div>
-      </div>
+      </ChamferFrame>
     </>
   );
 }
