@@ -331,11 +331,25 @@ function App() {
     const sidebar = app.querySelector(".sidebar");
     const topbar = app.querySelector(".topbar");
     const row = app.querySelector(".app-row");
-    if (!sidebar || !topbar || !row) return undefined;
+    const main = app.querySelector(".main");
+    if (!sidebar || !topbar || !row || !main) return undefined;
 
     const opts = { duration: ms, easing: "cubic-bezier(.4, 0, .2, 1)" };
     const undo = [];
+    // The reading panel keeps its final layout and slides from where it used
+    // to sit (transform only, so pdf.js doesn't re-layout mid-animation). The
+    // row clips meanwhile so the offset panel can't spawn page scrollbars.
+    const slideMain = (dx, dy) => {
+      const a = main.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], opts);
+      row.style.overflow = "clip";
+      // cancel/finish events fire async: a newer slide may already own the clip.
+      const unclip = () => { if (!main.getAnimations().length) row.style.overflow = ""; };
+      a.onfinish = unclip;
+      a.oncancel = unclip;
+      undo.push(() => a.cancel());
+    };
     if (sidebarOpen) {
+      slideMain(-sidebar.offsetWidth, -topbarHeightRef.current);
       const a1 = sidebar.animate([{ transform: "translateX(-100%)" }, { transform: "none" }], opts);
       const a2 = topbar.animate([{ transform: "translateY(-100%)" }, { transform: "none" }], opts);
       undo.push(() => { a1.cancel(); a2.cancel(); });
@@ -353,6 +367,7 @@ function App() {
       tc.setAttribute("aria-hidden", "true");
       Object.assign(tc.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${h}px` });
       document.body.append(sc, tc);
+      slideMain(sc.offsetWidth, h);
       const a1 = sc.animate([{ transform: "none" }, { transform: "translateX(-100%)" }], { ...opts, fill: "forwards" });
       const a2 = tc.animate([{ transform: "none" }, { transform: "translateY(-100%)" }], { ...opts, fill: "forwards" });
       a1.onfinish = () => sc.remove();

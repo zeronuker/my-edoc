@@ -2667,6 +2667,13 @@ html,
   color: var(--cb-mint);
 }
 
+.settings-note {
+  font-family: var(--cb-font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--cb-ink-dim);
+}
+
 .settings-foot {
   text-align: center;
   font-family: var(--cb-font-mono);

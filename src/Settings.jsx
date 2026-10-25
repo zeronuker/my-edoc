@@ -141,6 +141,9 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
                         </Row>
                       </>
                     )}
+                    <div className="settings-note">
+                      Animations are also turned off when your device has reduced motion enabled.
+                    </div>
                   </Section>
                 </>
               )}
