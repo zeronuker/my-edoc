@@ -249,6 +249,11 @@ html,
   display: block;
 }
 
+/* Phone-only trigger for the toolbar drawer. */
+.topbar .toolbar-toggle {
+  display: none;
+}
+
 /* Narrow phones: the topbar carries only the title. Both buttons live in the
    toolbar instead, in the desktop order: sidebar, page view, zoom group, more
    view, bookmark, annotate, reading theme, search, settings (the orders above
@@ -311,6 +316,14 @@ html,
   .app.is-phone .toolbar .sidebar-toggle + .toolbar-divider,
   .toolbar-divider:has(+ .settings-toggle) {
     display: none;
+  }
+
+  .topbar .toolbar-toggle {
+    display: inline-flex;
+    margin-left: auto;
+    margin-right: 8px;
+    width: 42px;
+    height: 42px;
   }
 }
 
@@ -1160,7 +1173,8 @@ html,
    window (which would drift off-center whenever the sidebar is open).
    env(safe-area-inset-bottom) clears the home-gesture bar on notched
    phones. */
-.page-pill {
+.page-pill,
+.sidebar-pill {
   position: absolute;
   left: 50%;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
@@ -1176,6 +1190,239 @@ html,
   border: 1px solid var(--cb-line-2);
   border-radius: 999px;
   box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.45);
+}
+
+/* Phone-only floating sidebar toggle, bottom-left in the page pill's style:
+   solid on the empty screen, translucent like the pill once a doc is open. */
+.sidebar-pill {
+  display: none;
+  left: 16px;
+  transform: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--cb-ink-2);
+  cursor: pointer;
+}
+
+.sidebar-pill:not(.over-doc) {
+  background: var(--cb-surface-2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (max-width: 520px) {
+  .sidebar-pill {
+    display: inline-flex;
+  }
+}
+
+/* Phone toolbar: right-side drawer, same slide + backdrop as the sidebar (the
+   backdrop reuses .sidebar-backdrop). Only rendered at <=520px (Toolbar.jsx). */
+.toolbar-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 85vw;
+  max-width: 304px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 8px;
+  overflow-y: auto;
+  background: var(--cb-surface-1);
+  border-left: 1px solid var(--cb-line);
+  color: var(--cb-ink-2);
+  font-family: var(--cb-font-mono);
+  font-size: 12px;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform var(--ed-dur, 200ms) ease, visibility 0s linear var(--ed-dur, 200ms);
+}
+
+.toolbar-drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform var(--ed-dur, 200ms) ease, visibility 0s;
+}
+
+.toolbar-drawer > * {
+  flex-shrink: 0;
+}
+
+.td-head {
+  display: flex;
+  gap: 8px;
+}
+
+.td-search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 8px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+}
+
+.td-search .search-bar {
+  flex: 1;
+  min-width: 0;
+  margin-left: 0;
+  gap: 2px;
+}
+
+.td-search .search-bar input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--cb-ink);
+  font: inherit;
+  outline: none;
+}
+
+.td-search .search-bar button,
+.td-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.td-close {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+}
+
+.td-label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cb-ink-dim);
+}
+
+.td-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.td-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.td-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.td-cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+.td-chip,
+.td-row,
+.td-zoom {
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  color: var(--cb-ink-2);
+  font: inherit;
+}
+
+.td-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 4px;
+  cursor: pointer;
+}
+
+.td-chip.on,
+.td-row.on {
+  background: var(--cb-surface-3);
+  border-color: var(--cb-mint);
+  color: var(--cb-mint);
+}
+
+.td-chip:disabled,
+.td-row:disabled {
+  color: var(--cb-ink-dim);
+  cursor: default;
+}
+
+.td-save {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.td-zoom {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.td-zoom button {
+  flex: none;
+  width: 52px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.td-zoom span {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 1px solid var(--cb-line-2);
+  border-right: 1px solid var(--cb-line-2);
+  color: var(--cb-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.td-slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin-top: 8px;
+}
+
+.td-slider input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--cb-mint);
+}
+
+.td-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.td-row-icon {
+  position: relative;
+  display: inline-flex;
 }
 
 .page-pill button {

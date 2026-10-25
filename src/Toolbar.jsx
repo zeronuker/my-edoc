@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { animDurationMs } from "./useTransitionAnim.js";
 import {
   IconLayoutSidebar,
@@ -92,7 +92,15 @@ function useDropdown() {
   return { open, closing, setOpen, ref };
 }
 
-export default function Toolbar({
+function fitTo(pdfViewer, value) {
+  if (pdfViewer) pdfViewer.currentScaleValue = value;
+}
+
+function rotateBy(pdfViewer, degrees) {
+  if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + degrees) % 360;
+}
+
+function DesktopToolbar({
   viewMode,
   setViewMode,
   scale,
@@ -264,7 +272,7 @@ export default function Toolbar({
             <div className={`dropdown-menu${viewMenu.closing ? " is-closing" : ""}`}>
               <button
                 onClick={() => {
-                  if (pdfViewer) pdfViewer.currentScaleValue = "page-width";
+                  fitTo(pdfViewer, "page-width");
                   viewMenu.setOpen(false);
                 }}
               >
@@ -272,7 +280,7 @@ export default function Toolbar({
               </button>
               <button
                 onClick={() => {
-                  if (pdfViewer) pdfViewer.currentScaleValue = "page-fit";
+                  fitTo(pdfViewer, "page-fit");
                   viewMenu.setOpen(false);
                 }}
               >
@@ -282,7 +290,7 @@ export default function Toolbar({
               <button
                 aria-label="Rotate left"
                 onClick={() => {
-                  if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 270) % 360;
+                  rotateBy(pdfViewer, 270);
                   viewMenu.setOpen(false);
                 }}
               >
@@ -291,7 +299,7 @@ export default function Toolbar({
               <button
                 aria-label="Rotate right"
                 onClick={() => {
-                  if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + 90) % 360;
+                  rotateBy(pdfViewer, 90);
                   viewMenu.setOpen(false);
                 }}
               >
@@ -451,5 +459,178 @@ export default function Toolbar({
         </>
       )}
     </div>
+  );
+}
+
+// Keep in sync with the narrow-phone breakpoint in App.css.
+const PHONE_QUERY = "(max-width: 520px)";
+
+function subscribePhone(onChange) {
+  const mq = window.matchMedia(PHONE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function Chips({ options, value, onPick, disabled, cols }) {
+  return (
+    <div className={`td-grid td-cols-${cols}`}>
+      {options.map(({ value: v, label }) => (
+        <button
+          key={v}
+          className={`td-chip${value === v ? " on" : ""}`}
+          aria-pressed={value === v}
+          disabled={disabled}
+          onClick={() => onPick(v)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Phone layout: the same controls as the toolbar, laid out as a right-side
+// drawer (opened from the topbar's ⋮) instead of a row of icon buttons.
+function PhoneDrawer({
+  open,
+  onClose,
+  viewMode,
+  setViewMode,
+  scale,
+  numPages,
+  pdfViewer,
+  eventBus,
+  readingTheme,
+  onChangeReadingTheme,
+  readingBrightness,
+  onChangeReadingBrightness,
+  readingContrast,
+  onChangeReadingContrast,
+  isBookmarked,
+  onToggleBookmark,
+  annotationTool,
+  onSetAnnotationTool,
+  hasUnsavedAnnotations,
+  onSaveAnnotations,
+  onOpenSettings,
+  settingsUpdateAvailable,
+}) {
+  return (
+    <div className={`toolbar-drawer${open ? " open" : ""}`}>
+      <div className="td-head">
+        <div className="td-search">
+          <SearchBar eventBus={eventBus} />
+        </div>
+        <button className="td-close" aria-label="Close" onClick={onClose}>
+          <IconX size={16} />
+        </button>
+      </div>
+
+      <section>
+        <p className="td-label">Page view</p>
+        <Chips options={VIEW_MODES} value={viewMode} onPick={setViewMode} cols={2} />
+      </section>
+
+      <section>
+        <p className="td-label">Zoom</p>
+        <div className="td-zoom">
+          <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
+            <IconZoomOut size={18} />
+          </button>
+          <span>{Math.round(scale * 100)}%</span>
+          <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
+            <IconZoomIn size={18} />
+          </button>
+        </div>
+        <div className="td-grid td-cols-4">
+          <button className="td-chip" onClick={() => fitTo(pdfViewer, "page-width")}>Fit width</button>
+          <button className="td-chip" onClick={() => fitTo(pdfViewer, "page-fit")}>Fit page</button>
+          <button className="td-chip" aria-label="Rotate left" onClick={() => rotateBy(pdfViewer, 270)}>
+            <IconRotate size={18} />
+          </button>
+          <button className="td-chip" aria-label="Rotate right" onClick={() => rotateBy(pdfViewer, 90)}>
+            <IconRotateClockwise size={18} />
+          </button>
+        </div>
+      </section>
+
+      <section>
+        <p className="td-label">Annotate</p>
+        <Chips
+          options={ANNOTATE_TOOLS.map(({ tool, label }) => ({ value: tool, label }))}
+          value={annotationTool}
+          onPick={(tool) => onSetAnnotationTool(annotationTool === tool ? null : tool)}
+          disabled={!numPages}
+          cols={3}
+        />
+        <button className="td-chip td-save" disabled={!hasUnsavedAnnotations} onClick={onSaveAnnotations}>
+          Save annotations
+        </button>
+      </section>
+
+      <section>
+        <p className="td-label">Reading theme</p>
+        <Chips options={READING_THEMES} value={readingTheme} onPick={onChangeReadingTheme} cols={3} />
+        <label className="td-slider">
+          <span>Brightness</span>
+          <span>{readingBrightness}%</span>
+          <input
+            type="range"
+            min={50}
+            max={150}
+            value={readingBrightness}
+            aria-label="Reading brightness"
+            onChange={(e) => onChangeReadingBrightness(Number(e.target.value))}
+          />
+        </label>
+        <label className="td-slider">
+          <span>Contrast</span>
+          <span>{readingContrast}%</span>
+          <input
+            type="range"
+            min={50}
+            max={150}
+            value={readingContrast}
+            aria-label="Reading contrast"
+            onChange={(e) => onChangeReadingContrast(Number(e.target.value))}
+          />
+        </label>
+      </section>
+
+      <button
+        className={`td-row${isBookmarked ? " on" : ""}`}
+        aria-pressed={isBookmarked}
+        disabled={!numPages}
+        onClick={onToggleBookmark}
+      >
+        {isBookmarked ? <IconBookmarkFilled size={18} /> : <IconBookmark size={18} />}
+        {isBookmarked ? "Remove bookmark for this page" : "Bookmark this page"}
+      </button>
+      <button
+        className="td-row"
+        onClick={() => {
+          onClose();
+          onOpenSettings();
+        }}
+      >
+        <span className="td-row-icon">
+          <SettingsIcon size={18} />
+          {settingsUpdateAvailable && <span className="update-dot" />}
+        </span>
+        {settingsUpdateAvailable ? "Settings · update available" : "Settings"}
+      </button>
+    </div>
+  );
+}
+
+export default function Toolbar({ drawerOpen, onCloseDrawer, ...props }) {
+  const phone = useSyncExternalStore(
+    subscribePhone,
+    () => window.matchMedia(PHONE_QUERY).matches,
+  );
+  return phone ? (
+    <PhoneDrawer open={drawerOpen} onClose={onCloseDrawer} {...props} />
+  ) : (
+    <DesktopToolbar {...props} />
   );
 }

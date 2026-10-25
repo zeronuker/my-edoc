@@ -64,6 +64,7 @@ import {
   IconArrowLeft,
   IconChevronLeft,
   IconChevronRight,
+  IconDotsVertical,
 } from "@tabler/icons-react";
 import TreeView from "./TreeView.jsx";
 import SearchResults from "./SearchResults.jsx";
@@ -129,6 +130,8 @@ function App() {
   // Phone starts with the drawer closed; iPad and desktop start with the
   // sidebar expanded, regardless of window width.
   const [sidebarOpen, setSidebarOpen] = useState(() => !IS_MOBILE);
+  // Narrow phones only (CSS-gated): the toolbar becomes a right-side drawer.
+  const [toolbarOpen, setToolbarOpen] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsClosing, setSettingsClosing] = useState(false);
@@ -1204,6 +1207,14 @@ function App() {
           <SettingsIcon size={16} />
           {update.needRefresh && <span className="update-dot" />}
         </button>
+        <button
+          className="icon-btn toolbar-toggle"
+          onClick={() => setToolbarOpen(true)}
+          aria-label="View options"
+          aria-expanded={toolbarOpen}
+        >
+          <IconDotsVertical size={16} />
+        </button>
       </div>
       </div>
       <div className="app-row">
@@ -1384,7 +1395,10 @@ function App() {
           </div>
         </aside>
         <main className="main">
+          <div className={`sidebar-backdrop${toolbarOpen ? " open" : ""}`} onClick={() => setToolbarOpen(false)} />
           <Toolbar
+            drawerOpen={toolbarOpen}
+            onCloseDrawer={() => setToolbarOpen(false)}
             viewMode={viewMode}
             setViewMode={setViewMode}
             sidebarOpen={sidebarOpen}
@@ -1542,6 +1556,14 @@ function App() {
               </button>
             </div>
           )}
+          <button
+            className={`sidebar-pill${pdf && !loading ? " over-doc" : ""}`}
+            onClick={() => setSidebarOpen((v) => !v)}
+            aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+            aria-pressed={sidebarOpen}
+          >
+            <IconLayoutSidebar size={16} />
+          </button>
         </main>
       </div>
     </div>
