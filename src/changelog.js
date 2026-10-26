@@ -761,9 +761,15 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.4', date: 'Oct 2026', current: true, title: 'Tabs come back after a restart',
+    v: 'v11.4', date: 'Oct 2026', title: 'Tabs come back after a restart',
     notes: [
       'NEW: With Reading → Resume last position on, the app reopens every tab you had open, with the same one in front, instead of only the last file. Files you dropped onto the window are not brought back (there is no saved copy to reopen), and tabs for files that have since been removed are skipped.',
+    ],
+  },
+  {
+    v: 'v11.5', date: 'Oct 2026', current: true, title: 'Toolbar menus over the tabs',
+    notes: [
+      'FIX: The Annotate, Zoom, ⋯ and Reading theme menus opened partly hidden behind the tab row. They now open on top of it.',
     ],
   },
 ]

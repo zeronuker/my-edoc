@@ -413,7 +413,7 @@ html,
 
 .toolbar {
   position: relative;
-  z-index: 1; /* stay above .viewer-empty, which is absolutely positioned over the rest of .main */
+  z-index: 2; /* stay above .viewer-empty, which is absolutely positioned over the rest of .main, and above .tab-bar so its dropdowns open over the tabs */
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
