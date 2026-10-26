@@ -2408,6 +2408,40 @@ html,
   min-width: 30%;
 }
 
+/* Document properties: label / value pairs, values wrap instead of widening
+   the dialog. */
+.docinfo-list {
+  margin: 0 0 18px;
+  max-height: min(380px, calc(100vh - 220px));
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.docinfo-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--cb-line);
+}
+
+.docinfo-row dt {
+  color: var(--cb-ink-dim);
+}
+
+.docinfo-row dd {
+  margin: 0;
+  color: var(--cb-ink);
+  overflow-wrap: anywhere;
+}
+
+/* The "more" menu sits at the toolbar's right edge, so its menu grows
+   leftwards from the trigger instead of spilling off-screen. */
+.more .dropdown-menu {
+  left: auto;
+  right: 0;
+}
+
 .copy-progress-dialog {
   width: min(380px, calc(100vw - 48px));
   max-height: min(520px, calc(100vh - 48px));

@@ -85,6 +85,61 @@ export function buildReadingFilter(theme, brightness, contrast) {
   return parts.length ? parts.join(" ") : "none";
 }
 
+// PDF dates look like "D:20240102030405+05'30'" (every part after the year is
+// optional). Returns a Date, or null when it isn't one. A missing zone is read
+// as UTC — the spec says local time, but the day is what the dialog shows.
+export function parsePdfDate(str) {
+  const m = /^D:(\d{4})(\d\d)?(\d\d)?(\d\d)?(\d\d)?(\d\d)?(?:Z|([+-])(\d\d)'?(\d\d)?)?/.exec(str ?? "");
+  if (!m) return null;
+  const [, y, mo = "01", d = "01", h = "00", mi = "00", s = "00", sign, oh = "00", om = "00"] = m;
+  const offsetMin = (sign === "-" ? -1 : 1) * (+oh * 60 + +om);
+  const date = new Date(Date.UTC(+y, mo - 1, +d, +h, +mi, +s) - offsetMin * 60000);
+  return isNaN(date) ? null : date;
+}
+
+const PAPER_SIZES = [
+  ["A3", 842, 1191],
+  ["A4", 595, 842],
+  ["A5", 420, 595],
+  ["Letter", 612, 792],
+  ["Legal", 612, 1008],
+];
+
+// A page's size in points (1/72 in) as "A4 · 210 × 297 mm" — the paper name
+// only when it matches a common one (either orientation, within 3pt).
+export function pageSizeLabel(widthPt, heightPt) {
+  const [short, long] = widthPt < heightPt ? [widthPt, heightPt] : [heightPt, widthPt];
+  const paper = PAPER_SIZES.find(([, w, h]) => Math.abs(w - short) <= 3 && Math.abs(h - long) <= 3);
+  const mm = (pt) => Math.round((pt * 25.4) / 72);
+  return `${paper ? `${paper[0]} · ` : ""}${mm(widthPt)} × ${mm(heightPt)} mm`;
+}
+
+const DATE_FORMAT = { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
+
+// The rows of the Document properties dialog; anything the file doesn't say
+// is left out rather than shown blank. `info` is pdf.js's getMetadata().info.
+export function docInfoRows({ name, info = {}, numPages, pageSize, bytes }) {
+  const date = (str) => parsePdfDate(str)?.toLocaleString(undefined, DATE_FORMAT);
+  return [
+    ["File name", name],
+    ["Title", info.Title],
+    ["Author", info.Author],
+    ["Subject", info.Subject],
+    ["Keywords", info.Keywords],
+    ["Pages", numPages != null ? String(numPages) : null],
+    ["Page size", pageSize],
+    ["File size", bytes != null ? formatBytes(bytes) : null],
+    ["Created", date(info.CreationDate)],
+    ["Modified", date(info.ModDate)],
+    ["Created with", info.Creator],
+    ["PDF producer", info.Producer],
+    ["PDF version", info.PDFFormatVersion],
+    ["Fillable form", info.IsAcroFormPresent ? "Yes" : null],
+  ]
+    .filter(([, value]) => value)
+    .map(([label, value]) => ({ label, value }));
+}
+
 // One color per nesting depth (root, then each level under it), cycling
 // back to the start past the 5th level. A file has no depth-color of its
 // own — it takes its parent folder's color, tinted toward white so the

@@ -726,12 +726,18 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.10', date: 'Oct 2026', current: true, title: 'Two-page continuous view',
+    v: 'v10.10', date: 'Oct 2026', title: 'Two-page continuous view',
     notes: [
       'NEW: Two-page continuous page view. Pages sit side by side in pairs, like an open book, and you scroll down through the whole document. Pick it from the page view menu in the toolbar.',
       'FIX: On phones the Reading theme and Annotate menus could open partly off the left edge of the screen, out of reach. They now open below the toolbar, inside the screen.',
       'IMP: On phones the top bar now shows only the title, aligned to the left. The sidebar and Settings buttons moved into the toolbar, which follows the desktop order and sits in two even rows.',
       'IMP: Settings and every dialog now share one look: a double-line border with cut corners that follows the theme.',
+    ],
+  },
+  {
+    v: 'v11.0', date: 'Oct 2026', current: true, title: 'Document properties',
+    notes: [
+      'NEW: A ⋯ menu in the toolbar (and a row in the phone menu) opens Document properties: file name, title, author, subject, keywords, page count, page size (with the paper name, e.g. A4), file size, created and modified dates, the program that made it, PDF version, and whether it has a fillable form. Anything the file does not say is left out.',
     ],
   },
 ]

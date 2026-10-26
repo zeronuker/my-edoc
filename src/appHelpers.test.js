@@ -11,6 +11,9 @@ import {
   removeBookmarkFromList,
   toggleOutlinePath,
   buildReadingFilter,
+  parsePdfDate,
+  pageSizeLabel,
+  docInfoRows,
 } from "./appHelpers.js";
 
 test("formatBytes formats across units", () => {
@@ -99,4 +102,38 @@ test("nextRecentFiles keeps two same-named files from different folders as separ
   assert.equal(afterBoth.length, 2);
   const reopened = nextRecentFiles(afterBoth, a);
   assert.deepEqual(reopened.map((e) => e.fileHandle.fileKey), ["Boeing:Index.pdf", "Airbus:Index.pdf"]);
+});
+
+test("parsePdfDate reads PDF date strings, with and without a timezone", () => {
+  assert.equal(parsePdfDate("D:20240102030405Z").toISOString(), "2024-01-02T03:04:05.000Z");
+  assert.equal(parsePdfDate("D:20240102030405+05'30'").toISOString(), "2024-01-01T21:34:05.000Z");
+  assert.equal(parsePdfDate("D:2024").toISOString(), "2024-01-01T00:00:00.000Z");
+  assert.equal(parsePdfDate("garbage"), null);
+  assert.equal(parsePdfDate(undefined), null);
+});
+
+test("pageSizeLabel names common paper in either orientation and always gives mm", () => {
+  assert.equal(pageSizeLabel(595.28, 841.89), "A4 · 210 × 297 mm");
+  assert.equal(pageSizeLabel(841.89, 595.28), "A4 · 297 × 210 mm");
+  assert.equal(pageSizeLabel(612, 792), "Letter · 216 × 279 mm");
+  assert.equal(pageSizeLabel(300, 400), "106 × 141 mm");
+});
+
+test("docInfoRows lists only the facts the file actually has", () => {
+  const rows = docInfoRows({
+    name: "a.pdf",
+    info: { Title: "Manual", Author: "", PDFFormatVersion: "1.7", IsAcroFormPresent: true },
+    numPages: 3,
+    pageSize: "A4 · 210 × 297 mm",
+    bytes: 2048,
+  });
+  const byLabel = Object.fromEntries(rows.map((r) => [r.label, r.value]));
+  assert.equal(byLabel["File name"], "a.pdf");
+  assert.equal(byLabel.Title, "Manual");
+  assert.equal(byLabel.Pages, "3");
+  assert.equal(byLabel["File size"], "2.0 KB");
+  assert.equal(byLabel["PDF version"], "1.7");
+  assert.equal(byLabel["Fillable form"], "Yes");
+  assert.equal("Author" in byLabel, false);
+  assert.equal("Created" in byLabel, false);
 });

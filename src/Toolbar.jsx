@@ -14,6 +14,8 @@ import {
   IconSearch,
   IconX,
   IconEdit,
+  IconDots,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import SettingsIcon from "@brand/SettingsIcon";
 import SearchBar from "./SearchBar.jsx";
@@ -121,10 +123,12 @@ function DesktopToolbar({
   onSetAnnotationTool,
   hasUnsavedAnnotations,
   onSaveAnnotations,
+  onShowInfo,
   onOpenSettings,
   settingsUpdateAvailable,
 }) {
   const viewMenu = useDropdown();
+  const moreMenu = useDropdown();
   const annotateMenu = useDropdown();
   const viewModeMenu = useDropdown();
   const readingThemeMenu = useDropdown();
@@ -445,6 +449,32 @@ function DesktopToolbar({
         </span>
       </div>
 
+      <span className="toolbar-divider" aria-hidden="true" />
+      <span className="more dropdown" ref={moreMenu.ref}>
+        <button
+          className="icon-btn"
+          aria-expanded={moreMenu.open}
+          aria-label="More"
+          title="More"
+          onClick={() => moreMenu.setOpen((v) => !v)}
+        >
+          <IconDots size={16} />
+        </button>
+        {moreMenu.open && (
+          <div className={`dropdown-menu${moreMenu.closing ? " is-closing" : ""}`}>
+            <button
+              disabled={!numPages}
+              onClick={() => {
+                onShowInfo();
+                moreMenu.setOpen(false);
+              }}
+            >
+              <IconInfoCircle size={16} /> Document properties
+            </button>
+          </div>
+        )}
+      </span>
+
       {onOpenSettings && (
         <>
           <span className="toolbar-divider" aria-hidden="true" />
@@ -512,6 +542,7 @@ function PhoneDrawer({
   onSetAnnotationTool,
   hasUnsavedAnnotations,
   onSaveAnnotations,
+  onShowInfo,
   onOpenSettings,
   settingsUpdateAvailable,
 }) {
@@ -605,6 +636,17 @@ function PhoneDrawer({
       >
         {isBookmarked ? <IconBookmarkFilled size={18} /> : <IconBookmark size={18} />}
         {isBookmarked ? "Remove bookmark for this page" : "Bookmark this page"}
+      </button>
+      <button
+        className="td-row"
+        disabled={!numPages}
+        onClick={() => {
+          onClose();
+          onShowInfo();
+        }}
+      >
+        <IconInfoCircle size={18} />
+        Document properties
       </button>
       <button
         className="td-row"

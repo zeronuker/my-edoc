@@ -47,6 +47,8 @@ import {
   toggleBookmarkList,
   removeBookmarkFromList,
   toggleOutlinePath,
+  pageSizeLabel,
+  docInfoRows,
 } from "./appHelpers.js";
 import { AnnotationEditorType } from "pdfjs-dist";
 import {
@@ -79,6 +81,7 @@ import AddFilesModal from "./AddFilesModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
 import ChoiceModal from "./ChoiceModal.jsx";
+import DocumentInfoModal from "./DocumentInfoModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
 import SettingsIcon from "@brand/SettingsIcon";
 import SplashScreen from "@brand/SplashScreen";
@@ -165,6 +168,8 @@ function App() {
   const lastPlacementRef = useRef(null); // keeps that dialog's content on screen through its exit animation
   const [choice, setChoice] = useState(null); // { ...ChoiceModal spec, resolve } while a "pick one" question is open
   const lastChoiceRef = useRef(null);
+  const [docInfo, setDocInfo] = useState(null); // [{ label, value }] while the Document properties dialog is open
+  const lastDocInfoRef = useRef(null);
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabRef = useRef(null);
@@ -412,6 +417,29 @@ function App() {
       setSettingsOpen(false);
       setSettingsClosing(false);
     }, ms);
+  }
+
+  async function showDocInfo() {
+    if (!pdf) return;
+    try {
+      const [{ info }, firstPage, { length }] = await Promise.all([
+        pdf.getMetadata(),
+        pdf.getPage(1),
+        pdf.getDownloadInfo(),
+      ]);
+      const [x0, y0, x1, y1] = firstPage.view;
+      setDocInfo(
+        docInfoRows({
+          name: selectedHandle?.name,
+          info,
+          numPages: pdf.numPages,
+          pageSize: pageSizeLabel(Math.abs(x1 - x0), Math.abs(y1 - y0)),
+          bytes: length,
+        })
+      );
+    } catch (err) {
+      setError(`Couldn't read the document's properties: ${err.message}`);
+    }
   }
 
   function updateSettings(partial) {
@@ -1124,6 +1152,9 @@ function App() {
   if (choice) lastChoiceRef.current = choice;
   const choicePresence = usePresence(!!choice);
   const choiceShown = choice ?? lastChoiceRef.current;
+  if (docInfo) lastDocInfoRef.current = docInfo;
+  const docInfoPresence = usePresence(!!docInfo);
+  const docInfoShown = docInfo ?? lastDocInfoRef.current;
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -1191,6 +1222,13 @@ function App() {
             choice?.resolve(undefined);
             setChoice(null);
           }}
+        />
+      )}
+      {docInfoPresence.present && docInfoShown && (
+        <DocumentInfoModal
+          closing={docInfoPresence.closing}
+          rows={docInfoShown}
+          onClose={() => setDocInfo(null)}
         />
       )}
       {removePresence.present && removeShown && (
@@ -1434,6 +1472,7 @@ function App() {
             onSetAnnotationTool={setAnnotationTool}
             hasUnsavedAnnotations={hasUnsavedAnnotations}
             onSaveAnnotations={handleSaveAnnotations}
+            onShowInfo={showDocInfo}
             onOpenSettings={openSettings}
             settingsUpdateAvailable={update.needRefresh}
           />
