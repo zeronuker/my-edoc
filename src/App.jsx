@@ -34,6 +34,7 @@ import { usePdfDocument } from "./usePdfDocument.js";
 import { useTreeOverlay } from "./useTreeOverlay.js";
 import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
+import { usePresentation } from "./usePresentation.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { usePresence } from "./usePresence.js";
 import { makeNodeKey, parseNodeKey } from "./treeOverlay.js";
@@ -467,7 +468,15 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewerApi, pdf, annotationTool]);
 
-  useKeyboardShortcuts(viewerApi);
+  const {
+    presenting,
+    isFullscreen,
+    fullscreenSupported,
+    startPresentation,
+    stopPresentation,
+    toggleFullscreen,
+  } = usePresentation({ pdfViewer: viewerApi?.pdfViewer, viewMode, setViewMode, setAnnotationTool });
+  useKeyboardShortcuts(viewerApi, { presenting, onExitPresentation: stopPresentation });
 
   // Same dismiss rules as a folder's ⋮ menu: tap outside or press Escape.
   useEffect(() => {
@@ -1158,7 +1167,10 @@ function App() {
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
-    <div ref={appRef} className={`app${IS_MOBILE ? " is-phone" : ""}`} onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div
+      ref={appRef}
+      className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}`}
+      onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt ready={!showSplash} update={update} />
       {settingsOpen && (
@@ -1473,6 +1485,10 @@ function App() {
             hasUnsavedAnnotations={hasUnsavedAnnotations}
             onSaveAnnotations={handleSaveAnnotations}
             onShowInfo={showDocInfo}
+            onStartPresentation={startPresentation}
+            isFullscreen={isFullscreen}
+            fullscreenSupported={fullscreenSupported}
+            onToggleFullscreen={toggleFullscreen}
             onOpenSettings={openSettings}
             settingsUpdateAvailable={update.needRefresh}
           />
@@ -1506,7 +1522,13 @@ function App() {
             readingBrightness={settings.readingBrightness}
             readingContrast={settings.readingContrast}
             annotationTool={annotationTool}
+            presenting={presenting}
           />
+          {presenting && (
+            <button className="presentation-exit" aria-label="Exit presentation" onClick={stopPresentation}>
+              <IconX size={18} />
+            </button>
+          )}
           {loading ? (
             <div className="viewer-empty">
               <span className="viewer-loading">

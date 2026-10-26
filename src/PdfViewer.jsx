@@ -114,6 +114,20 @@ function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
   };
 }
 
+// Presentation mode: a mouse click advances like a slide deck — the left
+// quarter goes back, anywhere else forward. Touch is left to the tap zones
+// above (a tap also sends a click, so reacting to it here would flip twice);
+// links, form fields and text selections keep their own clicks.
+function advanceOnClick(e, pdfViewer) {
+  if (e.pointerType !== "mouse" || e.button !== 0) return;
+  if (e.target.closest("a, button, input, textarea, select")) return;
+  if (window.getSelection().toString()) return;
+  const el = e.currentTarget;
+  const ratio = (e.clientX - el.getBoundingClientRect().left) / el.clientWidth;
+  if (ratio < 0.25) pdfViewer.previousPage();
+  else pdfViewer.nextPage();
+}
+
 // Thin React wrapper around pdf.js's own viewer widget (PDFViewer +
 // PDFFindController), instead of a hand-rolled canvas renderer — gets
 // text selection, find-and-highlight, and zoom presets for free, the
@@ -125,6 +139,7 @@ export default function PdfViewer({
   readingBrightness,
   readingContrast,
   annotationTool,
+  presenting,
 }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -187,6 +202,7 @@ export default function PdfViewer({
         style={{ "--reading-filter": buildReadingFilter(readingTheme, readingBrightness, readingContrast) }}
         data-reading-theme={readingTheme}
         ref={containerRef}
+        onPointerUp={presenting ? (e) => advanceOnClick(e, pdfViewerRef.current) : undefined}
       >
         <div className="pdfViewer" ref={viewerRef} />
       </div>

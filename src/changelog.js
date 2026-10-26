@@ -735,9 +735,15 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.0', date: 'Oct 2026', current: true, title: 'Document properties',
+    v: 'v11.0', date: 'Oct 2026', title: 'Document properties',
     notes: [
       'NEW: A ⋯ menu in the toolbar (and a row in the phone menu) opens Document properties: file name, title, author, subject, keywords, page count, page size (with the paper name, e.g. A4), file size, created and modified dates, the program that made it, PDF version, and whether it has a fillable form. Anything the file does not say is left out.',
+    ],
+  },
+  {
+    v: 'v11.1', date: 'Oct 2026', current: true, title: 'Fullscreen and presentation mode',
+    notes: [
+      'NEW: The ⋯ menu has Fullscreen (browsers that support it; not iPhone) and Presentation mode. Presentation goes fullscreen, shows one page at a time fitted to the screen on black, and hides every bar. Page with the arrow keys, PageUp/PageDown, Space (Shift+Space back), a mouse click (left quarter goes back), or by tapping the screen edges. Esc, the faint ✕ in the corner, or leaving fullscreen ends it and puts your page view back. Annotation tools are switched off while presenting.',
     ],
   },
 ]

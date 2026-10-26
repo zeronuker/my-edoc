@@ -16,6 +16,9 @@ import {
   IconEdit,
   IconDots,
   IconInfoCircle,
+  IconPresentation,
+  IconMaximize,
+  IconMinimize,
 } from "@tabler/icons-react";
 import SettingsIcon from "@brand/SettingsIcon";
 import SearchBar from "./SearchBar.jsx";
@@ -124,6 +127,10 @@ function DesktopToolbar({
   hasUnsavedAnnotations,
   onSaveAnnotations,
   onShowInfo,
+  onStartPresentation,
+  isFullscreen,
+  fullscreenSupported,
+  onToggleFullscreen,
   onOpenSettings,
   settingsUpdateAvailable,
 }) {
@@ -471,6 +478,27 @@ function DesktopToolbar({
             >
               <IconInfoCircle size={16} /> Document properties
             </button>
+            <span className="dropdown-sep" />
+            <button
+              disabled={!numPages}
+              onClick={() => {
+                onStartPresentation();
+                moreMenu.setOpen(false);
+              }}
+            >
+              <IconPresentation size={16} /> Presentation mode
+            </button>
+            {fullscreenSupported && (
+              <button
+                onClick={() => {
+                  onToggleFullscreen();
+                  moreMenu.setOpen(false);
+                }}
+              >
+                {isFullscreen ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
+                {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              </button>
+            )}
           </div>
         )}
       </span>
@@ -543,6 +571,10 @@ function PhoneDrawer({
   hasUnsavedAnnotations,
   onSaveAnnotations,
   onShowInfo,
+  onStartPresentation,
+  isFullscreen,
+  fullscreenSupported,
+  onToggleFullscreen,
   onOpenSettings,
   settingsUpdateAvailable,
 }) {
@@ -648,6 +680,29 @@ function PhoneDrawer({
         <IconInfoCircle size={18} />
         Document properties
       </button>
+      <button
+        className="td-row"
+        disabled={!numPages}
+        onClick={() => {
+          onClose();
+          onStartPresentation();
+        }}
+      >
+        <IconPresentation size={18} />
+        Presentation mode
+      </button>
+      {fullscreenSupported && (
+        <button
+          className="td-row"
+          onClick={() => {
+            onClose();
+            onToggleFullscreen();
+          }}
+        >
+          {isFullscreen ? <IconMinimize size={18} /> : <IconMaximize size={18} />}
+          {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+        </button>
+      )}
       <button
         className="td-row"
         onClick={() => {
