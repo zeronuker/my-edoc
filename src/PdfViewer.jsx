@@ -73,7 +73,9 @@ function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
     }
     singleStart = null;
     if (e.pointerType !== "touch" || !wasSingle || !start) return;
-    if (e.target.closest("a")) return;
+    // Links and form fields keep their own taps — a tap on a field near the
+    // page edge must focus it, not turn the page.
+    if (e.target.closest("a, input, textarea, select, button")) return;
 
     const dx = e.clientX - start.x;
     const dy = e.clientY - start.y;

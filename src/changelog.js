@@ -741,9 +741,15 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.1', date: 'Oct 2026', current: true, title: 'Fullscreen and presentation mode',
+    v: 'v11.1', date: 'Oct 2026', title: 'Fullscreen and presentation mode',
     notes: [
       'NEW: The ⋯ menu has Fullscreen (browsers that support it; not iPhone) and Presentation mode. Presentation goes fullscreen, shows one page at a time fitted to the screen on black, and hides every bar. Page with the arrow keys, PageUp/PageDown, Space (Shift+Space back), a mouse click (left quarter goes back), or by tapping the screen edges. Esc, the faint ✕ in the corner, or leaving fullscreen ends it and puts your page view back. Annotation tools are switched off while presenting.',
+    ],
+  },
+  {
+    v: 'v11.2', date: 'Oct 2026', current: true, title: 'Fillable forms on touch screens',
+    notes: [
+      'FIX: On a touch screen, tapping a form field in the outer quarter of the page turned the page instead of selecting the field. Taps on form fields (and buttons) now stay with the field. Typing into form fields and ticking boxes already worked, and Save keeps your answers in the app copy, same as annotations.',
     ],
   },
 ]
