@@ -77,6 +77,7 @@ import RecentView from "./RecentView.jsx";
 import ThumbnailView from "./ThumbnailView.jsx";
 import PdfViewer from "./PdfViewer.jsx";
 import Toolbar from "./Toolbar.jsx";
+import TabBar from "./TabBar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
@@ -193,10 +194,20 @@ function App() {
     outline,
     hasUnsavedAnnotations,
     setHasUnsavedAnnotations,
+    tabs,
+    activeKey,
     selectFile,
     closeDocument,
-    clearDocument,
-  } = usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, addToRecent, setError });
+    closeTab,
+    closeTabsFor,
+  } = usePdfDocument({
+    isNarrow,
+    viewerApi,
+    closeSidebarIfAutoHide,
+    addToRecent,
+    setError,
+    confirmLeave: confirmLeaveDocument,
+  });
 
   // Shared between the sidebar tree (renders/edits it) and search (needs the
   // same arranged view so results show where things are drawn) — see
@@ -583,15 +594,35 @@ function App() {
 
   // Bakes current annotation edits into the file's app copy (see
   // annotations.js) and clears the "unsaved" flag.
+  // Resolves to whether it saved.
   async function handleSaveAnnotations() {
-    if (!selectedHandle || !pdf) return;
+    if (!selectedHandle || !pdf) return false;
     try {
       await saveAnnotations(selectedHandle, pdf);
       setHasUnsavedAnnotations(false);
+      return true;
     } catch (err) {
       console.error(err);
       setError(`Couldn't save annotations on "${selectedHandle.name}": ${err.message}`);
+      return false;
     }
+  }
+
+  // Asked before the open document is switched away from or closed while it
+  // has unsaved annotations. Resolves true once it's fine to go on: they were
+  // saved, or the user chose to discard them.
+  async function confirmLeaveDocument(handle) {
+    const choice = await askChoice({
+      title: "UNSAVED ANNOTATIONS",
+      subtitle: handle?.name,
+      body: "This file has annotations that aren't saved yet. Save them before leaving, or discard them?",
+      actions: [
+        { label: "Save", value: "save", primary: true },
+        { label: "Discard", value: "discard" },
+      ],
+    });
+    if (choice === "save") return handleSaveAnnotations();
+    return choice === "discard";
   }
 
   // Only fetches the device's overall quota — "used" is tracked ourselves
@@ -932,22 +963,16 @@ function App() {
     await commitFolders(foldersRef.current.filter((f) => f.key !== key));
     if (removedFolder?.folderId) await deleteLegacyFolderFiles(removedFolder.folderId);
     refreshStorageEstimate();
-    if (
-      removedFolder?.tree &&
-      selectedHandle &&
-      flattenTreeFileHandles(removedFolder.tree).some((f) => f.handle === selectedHandle)
-    ) {
-      clearDocument();
+    if (removedFolder?.tree) {
+      closeTabsFor(flattenTreeFileHandles(removedFolder.tree).map((f) => f.handle));
     }
   }
 
-  // Mirrors handleRemoveFolder's close-if-open check above, for the
+  // Mirrors handleRemoveFolder's close-its-tabs check above, for the
   // individual-file/folder "remove from view" action instead of removing an
   // entire connected folder.
   function handleFilesRemovedFromView(handles) {
-    if (selectedHandle && handles.includes(selectedHandle)) {
-      clearDocument();
-    }
+    closeTabsFor(handles);
   }
 
   // Removing a file also drops what the app keeps for it: bookmarks, saved
@@ -1114,8 +1139,8 @@ function App() {
   // it — clearing the field this way lands on the blank state rather than
   // restoring whatever was open before search started, matching the rest
   // of the main pane always reflecting the field's current value.
-  function handleGlobalSearchChange(value) {
-    if (pdf && !closeDocument()) return;
+  async function handleGlobalSearchChange(value) {
+    if (pdf && !(await closeDocument())) return;
     setGlobalSearch(value);
   }
 
@@ -1492,6 +1517,7 @@ function App() {
             onOpenSettings={openSettings}
             settingsUpdateAvailable={update.needRefresh}
           />
+          {tabs.length > 0 && <TabBar tabs={tabs} activeKey={activeKey} onSelect={selectFile} onClose={closeTab} />}
           {error && (
             <div className="error-banner">
               <span>{error}</span>

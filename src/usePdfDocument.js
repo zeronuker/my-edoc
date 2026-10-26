@@ -4,18 +4,31 @@ import { loadAnnotatedCopy } from "./annotations.js";
 import { extrasKey } from "./fileSystem.js";
 import { dbGet, dbSet } from "./db.js";
 import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
+import { openTab, closeTab, removeTabsFor } from "./appHelpers.js";
 
 // Owns the "what document is currently open, and how is it being viewed"
-// concern: loading/switching/closing a file, the pdf.js viewer wiring for
-// the loaded document, and per-file position memory. Deliberately takes
-// isNarrow/viewerApi/closeSidebarIfAutoHide/addToRecent/setError as
-// parameters rather than owning them — those belong to layout, the viewer
-// widget's own lifecycle, the sidebar, recents, and the app-wide error
-// banner respectively, none of which are specific to "which document is
-// open" the way everything here is.
-export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, addToRecent, setError }) {
+// concern: the open-file tabs, loading/switching/closing a file, the pdf.js
+// viewer wiring for the loaded document, and per-file position memory. Only
+// the active tab's PDF is ever loaded — the other tabs are just their file
+// handles, reopened (at their remembered page) when picked. Deliberately takes
+// isNarrow/viewerApi/closeSidebarIfAutoHide/addToRecent/setError/confirmLeave
+// as parameters rather than owning them — those belong to layout, the viewer
+// widget's own lifecycle, the sidebar, recents, the app-wide error banner and
+// the unsaved-annotations dialog respectively, none of which are specific to
+// "which document is open" the way everything here is. confirmLeave(handle)
+// resolves true once it's fine to drop that document's unsaved annotations.
+export function usePdfDocument({
+  isNarrow,
+  viewerApi,
+  closeSidebarIfAutoHide,
+  addToRecent,
+  setError,
+  confirmLeave,
+}) {
   const [pdf, setPdf] = useState(null);
-  const [selectedHandle, setSelectedHandle] = useState(null);
+  const [tabs, setTabs] = useState([]); // [{ key, handle }], see openTab
+  const [activeKey, setActiveKey] = useState(null);
+  const selectedHandle = tabs.find((t) => t.key === activeKey)?.handle ?? null;
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [scale, setScale] = useState(1);
@@ -34,6 +47,11 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
   // and must not apply its result — otherwise the older call's later-settling
   // load can overwrite state a newer, already-resolved call already set.
   const loadTokenRef = useRef(0);
+  // The latest tabs/active tab, for the close paths below that are reached
+  // through an older render's closure (a folder removal awaits several things
+  // before it gets here).
+  const latest = useRef({ tabs, activeKey });
+  latest.current = { tabs, activeKey };
 
   // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
   // width-based default live, the same way opening a file does.
@@ -77,6 +95,10 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
       pendingRestoreRef.current = null;
       restoringRef.current = false;
+      // pdf.js only fires pagechanging when its own page number changes, and
+      // a new document starts at 1 whatever the last one was on — so a file
+      // opened from page 2 of another would keep showing (and saving) "2".
+      setCurrentPage(viewerApi.pdfViewer.currentPageNumber);
     };
     eventBus.on("pagechanging", onPageChanging);
     eventBus.on("scalechanging", onScaleChanging);
@@ -125,18 +147,22 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
   }, [viewerApi, viewMode]);
 
+  // Opens a file in a tab — or focuses its tab if it's already open.
   async function selectFile(fileHandle) {
+    // The tab already on screen: nothing to do (and nothing to confirm).
+    if (extrasKey(fileHandle) === activeKey && (pdf || loading)) return;
     // Switching files abandons whatever's in the current document's
     // annotationStorage — confirm rather than silently losing drawn/typed
     // edits the user hasn't saved yet.
-    if (hasUnsavedAnnotations) {
-      const proceed = window.confirm(
-        `You have unsaved annotations on "${selectedHandle?.name}". Switch files and discard them?`
-      );
-      if (!proceed) return;
-    }
+    if (hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) return;
+    await loadFile(fileHandle);
+  }
+
+  async function loadFile(fileHandle) {
+    const key = extrasKey(fileHandle);
     const token = ++loadTokenRef.current;
-    setSelectedHandle(fileHandle);
+    setTabs((prev) => openTab(prev, fileHandle));
+    setActiveKey(key);
     setError(null);
     closeSidebarIfAutoHide();
     setLoading(true);
@@ -186,6 +212,9 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
       if (loadTokenRef.current !== token) return;
       console.error(err);
       setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
+      // A file that won't open leaves no tab behind.
+      setTabs((prev) => prev.filter((t) => t.key !== key));
+      setActiveKey(null);
       setPdf(null);
       restoringRef.current = false;
     } finally {
@@ -194,32 +223,63 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     }
   }
 
-  // Unconditional close — no unsaved-annotations confirm — for callers where
-  // the document is being closed out from under the user (its folder/file
-  // was just removed), not by their own choice.
-  function clearDocument() {
+  // Unloads the document and cancels any load still in flight. Its tab, if
+  // there is one, stays in the bar.
+  function unloadDocument() {
+    loadTokenRef.current++;
+    restoringRef.current = false;
+    setActiveKey(null);
     setPdf(null);
-    setSelectedHandle(null);
+    setLoading(false);
     setError(null);
   }
 
-  // Confirm-gated close for callers where the user is choosing to leave the
-  // open document (typing in global search, "back to results"). Returns
-  // whether the document was actually closed, so callers can bail out of
-  // whatever else they were about to do (e.g. not update the search field).
-  function closeDocument() {
-    if (
-      hasUnsavedAnnotations &&
-      !window.confirm(`You have unsaved annotations on "${selectedHandle?.name}". Discard them?`)
-    ) {
-      return false;
+  // Opens the tab that took over after a close, or empties the viewer.
+  function showTab(tabList, key) {
+    const handle = tabList.find((t) => t.key === key)?.handle;
+    if (handle) loadFile(handle);
+    else unloadDocument();
+  }
+
+  // The user closes a tab (its ×). Only the active tab can hold unsaved
+  // annotations, so only closing it asks.
+  async function closeTabByKey(key) {
+    if (key === latest.current.activeKey && hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) {
+      return;
     }
-    clearDocument();
+    const { tabs: current, activeKey: active } = latest.current;
+    const next = closeTab(current, active, key);
+    latest.current = { tabs: next.tabs, activeKey: next.activeKey };
+    setTabs(next.tabs);
+    if (key === active) showTab(next.tabs, next.activeKey);
+  }
+
+  // Closes every tab whose file was removed from under the user — no
+  // unsaved-annotations confirm, the file is gone.
+  function closeTabsFor(handles) {
+    const { tabs: current, activeKey: active } = latest.current;
+    const next = removeTabsFor(current, active, handles);
+    if (next.tabs.length === current.length) return;
+    latest.current = { tabs: next.tabs, activeKey: next.activeKey };
+    setTabs(next.tabs);
+    if (next.activeKey !== active) showTab(next.tabs, next.activeKey);
+  }
+
+  // Confirm-gated "step away from the open document" for callers where the
+  // user is choosing to leave it (typing in global search, "back to
+  // results"): the viewer empties but the tab stays. Resolves to whether it
+  // happened, so callers can bail out of whatever else they were about to do
+  // (e.g. not update the search field).
+  async function closeDocument() {
+    if (hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) return false;
+    unloadDocument();
     return true;
   }
 
   return {
     pdf,
+    tabs,
+    activeKey,
     selectedHandle,
     numPages,
     currentPage,
@@ -232,6 +292,7 @@ export function usePdfDocument({ isNarrow, viewerApi, closeSidebarIfAutoHide, ad
     setHasUnsavedAnnotations,
     selectFile,
     closeDocument,
-    clearDocument,
+    closeTab: closeTabByKey,
+    closeTabsFor,
   };
 }

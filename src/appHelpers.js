@@ -58,6 +58,38 @@ export function nextRecentFiles(prev, fileHandle) {
   ].slice(0, 10);
 }
 
+// Open-document tabs: [{ key, handle }], key being the file's extrasKey
+// (folder + path), so two same-named files in different folders get two tabs.
+// A file that's already open keeps its tab (and takes the fresh handle).
+export function openTab(tabs, handle) {
+  const key = extrasKey(handle);
+  return tabs.some((t) => t.key === key)
+    ? tabs.map((t) => (t.key === key ? { key, handle } : t))
+    : [...tabs, { key, handle }];
+}
+
+// Closing the active tab moves to its right neighbour, else its left, else
+// nothing; closing any other tab leaves the active one alone.
+export function closeTab(tabs, activeKey, key) {
+  const i = tabs.findIndex((t) => t.key === key);
+  if (i < 0) return { tabs, activeKey };
+  const next = tabs.filter((t) => t.key !== key);
+  if (key !== activeKey) return { tabs: next, activeKey };
+  return { tabs: next, activeKey: (next[i] ?? next[i - 1])?.key ?? null };
+}
+
+// Closes every tab whose file is in `handles` (the file was removed). If the
+// active tab went, the nearest surviving tab takes over — right side first.
+export function removeTabsFor(tabs, activeKey, handles) {
+  const gone = new Set(handles);
+  const next = tabs.filter((t) => !gone.has(t.handle));
+  if (activeKey == null || next.some((t) => t.key === activeKey)) return { tabs: next, activeKey };
+  const i = tabs.findIndex((t) => t.key === activeKey);
+  const survivor =
+    tabs.slice(i + 1).find((t) => next.includes(t)) ?? tabs.slice(0, i).reverse().find((t) => next.includes(t));
+  return { tabs: next, activeKey: survivor?.key ?? null };
+}
+
 export function toggleBookmarkList(existing, page) {
   return existing.some((b) => b.page === page)
     ? existing.filter((b) => b.page !== page)

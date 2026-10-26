@@ -14,6 +14,9 @@ import {
   parsePdfDate,
   pageSizeLabel,
   docInfoRows,
+  openTab,
+  closeTab,
+  removeTabsFor,
 } from "./appHelpers.js";
 
 test("formatBytes formats across units", () => {
@@ -136,4 +139,49 @@ test("docInfoRows lists only the facts the file actually has", () => {
   assert.equal(byLabel["Fillable form"], "Yes");
   assert.equal("Author" in byLabel, false);
   assert.equal("Created" in byLabel, false);
+});
+
+const fileH = (name, fileKey = name) => ({ name, fileKey });
+const keysOf = (tabs) => tabs.map((t) => t.key);
+
+test("openTab appends a new file and reuses the tab of one that is already open", () => {
+  const a = fileH("Boeing:a.pdf");
+  const b = fileH("Airbus:a.pdf");
+  let tabs = openTab([], a);
+  tabs = openTab(tabs, b);
+  assert.deepEqual(keysOf(tabs), ["Boeing:a.pdf", "Airbus:a.pdf"]);
+  const reopened = { ...a };
+  tabs = openTab(tabs, reopened);
+  assert.equal(tabs.length, 2);
+  assert.equal(tabs[0].handle, reopened);
+});
+
+test("closeTab leaves a background tab's neighbours alone", () => {
+  const tabs = ["a", "b", "c"].map((n) => ({ key: n, handle: fileH(n) }));
+  const r = closeTab(tabs, "b", "a");
+  assert.deepEqual(keysOf(r.tabs), ["b", "c"]);
+  assert.equal(r.activeKey, "b");
+});
+
+test("closeTab on the active tab moves to the right neighbour, else the left, else nothing", () => {
+  const tabs = ["a", "b", "c"].map((n) => ({ key: n, handle: fileH(n) }));
+  assert.equal(closeTab(tabs, "b", "b").activeKey, "c");
+  assert.equal(closeTab(tabs, "c", "c").activeKey, "b");
+  assert.equal(closeTab([tabs[0]], "a", "a").activeKey, null);
+  assert.deepEqual(closeTab(tabs, "b", "zzz"), { tabs, activeKey: "b" });
+});
+
+test("removeTabsFor closes every tab whose file went, active or not, and re-picks a survivor", () => {
+  const h = ["a", "b", "c", "d"].map((n) => fileH(n));
+  const tabs = h.map((handle) => ({ key: handle.name, handle }));
+  const kept = removeTabsFor(tabs, "a", [h[2]]);
+  assert.deepEqual(keysOf(kept.tabs), ["a", "b", "d"]);
+  assert.equal(kept.activeKey, "a");
+  const active = removeTabsFor(tabs, "b", [h[1], h[2]]);
+  assert.deepEqual(keysOf(active.tabs), ["a", "d"]);
+  assert.equal(active.activeKey, "d");
+  const last = removeTabsFor(tabs, "d", [h[3], h[2]]);
+  assert.equal(last.activeKey, "b");
+  assert.equal(removeTabsFor(tabs, "a", h).activeKey, null);
+  assert.equal(removeTabsFor(tabs, null, [h[0]]).activeKey, null);
 });

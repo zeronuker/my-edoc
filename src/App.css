@@ -2408,12 +2408,96 @@ html,
   min-width: 30%;
 }
 
+/* Open-file tabs above the viewer. Only the active one is loaded; the strip
+   scrolls sideways when there are more tabs than fit. */
+.tab-bar {
+  position: relative;
+  z-index: 1; /* stay above .viewer-empty, same as .toolbar */
+  display: flex;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--cb-surface-1);
+  border-bottom: 1px solid var(--cb-line);
+  font-family: var(--cb-font-mono);
+  font-size: 12px;
+}
+
+.doc-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  max-width: 220px;
+  border-right: 1px solid var(--cb-line);
+  color: var(--cb-ink-dim);
+}
+
+.doc-tab:hover {
+  background: var(--cb-surface-2);
+  color: var(--cb-ink-2);
+}
+
+.doc-tab.active {
+  background: var(--cb-surface-2);
+  color: #F0997B;
+  box-shadow: inset 0 -2px 0 #D85A30;
+}
+
+.doc-tab button {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.doc-tab-name {
+  min-width: 0;
+  padding: 8px 4px 8px 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.doc-tab-close {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+  padding: 0;
+  border-radius: var(--cb-radius-sm);
+}
+
+.doc-tab-close:hover {
+  background: var(--cb-surface-3);
+  color: var(--cb-ink);
+}
+
+@media (pointer: coarse) {
+  .doc-tab-name {
+    padding-block: 12px;
+  }
+
+  .doc-tab-close {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .doc-tab { animation: ed-row-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+}
+
 /* Presentation mode: only the page remains, on black, with a faint exit
    button for devices that have no Escape key. */
 .app.is-presenting .topbar-wrap,
 .app.is-presenting .sidebar,
 .app.is-presenting .sidebar-backdrop,
 .app.is-presenting .toolbar,
+.app.is-presenting .tab-bar,
 .app.is-presenting .toolbar-drawer,
 .app.is-presenting .sidebar-pill,
 .app.is-presenting .page-pill,

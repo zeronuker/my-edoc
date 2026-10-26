@@ -747,9 +747,17 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.2', date: 'Oct 2026', current: true, title: 'Fillable forms on touch screens',
+    v: 'v11.2', date: 'Oct 2026', title: 'Fillable forms on touch screens',
     notes: [
       'FIX: On a touch screen, tapping a form field in the outer quarter of the page turned the page instead of selecting the field. Taps on form fields (and buttons) now stay with the field. Typing into form fields and ticking boxes already worked, and Save keeps your answers in the app copy, same as annotations.',
+    ],
+  },
+  {
+    v: 'v11.3', date: 'Oct 2026', current: true, title: 'Tabs',
+    notes: [
+      'NEW: Tabs. Opening a file from the folder tree, Recent, search results or a drop puts it in a tab above the page — or jumps to its tab if it is already open. Click a tab to switch (the file reopens on the page you left it); × (or a middle-click) closes it, and the neighbouring tab takes over. Only the tab you are looking at is loaded, so a lot of tabs costs almost no memory.',
+      'NEW: Switching or closing a tab with unsaved annotations asks Save / Discard / Cancel, instead of the browser\'s plain confirm. Removing a file or folder closes its tabs. Searching your library no longer closes the open files — they stay in the tab bar.',
+      'FIX: Opening a file while another was on a later page left the page counter (and the page remembered for the new file) stuck on the old number until you turned a page.',
     ],
   },
 ]
