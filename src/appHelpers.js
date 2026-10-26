@@ -90,6 +90,16 @@ export function removeTabsFor(tabs, activeKey, handles) {
   return { tabs: next, activeKey: survivor?.key ?? null };
 }
 
+// The tabs as plain data for IndexedDB: a handle can't be cloned into it
+// (function properties), so each file is saved as its OPFS address, turned
+// back into a working handle on the next launch. A dropped file has no folder
+// copy to reopen, so it is left out.
+export function tabsToRecords(tabs) {
+  return tabs
+    .filter((t) => t.handle.folderId)
+    .map((t) => ({ name: t.handle.name, folderId: t.handle.folderId, relativePath: t.handle.relativePath }));
+}
+
 export function toggleBookmarkList(existing, page) {
   return existing.some((b) => b.page === page)
     ? existing.filter((b) => b.page !== page)

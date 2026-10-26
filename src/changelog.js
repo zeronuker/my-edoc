@@ -753,11 +753,17 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.3', date: 'Oct 2026', current: true, title: 'Tabs',
+    v: 'v11.3', date: 'Oct 2026', title: 'Tabs',
     notes: [
       'NEW: Tabs. Opening a file from the folder tree, Recent, search results or a drop puts it in a tab above the page — or jumps to its tab if it is already open. Click a tab to switch (the file reopens on the page you left it); × (or a middle-click) closes it, and the neighbouring tab takes over. Only the tab you are looking at is loaded, so a lot of tabs costs almost no memory.',
       'NEW: Switching or closing a tab with unsaved annotations asks Save / Discard / Cancel, instead of the browser\'s plain confirm. Removing a file or folder closes its tabs. Searching your library no longer closes the open files — they stay in the tab bar.',
       'FIX: Opening a file while another was on a later page left the page counter (and the page remembered for the new file) stuck on the old number until you turned a page.',
+    ],
+  },
+  {
+    v: 'v11.4', date: 'Oct 2026', current: true, title: 'Tabs come back after a restart',
+    notes: [
+      'NEW: With Reading → Resume last position on, the app reopens every tab you had open, with the same one in front, instead of only the last file. Files you dropped onto the window are not brought back (there is no saved copy to reopen), and tabs for files that have since been removed are skipped.',
     ],
   },
 ]

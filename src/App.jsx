@@ -50,6 +50,7 @@ import {
   toggleOutlinePath,
   pageSizeLabel,
   docInfoRows,
+  tabsToRecords,
 } from "./appHelpers.js";
 import { AnnotationEditorType } from "pdfjs-dist";
 import {
@@ -181,6 +182,7 @@ function App() {
   // Persist-on-change effects below would otherwise fire once on mount
   // with default state, racing ahead of (and clobbering) the load below.
   const initializedRef = useRef(false);
+  const tabsRestoredRef = useRef(false);
 
   const {
     pdf,
@@ -200,6 +202,7 @@ function App() {
     closeDocument,
     closeTab,
     closeTabsFor,
+    restoreTabs,
   } = usePdfDocument({
     isNarrow,
     viewerApi,
@@ -278,12 +281,22 @@ function App() {
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
 
       if (resolvedSettings.resumePosition) {
-        // A file is saved as its OPFS address (see usePdfDocument.js) —
-        // "still connected" just means its folder hasn't been removed.
-        const lastFile = await dbGet("lastFileHandle");
-        const node = lastFile && fileNodeOf(lastFile.folderId, lastFile.relativePath);
-        if (node) selectFile(node.handle);
+        // Tabs are saved as OPFS addresses (see tabsToRecords) — "still
+        // connected" just means the file's folder hasn't been removed. A
+        // session from before tabs left only its last file (lastFileHandle).
+        const saved =
+          (await dbGet("openTabs")) ??
+          (await dbGet("lastFileHandle").then((last) => last && { tabs: [last], active: null }));
+        const nodes = (saved?.tabs ?? []).map((r) => fileNodeOf(r.folderId, r.relativePath)).filter(Boolean);
+        if (nodes.length > 0) {
+          restoreTabs(nodes.map((n) => n.handle));
+          const open = nodes.find((n) => extrasKey(n.handle) === saved.active) ?? nodes[nodes.length - 1];
+          selectFile(open.handle);
+        }
       }
+      // From here on tab changes are saved — not before, or the empty tab bar
+      // of a fresh launch would overwrite what the last session left.
+      tabsRestoredRef.current = true;
     })().catch((err) => {
       console.error(err);
       setError(`Couldn't load your folders: ${err.message}`);
@@ -293,6 +306,11 @@ function App() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!tabsRestoredRef.current) return;
+    dbSet("openTabs", { tabs: tabsToRecords(tabs), active: activeKey });
+  }, [tabs, activeKey]);
 
   useEffect(() => {
     if (!initializedRef.current) return;

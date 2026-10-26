@@ -17,6 +17,7 @@ import {
   openTab,
   closeTab,
   removeTabsFor,
+  tabsToRecords,
 } from "./appHelpers.js";
 
 test("formatBytes formats across units", () => {
@@ -184,4 +185,17 @@ test("removeTabsFor closes every tab whose file went, active or not, and re-pick
   assert.equal(last.activeKey, "b");
   assert.equal(removeTabsFor(tabs, "a", h).activeKey, null);
   assert.equal(removeTabsFor(tabs, null, [h[0]]).activeKey, null);
+});
+
+test("tabsToRecords saves a tab's file address and leaves out dropped files that cannot be reopened", () => {
+  const tabs = [
+    { key: "Lib:a.pdf", handle: { name: "a.pdf", fileKey: "Lib:a.pdf", folderId: "f1", relativePath: "a.pdf", getFile() {} } },
+    { key: "dropped.pdf", handle: { name: "dropped.pdf", getFile() {} } },
+    { key: "Lib:sub/b.pdf", handle: { name: "b.pdf", fileKey: "Lib:sub/b.pdf", folderId: "f1", relativePath: "sub/b.pdf" } },
+  ];
+  assert.deepEqual(tabsToRecords(tabs), [
+    { name: "a.pdf", folderId: "f1", relativePath: "a.pdf" },
+    { name: "b.pdf", folderId: "f1", relativePath: "sub/b.pdf" },
+  ]);
+  assert.deepEqual(tabsToRecords([]), []);
 });

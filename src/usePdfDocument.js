@@ -195,18 +195,6 @@ export function usePdfDocument({
       const positions = (await dbGet("filePositions")) || {};
       pendingRestoreRef.current = positions[extrasKey(fileHandle)] || null;
       setPdf(doc);
-      // A handle can't be cloned into IndexedDB (function properties), so
-      // the file's OPFS address is saved instead and turned back into a
-      // working handle on the next launch — same trick recentFiles uses, see
-      // App.jsx's load effect. A dropped file has no folderId (no OPFS copy),
-      // so there's nothing to resume to.
-      if (fileHandle.folderId) {
-        await dbSet("lastFileHandle", {
-          name: fileHandle.name,
-          folderId: fileHandle.folderId,
-          relativePath: fileHandle.relativePath,
-        });
-      }
       addToRecent(fileHandle);
     } catch (err) {
       if (loadTokenRef.current !== token) return;
@@ -232,6 +220,12 @@ export function usePdfDocument({
     setPdf(null);
     setLoading(false);
     setError(null);
+  }
+
+  // Fills the tab bar without loading anything — the caller opens one of them
+  // right after (the tabs saved by the last session, see App.jsx).
+  function restoreTabs(handles) {
+    setTabs(handles.reduce((list, handle) => openTab(list, handle), []));
   }
 
   // Opens the tab that took over after a close, or empties the viewer.
@@ -294,5 +288,6 @@ export function usePdfDocument({
     closeDocument,
     closeTab: closeTabByKey,
     closeTabsFor,
+    restoreTabs,
   };
 }
