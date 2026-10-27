@@ -30,7 +30,7 @@ export const MAX_SCALE = 5;
 // swipe (two-up only) to flip a spread, pinch (all modes) to zoom.
 // The two continuous modes get none of this — native scroll already does the
 // "swipe to move through the document" job.
-function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
+function attachTouchGestures(el, pdfViewer, viewMode, annotationTool, tapGuardRef) {
   const pointers = new Map();
   let pinchStartDist = null;
   let pinchStartScale = null;
@@ -72,7 +72,12 @@ function attachTouchGestures(el, pdfViewer, viewMode, annotationTool) {
       pinchStartDist = null;
     }
     singleStart = null;
-    if (e.pointerType !== "touch" || !wasSingle || !start) return;
+    if (e.pointerType !== "touch") return;
+    // The touch that made this pane the active one in a split (see Pane.jsx)
+    // only does that; it doesn't also turn the page.
+    const activating = tapGuardRef?.current;
+    if (tapGuardRef) tapGuardRef.current = false;
+    if (activating || !wasSingle || !start) return;
     // Links and form fields keep their own taps — a tap on a field near the
     // page edge must focus it, not turn the page.
     if (e.target.closest("a, input, textarea, select, button")) return;
@@ -142,6 +147,7 @@ export default function PdfViewer({
   readingContrast,
   annotationTool,
   presenting,
+  tapGuardRef,
 }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
@@ -168,8 +174,8 @@ export default function PdfViewer({
 
   useEffect(() => {
     if (!pdfViewerRef.current) return;
-    return attachTouchGestures(containerRef.current, pdfViewerRef.current, viewMode, annotationTool);
-  }, [viewMode, annotationTool]);
+    return attachTouchGestures(containerRef.current, pdfViewerRef.current, viewMode, annotationTool, tapGuardRef);
+  }, [viewMode, annotationTool, tapGuardRef]);
 
   // pdf.js only resolves a named scale ("page-fit", "page-width", ...) into
   // an actual number on load — it doesn't re-fit when the container is

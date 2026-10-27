@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { IconX, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import PdfViewer from "./PdfViewer.jsx";
 import EmptyState from "./EmptyState.jsx";
@@ -62,11 +63,21 @@ export default function Pane({
   presenting,
 }) {
   const { pdf, loading, numPages, currentPage, selectedHandle, viewMode } = pane;
+  // Set by the touch that activates this pane, so PdfViewer's tap-to-turn-page
+  // skips that same touch.
+  const tapGuardRef = useRef(false);
   return (
     <div
       className={`pane${split && isActive ? " is-active" : ""}`}
       hidden={hidden}
-      onPointerDownCapture={split && !isActive ? () => onActivate(id) : undefined}
+      onPointerDownCapture={
+        split && !isActive
+          ? (e) => {
+              if (e.pointerType === "touch") tapGuardRef.current = true;
+              onActivate(id);
+            }
+          : undefined
+      }
     >
       {split && (
         <div className="pane-header">
@@ -84,6 +95,7 @@ export default function Pane({
         readingContrast={readingContrast}
         annotationTool={isActive ? annotationTool : null}
         presenting={presenting}
+        tapGuardRef={tapGuardRef}
       />
       {loading ? (
         <div className="viewer-empty">
