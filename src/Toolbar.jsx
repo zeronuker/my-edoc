@@ -130,7 +130,7 @@ function DesktopToolbar({
   onSaveAnnotations,
   onShowInfo,
   split,
-  splitAvailable,
+  splitDisabledReason,
   onToggleSplit,
   onStartPresentation,
   isFullscreen,
@@ -487,8 +487,8 @@ function DesktopToolbar({
               <IconInfoCircle size={16} /> Document properties
             </button>
             <button
-              disabled={!splitAvailable && !split}
-              title={!splitAvailable && !split ? "Split view needs a wider screen and an open document" : undefined}
+              disabled={!!splitDisabledReason && !split}
+              title={!split ? (splitDisabledReason ?? undefined) : undefined}
               onClick={() => {
                 onToggleSplit();
                 moreMenu.setOpen(false);

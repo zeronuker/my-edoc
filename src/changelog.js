@@ -779,10 +779,17 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.7', date: 'Oct 2026', current: true, title: 'Split view',
+    v: 'v11.7', date: 'Oct 2026', title: 'Split view',
     notes: [
       'NEW: Split view. ⋯ → Split view shows two documents side by side, each with its own page counter. The new pane opens the file you used most recently, or stays empty until you pick one. Click a pane to make it the active one (it gets the coral outline): the toolbar, search, outline, thumbnails, bookmarks and Save then follow it, and a tab or file you pick opens in it. Tabs marked L or R show which file is in which pane; picking a file the other pane already shows just moves you there. The × on a pane header, or ⋯ → Close split view, closes a pane (its tab stays, and it asks about unsaved annotations first).',
       'IMP: In a split each pane shows one page at a time, so no more pages are on screen than in two-page view. Presentation mode shows only the active pane and puts the split back when it ends. The annotation tool works in the active pane only.',
+    ],
+  },
+  {
+    v: 'v11.8', date: 'Oct 2026', current: true, title: 'Split view memory guardrails',
+    notes: [
+      'NEW: Settings → Reading → Split view switches it on or off. It starts on for mouse-and-keyboard devices and off on touch devices: two documents use more memory, and big scanned PDFs can make iPad Safari close the app.',
+      'IMP: Split view closes its second pane by itself when the window gets narrower than the tablet breakpoint (an iPad turned to portrait) or when you switch it off — the tab stays, and it asks about unsaved annotations first. The ⋯ menu says why Split view is greyed out.',
     ],
   },
 ]

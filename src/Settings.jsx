@@ -171,6 +171,21 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
                     )}
                   </Section>
 
+                  <Section title="SPLIT VIEW">
+                    <Row label="SHOW TWO DOCUMENTS">
+                      <Segmented
+                        options={ON_OFF}
+                        value={!!settings.splitView}
+                        onChange={(v) => onChange({ splitView: v })}
+                      />
+                    </Row>
+                    <div className="settings-note">
+                      Shows two documents side by side on wide screens (more menu → Split view). Each side shows one
+                      page at a time. Two documents use more memory — large scanned PDFs can make iPad Safari close
+                      the app — so it starts off on touch devices.
+                    </div>
+                  </Section>
+
                   <Section title="SCREEN">
                     <Row label="KEEP AWAKE WHILE READING">
                       <Segmented

@@ -102,6 +102,9 @@ const DEFAULT_SETTINGS = {
   readingBrightness: 100,
   readingContrast: 100,
   autoHideSidebar: false,
+  // Two documents loaded at once is the memory risk on an iPad (see usePane.js),
+  // so touch devices opt in; mouse-and-keyboard devices start with it on.
+  splitView: !window.matchMedia("(pointer: coarse)").matches,
   animEnabled: true,
   animStyle: "slide", // "slide" | "rise"
   animSpeed: "normal", // "normal" | "slow" | "slower"
@@ -669,8 +672,21 @@ function App() {
     return choice === "discard";
   }
 
-  // Split view is offered on wide screens, with a document open to split from.
-  const splitAvailable = !isNarrow && !!pdf;
+  // Split view is offered on wide screens when it's switched on in Settings,
+  // with a document open to split from. Shrinking the window (an iPad turned
+  // to portrait) or switching it off closes the second pane — its tab stays.
+  const splitDisabledReason = !settings.splitView
+    ? "Turned off in Settings → Reading"
+    : isNarrow
+      ? "Needs a wider screen"
+      : !pdf
+        ? "Open a document first"
+        : null;
+  const splitForbidden = !settings.splitView || isNarrow;
+  useEffect(() => {
+    if (split && splitForbidden) closePane(activePane === "L" ? "R" : "L");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [split, splitForbidden]);
 
   // Splits the screen, the new pane opening the most recently used other tab
   // (or empty if there is none), or closes the pane that isn't the active one.
@@ -1573,7 +1589,7 @@ function App() {
             onSaveAnnotations={handleSaveAnnotations}
             onShowInfo={showDocInfo}
             split={split}
-            splitAvailable={splitAvailable}
+            splitDisabledReason={splitDisabledReason}
             onToggleSplit={toggleSplit}
             onStartPresentation={startPresentation}
             isFullscreen={isFullscreen}
