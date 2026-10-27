@@ -179,6 +179,17 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
                         onChange={(v) => onChange({ splitView: v })}
                       />
                     </Row>
+                    <Row label="COLOUR-CODE PANES">
+                      <Segmented
+                        options={ON_OFF}
+                        value={settings.paneColours !== false}
+                        onChange={(v) => onChange({ paneColours: v })}
+                      />
+                    </Row>
+                    <div className="settings-note">
+                      Colour-coding gives the left pane and its tab amber and the right pane and its tab pink. Off
+                      shows an L or R on the tabs instead.
+                    </div>
                     <div className="settings-note">
                       Shows two documents side by side on wide screens (more menu → Split view). Each side shows one
                       page at a time. Two documents use more memory — large scanned PDFs can make iPad Safari close

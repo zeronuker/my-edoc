@@ -105,6 +105,7 @@ const DEFAULT_SETTINGS = {
   // Two documents loaded at once is the memory risk on an iPad (see usePane.js),
   // so touch devices opt in; mouse-and-keyboard devices start with it on.
   splitView: !window.matchMedia("(pointer: coarse)").matches,
+  paneColours: true, // amber / pink on the two panes of a split and their tabs, instead of L / R letters
   animEnabled: true,
   animStyle: "slide", // "slide" | "rise"
   animSpeed: "normal", // "normal" | "slow" | "slower"
@@ -1271,7 +1272,7 @@ function App() {
   return (
     <div
       ref={appRef}
-      className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}`}
+      className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}${split && settings.paneColours ? " pane-colours" : ""}`}
       onDragOver={handleDragOver} onDrop={handleDrop}>
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt ready={!showSplash} update={update} />

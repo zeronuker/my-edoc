@@ -77,6 +77,17 @@ export function pickNeighbor(tabs, key, excluded) {
   return tabs.slice(i + 1).find(free) ?? tabs.slice(0, Math.max(i, 0)).reverse().find(free) ?? null;
 }
 
+// In a split the left pane's tab always sits left of the right pane's: when
+// it doesn't, just those two swap places and every other tab stays put.
+export function orderForSplit(tabs, leftKey, rightKey) {
+  const l = tabs.findIndex((t) => t.key === leftKey);
+  const r = tabs.findIndex((t) => t.key === rightKey);
+  if (l < 0 || r < 0 || l < r) return tabs;
+  const next = [...tabs];
+  [next[l], next[r]] = [next[r], next[l]];
+  return next;
+}
+
 // The tabs as plain data for IndexedDB: a handle can't be cloned into it
 // (function properties), so each file is saved as its OPFS address, turned
 // back into a working handle on the next launch. A dropped file has no folder

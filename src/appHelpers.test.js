@@ -16,6 +16,7 @@ import {
   docInfoRows,
   openTab,
   pickNeighbor,
+  orderForSplit,
   tabsToRecords,
 } from "./appHelpers.js";
 
@@ -165,6 +166,18 @@ test("pickNeighbor takes the nearest tab to the right, else to the left, skippin
   assert.equal(pick("b", "b", "c", "d"), "a");
   assert.equal(pick("a", "a", "b", "c", "d"), null);
   assert.equal(pickNeighbor([tabs[0]], "a", new Set(["a"])), null);
+});
+
+test("orderForSplit swaps only the two on-screen tabs so the left pane's comes first", () => {
+  const tabs = ["a", "b", "c", "d"].map((n) => ({ key: n, handle: fileH(n) }));
+  const keys = (list) => keysOf(list).join("");
+  assert.equal(keys(orderForSplit(tabs, "a", "c")), "abcd");
+  assert.equal(keys(orderForSplit(tabs, "c", "a")), "cbad");
+  assert.equal(keys(orderForSplit(tabs, "d", "b")), "adcb");
+  const inOrder = orderForSplit(tabs, "a", "d");
+  assert.equal(inOrder, tabs);
+  assert.equal(orderForSplit(tabs, "a", null), tabs);
+  assert.equal(orderForSplit(tabs, "zzz", "a"), tabs);
 });
 
 test("tabsToRecords saves a tab's file address and leaves out dropped files that cannot be reopened", () => {

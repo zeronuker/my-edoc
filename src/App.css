@@ -2581,6 +2581,72 @@ html,
   opacity: 0.8;
 }
 
+/* Colour-coded panes (Settings → Reading → Split view): amber for the left pane
+   and its tab, pink for the right. Off, the active pane is outlined in coral
+   and the tabs carry an L or R. */
+.pane[data-pane="L"],
+.doc-tab[data-pane="L"] {
+  --pc: #F2B03A;
+}
+
+.pane[data-pane="R"],
+.doc-tab[data-pane="R"] {
+  --pc: #F06AAE;
+}
+
+.app.pane-colours .panes.is-split .pane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border: 1px solid color-mix(in srgb, var(--pc) 45%, transparent);
+  pointer-events: none;
+}
+
+.app.pane-colours .panes.is-split .pane.is-active::after {
+  border: 2px solid var(--pc);
+}
+
+.app.pane-colours .pane-header {
+  background: color-mix(in srgb, var(--pc) 10%, var(--cb-surface-1));
+  color: color-mix(in srgb, var(--pc) 80%, var(--cb-ink-dim));
+}
+
+.app.pane-colours .pane.is-active .pane-header {
+  background: color-mix(in srgb, var(--pc) 22%, var(--cb-surface-1));
+  color: var(--pc);
+}
+
+.app.pane-colours .doc-tab[data-pane] {
+  color: color-mix(in srgb, var(--pc) 75%, var(--cb-ink-dim));
+  background: color-mix(in srgb, var(--pc) 8%, transparent);
+  box-shadow: inset 0 -2px 0 var(--pc);
+}
+
+.app.pane-colours .doc-tab[data-pane].active {
+  color: var(--pc);
+  background: color-mix(in srgb, var(--pc) 20%, transparent);
+  box-shadow: inset 0 -3px 0 var(--pc);
+}
+
+.app.pane-colours .doc-tab[data-pane]::before {
+  content: "";
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-left: 10px;
+  border-radius: 2px;
+  background: var(--pc);
+}
+
+.app.pane-colours .doc-tab[data-pane] .doc-tab-name {
+  padding-left: 6px;
+}
+
+.app.pane-colours .doc-tab-pane {
+  display: none;
+}
+
 /* Presentation mode: only the page remains, on black, with a faint exit
    button for devices that have no Escape key. */
 .app.is-presenting .topbar-wrap,
@@ -2598,7 +2664,7 @@ html,
   display: none;
 }
 
-.app.is-presenting .pane.is-active::after {
+.app.is-presenting .pane::after {
   display: none;
 }
 

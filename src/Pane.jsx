@@ -69,6 +69,7 @@ export default function Pane({
   return (
     <div
       className={`pane${split && isActive ? " is-active" : ""}`}
+      data-pane={id}
       hidden={hidden}
       onPointerDownCapture={
         split && !isActive

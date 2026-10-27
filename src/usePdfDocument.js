@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { extrasKey } from "./fileSystem.js";
-import { openTab, pickNeighbor } from "./appHelpers.js";
+import { openTab, pickNeighbor, orderForSplit } from "./appHelpers.js";
 import { usePane } from "./usePane.js";
 
 const otherOf = (id) => (id === "L" ? "R" : "L");
@@ -21,6 +21,11 @@ export function usePdfDocument({ isNarrow, viewerApis, closeSidebarIfAutoHide, a
     R: usePane({ ...shared, viewerApi: viewerApis.R }),
   };
   const active = panes[activePane];
+
+  // In a split the left pane's tab stays left of the right pane's.
+  useEffect(() => {
+    if (split) setTabs((prev) => orderForSplit(prev, panes.L.activeKey, panes.R.activeKey));
+  }, [split, panes.L.activeKey, panes.R.activeKey]);
 
   // The latest of what the close paths below need, for when they're reached
   // through an older render's closure (a folder removal awaits several things
