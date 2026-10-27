@@ -2460,7 +2460,8 @@ html,
   text-overflow: ellipsis;
 }
 
-.doc-tab-close {
+.doc-tab-close,
+.doc-tab-more {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -2472,7 +2473,8 @@ html,
   border-radius: var(--cb-radius-sm);
 }
 
-.doc-tab-close:hover {
+.doc-tab-close:hover,
+.doc-tab-more:hover {
   background: var(--cb-surface-3);
   color: var(--cb-ink);
 }
@@ -2482,9 +2484,29 @@ html,
     padding-block: 12px;
   }
 
-  .doc-tab-close {
+  .doc-tab-close,
+  .doc-tab-more {
     width: 36px;
     height: 36px;
+  }
+}
+
+.doc-tab-menu {
+  display: flex;
+  flex-shrink: 0;
+}
+
+/* The tab menu is drawn into <body>, positioned from its button (TabBar.jsx). */
+.dropdown-menu.tab-menu {
+  position: fixed;
+  left: auto;
+  z-index: 40;
+}
+
+/* Phones keep these actions in the toolbar drawer. */
+@media (max-width: 520px) {
+  .doc-tab-menu {
+    display: none;
   }
 }
 
@@ -2727,13 +2749,6 @@ html,
   margin: 0;
   color: var(--cb-ink);
   overflow-wrap: anywhere;
-}
-
-/* The "more" menu sits at the toolbar's right edge, so its menu grows
-   leftwards from the trigger instead of spilling off-screen. */
-.more .dropdown-menu {
-  left: auto;
-  right: 0;
 }
 
 .copy-progress-dialog {

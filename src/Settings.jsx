@@ -191,7 +191,7 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
                       shows an L or R on the tabs instead.
                     </div>
                     <div className="settings-note">
-                      Shows two documents side by side on wide screens (more menu → Split view). Each side shows one
+                      Shows two documents side by side on wide screens (⋯ on a tab → Split view). Each side shows one
                       page at a time. Two documents use more memory — large scanned PDFs can make iPad Safari close
                       the app — so it starts off on touch devices.
                     </div>

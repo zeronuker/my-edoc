@@ -1589,9 +1589,6 @@ function App() {
             hasUnsavedAnnotations={hasUnsavedAnnotations}
             onSaveAnnotations={handleSaveAnnotations}
             onShowInfo={showDocInfo}
-            split={split}
-            splitDisabledReason={splitDisabledReason}
-            onToggleSplit={toggleSplit}
             onStartPresentation={startPresentation}
             isFullscreen={isFullscreen}
             fullscreenSupported={fullscreenSupported}
@@ -1603,9 +1600,15 @@ function App() {
             <TabBar
               tabs={tabs}
               activeKey={activeKey}
-              paneOf={split ? (key) => (panes.L.activeKey === key ? "L" : panes.R.activeKey === key ? "R" : null) : null}
+              split={split}
+              paneOf={(key) => (panes.L.activeKey === key ? "L" : panes.R.activeKey === key ? "R" : null)}
+              splitDisabledReason={splitDisabledReason}
               onSelect={selectFile}
               onClose={closeTab}
+              onActivatePane={setActivePane}
+              onShowInfo={showDocInfo}
+              onToggleSplit={toggleSplit}
+              onStartPresentation={startPresentation}
             />
           )}
           {error && (

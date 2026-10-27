@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { animDurationMs } from "./useTransitionAnim.js";
+import { useDropdown } from "./useDropdown.js";
 import {
   IconLayoutSidebar,
   IconChevronDown,
@@ -14,9 +15,7 @@ import {
   IconSearch,
   IconX,
   IconEdit,
-  IconDots,
   IconInfoCircle,
-  IconColumns2,
   IconPresentation,
   IconMaximize,
   IconMinimize,
@@ -43,60 +42,6 @@ const READING_THEMES = [
   { value: "night", label: "Night" },
   { value: "sepia", label: "Sepia" },
 ];
-
-// Closes whichever dropdown is open on an outside click or Escape — same
-// pattern as App's floating + menu.
-function useDropdown() {
-  const [open, setOpenRaw] = useState(false);
-  const [closing, setClosing] = useState(false);
-  const timer = useRef(null);
-  const ref = useRef(null);
-
-  // Same call shape as a state setter (value or updater). Closing keeps the
-  // menu mounted for one exit animation, then unmounts it.
-  function setOpen(value) {
-    const next = typeof value === "function" ? value(open && !closing) : value;
-    clearTimeout(timer.current);
-    if (next) {
-      setClosing(false);
-      setOpenRaw(true);
-      return;
-    }
-    if (!open) return;
-    const ms = animDurationMs();
-    if (!ms) {
-      setClosing(false);
-      setOpenRaw(false);
-      return;
-    }
-    setClosing(true);
-    timer.current = setTimeout(() => {
-      setOpenRaw(false);
-      setClosing(false);
-    }, ms);
-  }
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  useEffect(() => {
-    if (!open || closing) return;
-    function onOutside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    function onKeyDown(e) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("pointerdown", onOutside);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onOutside);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, closing]);
-
-  return { open, closing, setOpen, ref };
-}
 
 function fitTo(pdfViewer, value) {
   if (pdfViewer) pdfViewer.currentScaleValue = value;
@@ -128,11 +73,6 @@ function DesktopToolbar({
   onSetAnnotationTool,
   hasUnsavedAnnotations,
   onSaveAnnotations,
-  onShowInfo,
-  split,
-  splitDisabledReason,
-  onToggleSplit,
-  onStartPresentation,
   isFullscreen,
   fullscreenSupported,
   onToggleFullscreen,
@@ -140,7 +80,6 @@ function DesktopToolbar({
   settingsUpdateAvailable,
 }) {
   const viewMenu = useDropdown();
-  const moreMenu = useDropdown();
   const annotateMenu = useDropdown();
   const viewModeMenu = useDropdown();
   const readingThemeMenu = useDropdown();
@@ -324,6 +263,20 @@ function DesktopToolbar({
               >
                 <IconRotateClockwise size={16} /> Rotate right
               </button>
+              {fullscreenSupported && (
+                <>
+                  <span className="dropdown-sep" />
+                  <button
+                    onClick={() => {
+                      onToggleFullscreen();
+                      viewMenu.setOpen(false);
+                    }}
+                  >
+                    {isFullscreen ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
+                    {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  </button>
+                </>
+              )}
             </div>
           )}
         </span>
@@ -463,63 +416,6 @@ function DesktopToolbar({
           </button>
         </span>
       </div>
-
-      <span className="toolbar-divider" aria-hidden="true" />
-      <span className="more dropdown" ref={moreMenu.ref}>
-        <button
-          className="icon-btn"
-          aria-expanded={moreMenu.open}
-          aria-label="More"
-          title="More"
-          onClick={() => moreMenu.setOpen((v) => !v)}
-        >
-          <IconDots size={16} />
-        </button>
-        {moreMenu.open && (
-          <div className={`dropdown-menu${moreMenu.closing ? " is-closing" : ""}`}>
-            <button
-              disabled={!numPages}
-              onClick={() => {
-                onShowInfo();
-                moreMenu.setOpen(false);
-              }}
-            >
-              <IconInfoCircle size={16} /> Document properties
-            </button>
-            <button
-              disabled={!!splitDisabledReason && !split}
-              title={!split ? (splitDisabledReason ?? undefined) : undefined}
-              onClick={() => {
-                onToggleSplit();
-                moreMenu.setOpen(false);
-              }}
-            >
-              <IconColumns2 size={16} /> {split ? "Close split view" : "Split view"}
-            </button>
-            <span className="dropdown-sep" />
-            <button
-              disabled={!numPages}
-              onClick={() => {
-                onStartPresentation();
-                moreMenu.setOpen(false);
-              }}
-            >
-              <IconPresentation size={16} /> Presentation mode
-            </button>
-            {fullscreenSupported && (
-              <button
-                onClick={() => {
-                  onToggleFullscreen();
-                  moreMenu.setOpen(false);
-                }}
-              >
-                {isFullscreen ? <IconMinimize size={16} /> : <IconMaximize size={16} />}
-                {isFullscreen ? "Exit fullscreen" : "Fullscreen"}
-              </button>
-            )}
-          </div>
-        )}
-      </span>
 
       {onOpenSettings && (
         <>
