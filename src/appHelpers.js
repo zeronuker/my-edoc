@@ -68,26 +68,13 @@ export function openTab(tabs, handle) {
     : [...tabs, { key, handle }];
 }
 
-// Closing the active tab moves to its right neighbour, else its left, else
-// nothing; closing any other tab leaves the active one alone.
-export function closeTab(tabs, activeKey, key) {
+// Which tab takes over when the one at `key` goes: the nearest to its right,
+// else the nearest to its left, skipping any key in `excluded` (tabs that are
+// closing too, or already showing in the other pane). Null if none is left.
+export function pickNeighbor(tabs, key, excluded) {
   const i = tabs.findIndex((t) => t.key === key);
-  if (i < 0) return { tabs, activeKey };
-  const next = tabs.filter((t) => t.key !== key);
-  if (key !== activeKey) return { tabs: next, activeKey };
-  return { tabs: next, activeKey: (next[i] ?? next[i - 1])?.key ?? null };
-}
-
-// Closes every tab whose file is in `handles` (the file was removed). If the
-// active tab went, the nearest surviving tab takes over — right side first.
-export function removeTabsFor(tabs, activeKey, handles) {
-  const gone = new Set(handles);
-  const next = tabs.filter((t) => !gone.has(t.handle));
-  if (activeKey == null || next.some((t) => t.key === activeKey)) return { tabs: next, activeKey };
-  const i = tabs.findIndex((t) => t.key === activeKey);
-  const survivor =
-    tabs.slice(i + 1).find((t) => next.includes(t)) ?? tabs.slice(0, i).reverse().find((t) => next.includes(t));
-  return { tabs: next, activeKey: survivor?.key ?? null };
+  const free = (t) => !excluded.has(t.key);
+  return tabs.slice(i + 1).find(free) ?? tabs.slice(0, Math.max(i, 0)).reverse().find(free) ?? null;
 }
 
 // The tabs as plain data for IndexedDB: a handle can't be cloned into it

@@ -184,8 +184,18 @@ function App() {
   const initializedRef = useRef(false);
   const tabsRestoredRef = useRef(false);
 
+  const { tabs, active, selectFile, closeDocument, closeTab, closeTabsFor, restoreTabs } = usePdfDocument({
+    isNarrow,
+    viewerApis: { L: viewerApi, R: null },
+    closeSidebarIfAutoHide,
+    addToRecent,
+    setError,
+    confirmLeave: confirmLeaveDocument,
+  });
+  // Everything below that reads "the open document" reads the active pane's.
   const {
     pdf,
+    activeKey,
     selectedHandle,
     numPages,
     currentPage,
@@ -196,21 +206,7 @@ function App() {
     outline,
     hasUnsavedAnnotations,
     setHasUnsavedAnnotations,
-    tabs,
-    activeKey,
-    selectFile,
-    closeDocument,
-    closeTab,
-    closeTabsFor,
-    restoreTabs,
-  } = usePdfDocument({
-    isNarrow,
-    viewerApi,
-    closeSidebarIfAutoHide,
-    addToRecent,
-    setError,
-    confirmLeave: confirmLeaveDocument,
-  });
+  } = active;
 
   // Shared between the sidebar tree (renders/edits it) and search (needs the
   // same arranged view so results show where things are drawn) — see

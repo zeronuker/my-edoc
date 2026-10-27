@@ -1,225 +1,92 @@
-import { useEffect, useRef, useState } from "react";
-import { loadDocument } from "./edoc.js";
-import { loadAnnotatedCopy } from "./annotations.js";
+import { useRef, useState } from "react";
 import { extrasKey } from "./fileSystem.js";
-import { dbGet, dbSet } from "./db.js";
-import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
-import { openTab, closeTab, removeTabsFor } from "./appHelpers.js";
+import { openTab, pickNeighbor } from "./appHelpers.js";
+import { usePane } from "./usePane.js";
 
-// Owns the "what document is currently open, and how is it being viewed"
-// concern: the open-file tabs, loading/switching/closing a file, the pdf.js
-// viewer wiring for the loaded document, and per-file position memory. Only
-// the active tab's PDF is ever loaded — the other tabs are just their file
-// handles, reopened (at their remembered page) when picked. Deliberately takes
-// isNarrow/viewerApi/closeSidebarIfAutoHide/addToRecent/setError/confirmLeave
-// as parameters rather than owning them — those belong to layout, the viewer
-// widget's own lifecycle, the sidebar, recents, the app-wide error banner and
-// the unsaved-annotations dialog respectively, none of which are specific to
-// "which document is open" the way everything here is. confirmLeave(handle)
-// resolves true once it's fine to drop that document's unsaved annotations.
-export function usePdfDocument({
-  isNarrow,
-  viewerApi,
-  closeSidebarIfAutoHide,
-  addToRecent,
-  setError,
-  confirmLeave,
-}) {
-  const [pdf, setPdf] = useState(null);
+const otherOf = (id) => (id === "L" ? "R" : "L");
+
+// What the panes share: the tab list, whether the screen is split, which pane
+// is the active one (the one the toolbar, search and sidebar panels act on),
+// and closing tabs. The document state itself lives in one usePane per pane —
+// see usePane.js. Unsplit, only the active pane is on screen and the other
+// holds nothing, so at most two documents are ever loaded.
+export function usePdfDocument({ isNarrow, viewerApis, closeSidebarIfAutoHide, addToRecent, setError, confirmLeave }) {
   const [tabs, setTabs] = useState([]); // [{ key, handle }], see openTab
-  const [activeKey, setActiveKey] = useState(null);
-  const selectedHandle = tabs.find((t) => t.key === activeKey)?.handle ?? null;
-  const [numPages, setNumPages] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [scale, setScale] = useState(1);
-  // Two-page (or single-page on narrow screens) + fit-page is forced on
-  // every file open (see selectFile/onPagesInit below) — this initial
-  // value only matters before any file has been opened yet.
-  const [viewMode, setViewMode] = useState("two-up");
-  const [loading, setLoading] = useState(false);
-  const [outline, setOutline] = useState(null);
-  const [hasUnsavedAnnotations, setHasUnsavedAnnotations] = useState(false);
+  const [split, setSplit] = useState(false);
+  const [activePane, setActivePaneRaw] = useState("L");
 
-  const pendingRestoreRef = useRef(null);
-  const restoringRef = useRef(false);
-  // Bumped on every selectFile call; an in-flight call whose token no longer
-  // matches has been superseded by a newer one (e.g. a fast double-click)
-  // and must not apply its result — otherwise the older call's later-settling
-  // load can overwrite state a newer, already-resolved call already set.
-  const loadTokenRef = useRef(0);
-  // The latest tabs/active tab, for the close paths below that are reached
+  const shared = { isNarrow, split, tabs, setTabs, closeSidebarIfAutoHide, addToRecent, setError, confirmLeave };
+  const panes = {
+    L: usePane({ ...shared, viewerApi: viewerApis.L }),
+    R: usePane({ ...shared, viewerApi: viewerApis.R }),
+  };
+  const active = panes[activePane];
+
+  // The latest of what the close paths below need, for when they're reached
   // through an older render's closure (a folder removal awaits several things
   // before it gets here).
-  const latest = useRef({ tabs, activeKey });
-  latest.current = { tabs, activeKey };
+  const latest = useRef(null);
+  latest.current = { tabs, split, activePane, shown: { L: panes.L.activeKey, R: panes.R.activeKey } };
 
-  // Crossing the narrow breakpoint (e.g. rotating a phone) re-asserts the
-  // width-based default live, the same way opening a file does.
-  useEffect(() => {
-    if (!pdf) return;
-    setViewMode(isNarrow ? "single" : "two-up");
-  }, [isNarrow, pdf]);
+  // Closes the tabs in `removed` (a Set of keys). A pane that was showing one
+  // moves to the nearest tab that is neither closing nor on show in the other
+  // pane; with none left, an unsplit viewer empties and a split collapses to
+  // the pane that remains.
+  function dropTabs(removed) {
+    const { tabs: current, split: wasSplit, activePane: ap, shown } = latest.current;
+    const shownNow = { ...shown };
+    let splitNow = wasSplit;
+    let activeNow = ap;
+    setTabs((prev) => prev.filter((t) => !removed.has(t.key)));
+    for (const id of wasSplit ? ["L", "R"] : [ap]) {
+      if (!removed.has(shownNow[id])) continue;
+      const otherKey = splitNow ? shownNow[otherOf(id)] : null;
+      const next = pickNeighbor(current, shownNow[id], new Set([...removed, otherKey]));
+      if (next) {
+        panes[id].loadFile(next.handle);
+        shownNow[id] = next.key;
+      } else {
+        panes[id].unloadDocument();
+        shownNow[id] = null;
+        if (splitNow) {
+          splitNow = false;
+          activeNow = otherOf(id);
+        }
+      }
+    }
+    if (splitNow !== wasSplit) {
+      setSplit(splitNow);
+      setActivePaneRaw(activeNow);
+    }
+  }
 
-  // Per-file page/zoom memory, keyed by filename. restoringRef guards the
-  // window between picking a new file and pdfjs firing pagesinit for it —
-  // without it, this effect would fire with the previous file's still-current
-  // page/scale and clobber the new file's saved position before restore runs.
-  useEffect(() => {
-    if (!selectedHandle || !pdf || restoringRef.current) return;
-    (async () => {
-      const all = (await dbGet("filePositions")) || {};
-      all[extrasKey(selectedHandle)] = { page: currentPage, scale, numPages };
-      await dbSet("filePositions", all);
-    })();
-  }, [selectedHandle, pdf, currentPage, scale, numPages]);
-
-  // Drive the pdf.js viewer from React state/events instead of rendering
-  // pages ourselves — see PdfViewer.jsx.
-  useEffect(() => {
-    if (!viewerApi) return;
-    const { eventBus } = viewerApi;
-    const onPageChanging = (e) => setCurrentPage(e.pageNumber);
-    const onScaleChanging = (e) => setScale(e.scale);
-    const onPagesInit = () => {
-      // pdf.js resets scrollMode/spreadMode to its own defaults (continuous,
-      // no spread) on every setDocument call, regardless of what they were
-      // set to before — reassert ours here so a same-viewMode reopen (e.g.
-      // two files on the same wide/narrow screen) doesn't silently fall back
-      // to continuous. The effect below only catches *changes* to viewMode.
-      viewerApi.pdfViewer.scrollMode = SCROLL_MODE_BY_VIEW[viewMode];
-      viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
-      // Fit-page always wins on open — per-file zoom memory below still
-      // gets written, but isn't read back here. Page position is.
-      viewerApi.pdfViewer.currentScaleValue = "page-fit";
-      const pending = pendingRestoreRef.current;
-      if (pending?.page) viewerApi.pdfViewer.currentPageNumber = pending.page;
-      pendingRestoreRef.current = null;
-      restoringRef.current = false;
-      // pdf.js only fires pagechanging when its own page number changes, and
-      // a new document starts at 1 whatever the last one was on — so a file
-      // opened from page 2 of another would keep showing (and saving) "2".
-      setCurrentPage(viewerApi.pdfViewer.currentPageNumber);
-    };
-    eventBus.on("pagechanging", onPageChanging);
-    eventBus.on("scalechanging", onScaleChanging);
-    eventBus.on("pagesinit", onPagesInit);
-    return () => {
-      eventBus.off("pagechanging", onPageChanging);
-      eventBus.off("scalechanging", onScaleChanging);
-      eventBus.off("pagesinit", onPagesInit);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerApi, viewMode]);
-
-  useEffect(() => {
-    if (!viewerApi) return;
-    if (!pdf) {
-      setOutline(null);
-      // Closing a doc (search typing, back-to-results, a failed open) has
-      // to clear this the same way opening one does below — otherwise it's
-      // stuck at whatever it was, and the next selectFile call's own
-      // unsaved-annotations guard blocks silently on a stale true.
-      setHasUnsavedAnnotations(false);
-      setNumPages(0);
+  // Opens a file in the active pane — or, if the other pane is already
+  // showing it, just makes that pane the active one (one file is never loaded
+  // twice).
+  async function selectFile(fileHandle) {
+    const other = panes[otherOf(activePane)];
+    if (split && other.activeKey === extrasKey(fileHandle) && (other.pdf || other.loading)) {
+      setActivePaneRaw(otherOf(activePane));
       return;
     }
-    viewerApi.pdfViewer.setDocument(pdf);
-    viewerApi.linkService.setDocument(pdf);
-    setNumPages(pdf.numPages);
-    pdf.getOutline().then((items) => setOutline(items?.length ? items : null));
-    // Tracks whether there are annotation edits not yet baked into a save
-    // (write-back or sidecar, see annotations.js) — drives the toolbar
-    // Save button's enabled state.
-    setHasUnsavedAnnotations(false);
-    pdf.annotationStorage.onSetModified = () => setHasUnsavedAnnotations(true);
-    pdf.annotationStorage.onResetModified = () => setHasUnsavedAnnotations(false);
-    // Frees the worker-side heap (fonts, decoded bitmaps, render streams)
-    // for this document the moment it's replaced by another or closed —
-    // otherwise it leaks for as long as the tab stays open.
-    return () => {
-      pdf.destroy();
-    };
-  }, [viewerApi, pdf]);
-
-  useEffect(() => {
-    if (!viewerApi) return;
-    viewerApi.pdfViewer.scrollMode = SCROLL_MODE_BY_VIEW[viewMode];
-    viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
-  }, [viewerApi, viewMode]);
-
-  // Opens a file in a tab — or focuses its tab if it's already open.
-  async function selectFile(fileHandle) {
-    // The tab already on screen: nothing to do (and nothing to confirm).
-    if (extrasKey(fileHandle) === activeKey && (pdf || loading)) return;
-    // Switching files abandons whatever's in the current document's
-    // annotationStorage — confirm rather than silently losing drawn/typed
-    // edits the user hasn't saved yet.
-    if (hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) return;
-    await loadFile(fileHandle);
+    await active.selectFile(fileHandle);
   }
 
-  async function loadFile(fileHandle) {
-    const key = extrasKey(fileHandle);
-    const token = ++loadTokenRef.current;
-    setTabs((prev) => openTab(prev, fileHandle));
-    setActiveKey(key);
-    setError(null);
-    closeSidebarIfAutoHide();
-    setLoading(true);
-    // Two-page (or single-page on narrow screens) + fit-page is the
-    // default on every open; manually switching view mode only sticks
-    // for the file currently open.
-    setViewMode(isNarrow ? "single" : "two-up");
-    restoringRef.current = true;
-    let timeoutId;
-    try {
-      // A sidecar copy (see annotations.js) holds this file's saved
-      // annotations when its mode is "sidecar" — load that instead of the
-      // original so they carry across sessions; the original is only ever
-      // touched in "writeback" mode.
-      const file = (await loadAnnotatedCopy(extrasKey(fileHandle))) || (await fileHandle.getFile());
-      const timeout = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
-      });
-      // A password prompt blocks the JS thread for as long as the user takes
-      // to answer it — cancel the load timeout the instant one appears, or
-      // it'd fire the moment the thread frees up regardless of how long ago
-      // the 15s actually elapsed.
-      const doc = await Promise.race([
-        loadDocument(file, { onPasswordPrompt: () => clearTimeout(timeoutId) }),
-        timeout,
-      ]);
-      // A newer selectFile call has since taken over — drop this stale
-      // result instead of overwriting the newer call's already-applied state.
-      if (loadTokenRef.current !== token) return;
-      const positions = (await dbGet("filePositions")) || {};
-      pendingRestoreRef.current = positions[extrasKey(fileHandle)] || null;
-      setPdf(doc);
-      addToRecent(fileHandle);
-    } catch (err) {
-      if (loadTokenRef.current !== token) return;
-      console.error(err);
-      setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
-      // A file that won't open leaves no tab behind.
-      setTabs((prev) => prev.filter((t) => t.key !== key));
-      setActiveKey(null);
-      setPdf(null);
-      restoringRef.current = false;
-    } finally {
-      clearTimeout(timeoutId);
-      if (loadTokenRef.current === token) setLoading(false);
-    }
+  // The user closes a tab (its ×). Only the document on screen can hold
+  // unsaved annotations, so only closing a tab that's showing asks.
+  async function closeTab(key) {
+    const { split: isSplit, activePane: ap, shown } = latest.current;
+    const id = (isSplit ? ["L", "R"] : [ap]).find((p) => shown[p] === key);
+    if (id && panes[id].hasUnsavedAnnotations && !(await confirmLeave(panes[id].selectedHandle))) return;
+    dropTabs(new Set([key]));
   }
 
-  // Unloads the document and cancels any load still in flight. Its tab, if
-  // there is one, stays in the bar.
-  function unloadDocument() {
-    loadTokenRef.current++;
-    restoringRef.current = false;
-    setActiveKey(null);
-    setPdf(null);
-    setLoading(false);
-    setError(null);
+  // Closes every tab whose file was removed from under the user — no
+  // unsaved-annotations confirm, the file is gone.
+  function closeTabsFor(handles) {
+    const gone = new Set(handles);
+    const keys = latest.current.tabs.filter((t) => gone.has(t.handle)).map((t) => t.key);
+    if (keys.length > 0) dropTabs(new Set(keys));
   }
 
   // Fills the tab bar without loading anything — the caller opens one of them
@@ -228,66 +95,35 @@ export function usePdfDocument({
     setTabs(handles.reduce((list, handle) => openTab(list, handle), []));
   }
 
-  // Opens the tab that took over after a close, or empties the viewer.
-  function showTab(tabList, key) {
-    const handle = tabList.find((t) => t.key === key)?.handle;
-    if (handle) loadFile(handle);
-    else unloadDocument();
+  // Splits the screen: the other pane opens `handle` (null leaves it empty).
+  function openSplit(handle) {
+    setSplit(true);
+    if (handle) panes[otherOf(activePane)].loadFile(handle);
   }
 
-  // The user closes a tab (its ×). Only the active tab can hold unsaved
-  // annotations, so only closing it asks.
-  async function closeTabByKey(key) {
-    if (key === latest.current.activeKey && hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) {
-      return;
-    }
-    const { tabs: current, activeKey: active } = latest.current;
-    const next = closeTab(current, active, key);
-    latest.current = { tabs: next.tabs, activeKey: next.activeKey };
-    setTabs(next.tabs);
-    if (key === active) showTab(next.tabs, next.activeKey);
-  }
-
-  // Closes every tab whose file was removed from under the user — no
-  // unsaved-annotations confirm, the file is gone.
-  function closeTabsFor(handles) {
-    const { tabs: current, activeKey: active } = latest.current;
-    const next = removeTabsFor(current, active, handles);
-    if (next.tabs.length === current.length) return;
-    latest.current = { tabs: next.tabs, activeKey: next.activeKey };
-    setTabs(next.tabs);
-    if (next.activeKey !== active) showTab(next.tabs, next.activeKey);
-  }
-
-  // Confirm-gated "step away from the open document" for callers where the
-  // user is choosing to leave it (typing in global search, "back to
-  // results"): the viewer empties but the tab stays. Resolves to whether it
-  // happened, so callers can bail out of whatever else they were about to do
-  // (e.g. not update the search field).
-  async function closeDocument() {
-    if (hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) return false;
-    unloadDocument();
-    return true;
+  // Closes one pane of a split, keeping the other on screen. The closed pane's
+  // tab stays in the bar; its document is released straight away.
+  async function closePane(id) {
+    if (!split) return;
+    if (panes[id].hasUnsavedAnnotations && !(await confirmLeave(panes[id].selectedHandle))) return;
+    panes[id].unloadDocument();
+    setSplit(false);
+    setActivePaneRaw(otherOf(id));
   }
 
   return {
-    pdf,
     tabs,
-    activeKey,
-    selectedHandle,
-    numPages,
-    currentPage,
-    scale,
-    viewMode,
-    setViewMode,
-    loading,
-    outline,
-    hasUnsavedAnnotations,
-    setHasUnsavedAnnotations,
+    split,
+    activePane,
+    setActivePane: (id) => split && setActivePaneRaw(id),
+    panes,
+    active,
     selectFile,
-    closeDocument,
-    closeTab: closeTabByKey,
+    closeDocument: () => active.closeDocument(),
+    closeTab,
     closeTabsFor,
     restoreTabs,
+    openSplit,
+    closePane,
   };
 }

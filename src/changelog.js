@@ -767,9 +767,15 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.5', date: 'Oct 2026', current: true, title: 'Toolbar menus over the tabs',
+    v: 'v11.5', date: 'Oct 2026', title: 'Toolbar menus over the tabs',
     notes: [
       'FIX: The Annotate, Zoom, ⋯ and Reading theme menus opened partly hidden behind the tab row. They now open on top of it.',
+    ],
+  },
+  {
+    v: 'v11.6', date: 'Oct 2026', current: true, title: 'Groundwork for split view',
+    notes: [
+      'IMP: The code that holds an open document (page, zoom, outline, unsaved annotations) is now one piece per viewer, with the tab list and tab closing handled above it. Nothing changes on screen; it is what lets two documents sit side by side.',
     ],
   },
 ]

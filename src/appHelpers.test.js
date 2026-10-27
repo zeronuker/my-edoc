@@ -15,8 +15,7 @@ import {
   pageSizeLabel,
   docInfoRows,
   openTab,
-  closeTab,
-  removeTabsFor,
+  pickNeighbor,
   tabsToRecords,
 } from "./appHelpers.js";
 
@@ -157,34 +156,15 @@ test("openTab appends a new file and reuses the tab of one that is already open"
   assert.equal(tabs[0].handle, reopened);
 });
 
-test("closeTab leaves a background tab's neighbours alone", () => {
-  const tabs = ["a", "b", "c"].map((n) => ({ key: n, handle: fileH(n) }));
-  const r = closeTab(tabs, "b", "a");
-  assert.deepEqual(keysOf(r.tabs), ["b", "c"]);
-  assert.equal(r.activeKey, "b");
-});
-
-test("closeTab on the active tab moves to the right neighbour, else the left, else nothing", () => {
-  const tabs = ["a", "b", "c"].map((n) => ({ key: n, handle: fileH(n) }));
-  assert.equal(closeTab(tabs, "b", "b").activeKey, "c");
-  assert.equal(closeTab(tabs, "c", "c").activeKey, "b");
-  assert.equal(closeTab([tabs[0]], "a", "a").activeKey, null);
-  assert.deepEqual(closeTab(tabs, "b", "zzz"), { tabs, activeKey: "b" });
-});
-
-test("removeTabsFor closes every tab whose file went, active or not, and re-picks a survivor", () => {
-  const h = ["a", "b", "c", "d"].map((n) => fileH(n));
-  const tabs = h.map((handle) => ({ key: handle.name, handle }));
-  const kept = removeTabsFor(tabs, "a", [h[2]]);
-  assert.deepEqual(keysOf(kept.tabs), ["a", "b", "d"]);
-  assert.equal(kept.activeKey, "a");
-  const active = removeTabsFor(tabs, "b", [h[1], h[2]]);
-  assert.deepEqual(keysOf(active.tabs), ["a", "d"]);
-  assert.equal(active.activeKey, "d");
-  const last = removeTabsFor(tabs, "d", [h[3], h[2]]);
-  assert.equal(last.activeKey, "b");
-  assert.equal(removeTabsFor(tabs, "a", h).activeKey, null);
-  assert.equal(removeTabsFor(tabs, null, [h[0]]).activeKey, null);
+test("pickNeighbor takes the nearest tab to the right, else to the left, skipping excluded ones", () => {
+  const tabs = ["a", "b", "c", "d"].map((n) => ({ key: n, handle: fileH(n) }));
+  const pick = (key, ...excluded) => pickNeighbor(tabs, key, new Set(excluded))?.key ?? null;
+  assert.equal(pick("b", "b"), "c");
+  assert.equal(pick("d", "d"), "c");
+  assert.equal(pick("b", "b", "c"), "d");
+  assert.equal(pick("b", "b", "c", "d"), "a");
+  assert.equal(pick("a", "a", "b", "c", "d"), null);
+  assert.equal(pickNeighbor([tabs[0]], "a", new Set(["a"])), null);
 });
 
 test("tabsToRecords saves a tab's file address and leaves out dropped files that cannot be reopened", () => {
