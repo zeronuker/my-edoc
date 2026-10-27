@@ -735,61 +735,18 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.0', date: 'Oct 2026', title: 'Document properties',
+    v: 'v11.0', date: 'Oct 2026', current: true, title: 'Tabs, split view and document tools',
     notes: [
-      'NEW: A ⋯ menu in the toolbar (and a row in the phone menu) opens Document properties: file name, title, author, subject, keywords, page count, page size (with the paper name, e.g. A4), file size, created and modified dates, the program that made it, PDF version, and whether it has a fillable form. Anything the file does not say is left out.',
-    ],
-  },
-  {
-    v: 'v11.1', date: 'Oct 2026', title: 'Fullscreen and presentation mode',
-    notes: [
-      'NEW: The ⋯ menu has Fullscreen (browsers that support it; not iPhone) and Presentation mode. Presentation goes fullscreen, shows one page at a time fitted to the screen on black, and hides every bar. Page with the arrow keys, PageUp/PageDown, Space (Shift+Space back), a mouse click (left quarter goes back), or by tapping the screen edges. Esc, the faint ✕ in the corner, or leaving fullscreen ends it and puts your page view back. Annotation tools are switched off while presenting.',
-    ],
-  },
-  {
-    v: 'v11.2', date: 'Oct 2026', title: 'Fillable forms on touch screens',
-    notes: [
-      'FIX: On a touch screen, tapping a form field in the outer quarter of the page turned the page instead of selecting the field. Taps on form fields (and buttons) now stay with the field. Typing into form fields and ticking boxes already worked, and Save keeps your answers in the app copy, same as annotations.',
-    ],
-  },
-  {
-    v: 'v11.3', date: 'Oct 2026', title: 'Tabs',
-    notes: [
-      'NEW: Tabs. Opening a file from the folder tree, Recent, search results or a drop puts it in a tab above the page — or jumps to its tab if it is already open. Click a tab to switch (the file reopens on the page you left it); × (or a middle-click) closes it, and the neighbouring tab takes over. Only the tab you are looking at is loaded, so a lot of tabs costs almost no memory.',
-      'NEW: Switching or closing a tab with unsaved annotations asks Save / Discard / Cancel, instead of the browser\'s plain confirm. Removing a file or folder closes its tabs. Searching your library no longer closes the open files — they stay in the tab bar.',
-      'FIX: Opening a file while another was on a later page left the page counter (and the page remembered for the new file) stuck on the old number until you turned a page.',
-    ],
-  },
-  {
-    v: 'v11.4', date: 'Oct 2026', title: 'Tabs come back after a restart',
-    notes: [
+      'NEW: Tabs. Opening a file from the folder tree, Recent, search results or a drop puts it in a tab above the page — or jumps to its tab if it is already open. Click a tab to switch (the file reopens on the page you left it); × (or a middle-click) closes it, and the neighbouring tab takes over. Only the tab you are looking at is loaded, so a lot of tabs costs almost no memory. Searching your library no longer closes the open files, and removing a file or folder closes its tabs.',
       'NEW: With Reading → Resume last position on, the app reopens every tab you had open, with the same one in front, instead of only the last file. Files you dropped onto the window are not brought back (there is no saved copy to reopen), and tabs for files that have since been removed are skipped.',
-    ],
-  },
-  {
-    v: 'v11.5', date: 'Oct 2026', title: 'Toolbar menus over the tabs',
-    notes: [
-      'FIX: The Annotate, Zoom, ⋯ and Reading theme menus opened partly hidden behind the tab row. They now open on top of it.',
-    ],
-  },
-  {
-    v: 'v11.6', date: 'Oct 2026', title: 'Groundwork for split view',
-    notes: [
-      'IMP: The code that holds an open document (page, zoom, outline, unsaved annotations) is now one piece per viewer, with the tab list and tab closing handled above it. Nothing changes on screen; it is what lets two documents sit side by side.',
-    ],
-  },
-  {
-    v: 'v11.7', date: 'Oct 2026', title: 'Split view',
-    notes: [
-      'NEW: Split view. ⋯ → Split view shows two documents side by side, each with its own page counter. The new pane opens the file you used most recently, or stays empty until you pick one. Click a pane to make it the active one (it gets the coral outline): the toolbar, search, outline, thumbnails, bookmarks and Save then follow it, and a tab or file you pick opens in it. Tabs marked L or R show which file is in which pane; picking a file the other pane already shows just moves you there. The × on a pane header, or ⋯ → Close split view, closes a pane (its tab stays, and it asks about unsaved annotations first).',
-      'IMP: In a split each pane shows one page at a time, so no more pages are on screen than in two-page view. Presentation mode shows only the active pane and puts the split back when it ends. The annotation tool works in the active pane only.',
-    ],
-  },
-  {
-    v: 'v11.8', date: 'Oct 2026', current: true, title: 'Split view memory guardrails',
-    notes: [
-      'NEW: Settings → Reading → Split view switches it on or off. It starts on for mouse-and-keyboard devices and off on touch devices: two documents use more memory, and big scanned PDFs can make iPad Safari close the app.',
-      'IMP: Split view closes its second pane by itself when the window gets narrower than the tablet breakpoint (an iPad turned to portrait) or when you switch it off — the tab stays, and it asks about unsaved annotations first. The ⋯ menu says why Split view is greyed out.',
+      'NEW: Split view. ⋯ → Split view shows two documents side by side, each with its own page counter. The new pane opens the file you used most recently, or stays empty until you pick one. Click a pane to make it the active one (it gets the coral outline): the toolbar, search, outline, thumbnails, bookmarks and Save then follow it, and a tab or file you pick opens in it. Tabs marked L or R show which file is in which pane; picking a file the other pane already shows just moves you there. The × on a pane header, or ⋯ → Close split view, closes a pane (its tab stays, and it asks about unsaved annotations first). In a split each pane shows one page at a time, the annotation tool works in the active pane only, and Presentation mode shows only the active pane and puts the split back when it ends.',
+      'NEW: Settings → Reading → Split view switches it on or off. It starts on for mouse-and-keyboard devices and off on touch devices: two documents use more memory, and big scanned PDFs can make iPad Safari close the app. A split closes its second pane by itself when the window gets narrower than the tablet breakpoint (an iPad turned to portrait) or when you switch it off, and the ⋯ menu says why Split view is greyed out.',
+      'NEW: Switching or closing a tab with unsaved annotations asks Save / Discard / Cancel, instead of the browser\'s plain confirm.',
+      'NEW: Document properties. A ⋯ menu in the toolbar (and a row in the phone menu) opens file name, title, author, subject, keywords, page count, page size (with the paper name, e.g. A4), file size, created and modified dates, the program that made it, PDF version, and whether it has a fillable form. Anything the file does not say is left out.',
+      'NEW: Fullscreen (browsers that support it; not iPhone) and Presentation mode, both in the ⋯ menu. Presentation goes fullscreen, shows one page at a time fitted to the screen on black, and hides every bar. Page with the arrow keys, PageUp/PageDown, Space (Shift+Space back), a mouse click (left quarter goes back), or by tapping the screen edges. Esc, the faint ✕ in the corner, or leaving fullscreen ends it and puts your page view back. Annotation tools are switched off while presenting.',
+      'FIX: On a touch screen, tapping a form field in the outer quarter of the page turned the page instead of selecting the field. Taps on form fields (and buttons) now stay with the field. Typing into form fields and ticking boxes already worked, and Save keeps your answers in the app copy, same as annotations.',
+      'FIX: Opening a file while another was on a later page left the page counter (and the page remembered for the new file) stuck on the old number until you turned a page.',
+      'IMP: The code that holds an open document (page, zoom, outline, unsaved annotations) is now one piece per viewer, with the tab list and tab closing handled above it. It is what lets two documents sit side by side.',
     ],
   },
 ]
