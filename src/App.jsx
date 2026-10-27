@@ -66,8 +66,6 @@ import {
   IconLayoutSidebar,
   IconSearch,
   IconArrowLeft,
-  IconChevronLeft,
-  IconChevronRight,
   IconDotsVertical,
 } from "@tabler/icons-react";
 import TreeView from "./TreeView.jsx";
@@ -76,7 +74,7 @@ import OutlineView from "./OutlineView.jsx";
 import BookmarksView from "./BookmarksView.jsx";
 import RecentView from "./RecentView.jsx";
 import ThumbnailView from "./ThumbnailView.jsx";
-import PdfViewer from "./PdfViewer.jsx";
+import Pane from "./Pane.jsx";
 import Toolbar from "./Toolbar.jsx";
 import TabBar from "./TabBar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
@@ -132,7 +130,8 @@ function App() {
   foldersRef.current = folders;
   const [isNarrow, setIsNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
   const [error, setError] = useState(null);
-  const [viewerApi, setViewerApi] = useState(null);
+  const [viewerApiL, setViewerApiL] = useState(null); // each pane's pdf.js viewer, set once its PdfViewer mounts
+  const [viewerApiR, setViewerApiR] = useState(null);
   // Phone starts with the drawer closed; iPad and desktop start with the
   // sidebar expanded, regardless of window width.
   const [sidebarOpen, setSidebarOpen] = useState(() => !IS_MOBILE);
@@ -184,9 +183,23 @@ function App() {
   const initializedRef = useRef(false);
   const tabsRestoredRef = useRef(false);
 
-  const { tabs, active, selectFile, closeDocument, closeTab, closeTabsFor, restoreTabs } = usePdfDocument({
+  const {
+    tabs,
+    split,
+    activePane,
+    setActivePane,
+    panes,
+    active,
+    selectFile,
+    closeDocument,
+    closeTab,
+    closeTabsFor,
+    restoreTabs,
+    openSplit,
+    closePane,
+  } = usePdfDocument({
     isNarrow,
-    viewerApis: { L: viewerApi, R: null },
+    viewerApis: { L: viewerApiL, R: viewerApiR },
     closeSidebarIfAutoHide,
     addToRecent,
     setError,
@@ -205,8 +218,9 @@ function App() {
     loading,
     outline,
     hasUnsavedAnnotations,
-    setHasUnsavedAnnotations,
+    chosenViewMode,
   } = active;
+  const viewerApi = activePane === "L" ? viewerApiL : viewerApiR;
 
   // Shared between the sidebar tree (renders/edits it) and search (needs the
   // same arranged view so results show where things are drawn) — see
@@ -478,20 +492,31 @@ function App() {
     // it dispatches "annotationeditoruimanager" the moment it's ready.
     // Applying immediately handles a tool change on an already-settled
     // document; the listener catches the race right after a fresh load.
-    if (!viewerApi || !pdf) return;
-    const mode = ANNOTATION_EDITOR_MODE_BY_TOOL[annotationTool] ?? AnnotationEditorType.NONE;
-    function applyMode() {
-      try {
-        viewerApi.pdfViewer.annotationEditorMode = { mode };
-      } catch {
-        // Not ready yet — the event listener below re-applies once it is.
-      }
+    const cleanups = [];
+    for (const [id, api] of [
+      ["L", viewerApiL],
+      ["R", viewerApiR],
+    ]) {
+      if (!api || !panes[id].pdf) continue;
+      // Only the active pane takes the tool; the other one's editors sleep.
+      const mode =
+        id === activePane
+          ? (ANNOTATION_EDITOR_MODE_BY_TOOL[annotationTool] ?? AnnotationEditorType.NONE)
+          : AnnotationEditorType.NONE;
+      const applyMode = () => {
+        try {
+          api.pdfViewer.annotationEditorMode = { mode };
+        } catch {
+          // Not ready yet — the event listener below re-applies once it is.
+        }
+      };
+      applyMode();
+      api.eventBus.on("annotationeditoruimanager", applyMode);
+      cleanups.push(() => api.eventBus.off("annotationeditoruimanager", applyMode));
     }
-    applyMode();
-    viewerApi.eventBus.on("annotationeditoruimanager", applyMode);
-    return () => viewerApi.eventBus.off("annotationeditoruimanager", applyMode);
+    return () => cleanups.forEach((fn) => fn());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerApi, pdf, annotationTool]);
+  }, [viewerApiL, viewerApiR, panes.L.pdf, panes.R.pdf, annotationTool, activePane]);
 
   const {
     presenting,
@@ -500,7 +525,7 @@ function App() {
     startPresentation,
     stopPresentation,
     toggleFullscreen,
-  } = usePresentation({ pdfViewer: viewerApi?.pdfViewer, viewMode, setViewMode, setAnnotationTool });
+  } = usePresentation({ pdfViewer: viewerApi?.pdfViewer, viewMode: chosenViewMode, setViewMode, setAnnotationTool });
   useKeyboardShortcuts(viewerApi, { presenting, onExitPresentation: stopPresentation });
 
   // Same dismiss rules as a folder's ⋮ menu: tap outside or press Escape.
@@ -606,37 +631,59 @@ function App() {
     });
   }
 
-  // Bakes current annotation edits into the file's app copy (see
-  // annotations.js) and clears the "unsaved" flag.
-  // Resolves to whether it saved.
-  async function handleSaveAnnotations() {
-    if (!selectedHandle || !pdf) return false;
+  // Bakes a document's annotation edits into the file's app copy (see
+  // annotations.js) and clears its "unsaved" flag. `doc` is { handle, pdf,
+  // markSaved } — the pane's own, since the document being saved isn't always
+  // the active pane's. Resolves to whether it saved.
+  async function saveAnnotationsOf({ handle, pdf: doc, markSaved }) {
+    if (!handle || !doc) return false;
     try {
-      await saveAnnotations(selectedHandle, pdf);
-      setHasUnsavedAnnotations(false);
+      await saveAnnotations(handle, doc);
+      markSaved();
       return true;
     } catch (err) {
       console.error(err);
-      setError(`Couldn't save annotations on "${selectedHandle.name}": ${err.message}`);
+      setError(`Couldn't save annotations on "${handle.name}": ${err.message}`);
       return false;
     }
   }
 
-  // Asked before the open document is switched away from or closed while it
-  // has unsaved annotations. Resolves true once it's fine to go on: they were
+  function handleSaveAnnotations() {
+    return saveAnnotationsOf(active.leave);
+  }
+
+  // Asked before a document is switched away from or closed while it has
+  // unsaved annotations. Resolves true once it's fine to go on: they were
   // saved, or the user chose to discard them.
-  async function confirmLeaveDocument(handle) {
+  async function confirmLeaveDocument(doc) {
     const choice = await askChoice({
       title: "UNSAVED ANNOTATIONS",
-      subtitle: handle?.name,
+      subtitle: doc.handle?.name,
       body: "This file has annotations that aren't saved yet. Save them before leaving, or discard them?",
       actions: [
         { label: "Save", value: "save", primary: true },
         { label: "Discard", value: "discard" },
       ],
     });
-    if (choice === "save") return handleSaveAnnotations();
+    if (choice === "save") return saveAnnotationsOf(doc);
     return choice === "discard";
+  }
+
+  // Split view is offered on wide screens, with a document open to split from.
+  const splitAvailable = !isNarrow && !!pdf;
+
+  // Splits the screen, the new pane opening the most recently used other tab
+  // (or empty if there is none), or closes the pane that isn't the active one.
+  function toggleSplit() {
+    if (split) {
+      closePane(activePane === "L" ? "R" : "L");
+      return;
+    }
+    const otherTab =
+      recentFiles
+        .map((e) => tabs.find((t) => t.key === extrasKey(e.fileHandle)))
+        .find((t) => t && t.key !== activeKey) ?? tabs.find((t) => t.key !== activeKey);
+    openSplit(otherTab?.handle ?? null);
   }
 
   // Only fetches the device's overall quota — "used" is tracked ourselves
@@ -1504,6 +1551,7 @@ function App() {
             drawerOpen={toolbarOpen}
             onCloseDrawer={() => setToolbarOpen(false)}
             viewMode={viewMode}
+            viewModeLocked={split}
             setViewMode={setViewMode}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((v) => !v)}
@@ -1524,6 +1572,9 @@ function App() {
             hasUnsavedAnnotations={hasUnsavedAnnotations}
             onSaveAnnotations={handleSaveAnnotations}
             onShowInfo={showDocInfo}
+            split={split}
+            splitAvailable={splitAvailable}
+            onToggleSplit={toggleSplit}
             onStartPresentation={startPresentation}
             isFullscreen={isFullscreen}
             fullscreenSupported={fullscreenSupported}
@@ -1531,7 +1582,15 @@ function App() {
             onOpenSettings={openSettings}
             settingsUpdateAvailable={update.needRefresh}
           />
-          {tabs.length > 0 && <TabBar tabs={tabs} activeKey={activeKey} onSelect={selectFile} onClose={closeTab} />}
+          {tabs.length > 0 && (
+            <TabBar
+              tabs={tabs}
+              activeKey={activeKey}
+              paneOf={split ? (key) => (panes.L.activeKey === key ? "L" : panes.R.activeKey === key ? "R" : null) : null}
+              onSelect={selectFile}
+              onClose={closeTab}
+            />
+          )}
           {error && (
             <div className="error-banner">
               <span>{error}</span>
@@ -1548,129 +1607,35 @@ function App() {
               </button>
             </div>
           )}
-          {/* PdfViewer stays mounted for the app's whole lifetime — it builds
-              its own pdf.js viewer/eventBus once on mount (see PdfViewer.jsx)
-              and swaps documents via the pdf prop, so it must never be
-              conditionally unmounted (e.g. while search results are showing)
-              or that internal viewer is torn down and pdf.js breaks on the
-              next open. Loading/search-results/empty states are layered on
-              top of it instead, same trick .viewer-empty already used. */}
-          <PdfViewer
-            viewMode={viewMode}
-            onReady={setViewerApi}
-            readingTheme={settings.readingTheme}
-            readingBrightness={settings.readingBrightness}
-            readingContrast={settings.readingContrast}
-            annotationTool={annotationTool}
-            presenting={presenting}
-          />
           {presenting && (
             <button className="presentation-exit" aria-label="Exit presentation" onClick={stopPresentation}>
               <IconX size={18} />
             </button>
           )}
-          {loading ? (
-            <div className="viewer-empty">
-              <span className="viewer-loading">
-                <span className="spinner" />
-                Loading {selectedHandle?.name}…
-              </span>
-            </div>
-          ) : globalSearch.trim() && !pdf ? (
+          <div className={`panes${split ? " is-split" : ""}`}>
+            {["L", "R"].map((id) => (
+              <Pane
+                key={id}
+                id={id}
+                pane={panes[id]}
+                viewerApi={id === "L" ? viewerApiL : viewerApiR}
+                split={split}
+                isActive={activePane === id}
+                hidden={!split && activePane !== id}
+                searchActive={!!globalSearch.trim()}
+                onReady={id === "L" ? setViewerApiL : setViewerApiR}
+                onActivate={setActivePane}
+                onClose={closePane}
+                readingTheme={settings.readingTheme}
+                readingBrightness={settings.readingBrightness}
+                readingContrast={settings.readingContrast}
+                annotationTool={annotationTool}
+                presenting={presenting}
+              />
+            ))}
+          </div>
+          {globalSearch.trim() && !pdf && !loading && (
             <SearchResults query={globalSearch} folders={displayFolders} onOpenResult={selectFile} />
-          ) : !pdf ? (
-            <div className="viewer-empty">
-                <div className="empty-illustration">
-                  <svg className="empty-illustration-icon" width="150" height="150" viewBox="0 0 150 150" aria-hidden="true">
-                    <defs>
-                      <linearGradient id="empty-doc-grad" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor="var(--cb-mint)" />
-                        <stop offset="55%" stopColor="var(--cb-blue)" />
-                        <stop offset="100%" stopColor="var(--cb-violet)" />
-                      </linearGradient>
-                    </defs>
-                    <rect
-                      x="4"
-                      y="4"
-                      width="142"
-                      height="142"
-                      rx="8"
-                      fill="none"
-                      stroke="url(#empty-doc-grad)"
-                      strokeWidth="1.5"
-                      strokeDasharray="6 6"
-                      opacity="0.45"
-                    />
-                    <polyline
-                      points="52,38 52,112 98,112 98,58 78,38 52,38"
-                      fill="none"
-                      stroke="url(#empty-doc-grad)"
-                      strokeWidth="3"
-                      strokeLinejoin="miter"
-                    />
-                    <polyline
-                      points="78,38 78,58 98,58"
-                      fill="none"
-                      stroke="url(#empty-doc-grad)"
-                      strokeWidth="3"
-                      strokeLinejoin="miter"
-                    />
-                    <line x1="60" y1="76" x2="90" y2="76" stroke="url(#empty-doc-grad)" strokeWidth="2" />
-                    <line x1="60" y1="88" x2="90" y2="88" stroke="url(#empty-doc-grad)" strokeWidth="2" />
-                    <line x1="60" y1="100" x2="80" y2="100" stroke="url(#empty-doc-grad)" strokeWidth="2" />
-                    <polyline
-                      points="112,86 124,98 112,110"
-                      fill="none"
-                      stroke="url(#empty-doc-grad)"
-                      strokeWidth="2.5"
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                    />
-                    <line x1="112" y1="98" x2="123" y2="98" stroke="url(#empty-doc-grad)" strokeWidth="2.5" strokeLinecap="round" />
-                  </svg>
-                  <div className="empty-illustration-text">
-                    <div className="empty-illustration-headline">Wow, such empty</div>
-                    <div className="empty-illustration-subtext">Drag a PDF here, or pick one from the sidebar</div>
-                  </div>
-                </div>
-            </div>
-          ) : null}
-          {pdf && !loading && (
-            <div className="page-pill">
-              <button
-                aria-label="Previous page"
-                disabled={currentPage <= 1}
-                onClick={() => viewerApi?.pdfViewer?.previousPage()}
-              >
-                <IconChevronLeft size={16} />
-              </button>
-              <span className="page-pill-count">
-                <input
-                  type="number"
-                  min={1}
-                  max={numPages}
-                  value={currentPage}
-                  aria-label="Current page"
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (viewerApi?.pdfViewer && n >= 1 && n <= numPages) {
-                      viewerApi.pdfViewer.currentPageNumber = n;
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "Escape") e.target.blur();
-                  }}
-                />
-                <span className="page-pill-total">/ {numPages || "-"}</span>
-              </span>
-              <button
-                aria-label="Next page"
-                disabled={!numPages || currentPage >= numPages}
-                onClick={() => viewerApi?.pdfViewer?.nextPage()}
-              >
-                <IconChevronRight size={16} />
-              </button>
-            </div>
           )}
           <button
             className={`sidebar-pill${pdf && !loading ? " over-doc" : ""}`}

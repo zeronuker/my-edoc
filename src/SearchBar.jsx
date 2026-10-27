@@ -46,6 +46,12 @@ export default function SearchBar({ eventBus }) {
     };
   }, [eventBus]);
 
+  // Moving to another pane's viewer (split view) leaves the old one's
+  // highlights behind — clear them; the query effect below runs it again on the new one.
+  useEffect(() => {
+    return () => eventBus?.dispatch("findbarclose", { source: "edoc" });
+  }, [eventBus]);
+
   function dispatchFind(type, extra = {}) {
     eventBus?.dispatch("find", {
       source: "edoc",

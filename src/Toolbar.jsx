@@ -16,6 +16,7 @@ import {
   IconEdit,
   IconDots,
   IconInfoCircle,
+  IconColumns2,
   IconPresentation,
   IconMaximize,
   IconMinimize,
@@ -107,6 +108,7 @@ function rotateBy(pdfViewer, degrees) {
 
 function DesktopToolbar({
   viewMode,
+  viewModeLocked,
   setViewMode,
   scale,
   numPages,
@@ -127,6 +129,9 @@ function DesktopToolbar({
   hasUnsavedAnnotations,
   onSaveAnnotations,
   onShowInfo,
+  split,
+  splitAvailable,
+  onToggleSplit,
   onStartPresentation,
   isFullscreen,
   fullscreenSupported,
@@ -198,6 +203,8 @@ function DesktopToolbar({
             className="view-mode-native"
             value={viewMode}
             onChange={(e) => setViewMode(e.target.value)}
+            disabled={viewModeLocked}
+            title={viewModeLocked ? "Each pane shows one page in split view" : undefined}
             aria-label="Page view mode"
           >
             <option value="single">Single page</option>
@@ -209,6 +216,7 @@ function DesktopToolbar({
           <span className="view-mode-dropdown dropdown" ref={viewModeMenu.ref}>
             <button
               className="view-mode-trigger"
+              disabled={viewModeLocked}
               aria-expanded={viewModeMenu.open}
               aria-label="Page view mode"
               onClick={() => viewModeMenu.setOpen((v) => !v)}
@@ -477,6 +485,16 @@ function DesktopToolbar({
               }}
             >
               <IconInfoCircle size={16} /> Document properties
+            </button>
+            <button
+              disabled={!splitAvailable && !split}
+              title={!splitAvailable && !split ? "Split view needs a wider screen and an open document" : undefined}
+              onClick={() => {
+                onToggleSplit();
+                moreMenu.setOpen(false);
+              }}
+            >
+              <IconColumns2 size={16} /> {split ? "Close split view" : "Split view"}
             </button>
             <span className="dropdown-sep" />
             <button

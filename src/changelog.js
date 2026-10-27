@@ -773,9 +773,16 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.6', date: 'Oct 2026', current: true, title: 'Groundwork for split view',
+    v: 'v11.6', date: 'Oct 2026', title: 'Groundwork for split view',
     notes: [
       'IMP: The code that holds an open document (page, zoom, outline, unsaved annotations) is now one piece per viewer, with the tab list and tab closing handled above it. Nothing changes on screen; it is what lets two documents sit side by side.',
+    ],
+  },
+  {
+    v: 'v11.7', date: 'Oct 2026', current: true, title: 'Split view',
+    notes: [
+      'NEW: Split view. ⋯ → Split view shows two documents side by side, each with its own page counter. The new pane opens the file you used most recently, or stays empty until you pick one. Click a pane to make it the active one (it gets the coral outline): the toolbar, search, outline, thumbnails, bookmarks and Save then follow it, and a tab or file you pick opens in it. Tabs marked L or R show which file is in which pane; picking a file the other pane already shows just moves you there. The × on a pane header, or ⋯ → Close split view, closes a pane (its tab stays, and it asks about unsaved annotations first).',
+      'IMP: In a split each pane shows one page at a time, so no more pages are on screen than in two-page view. Presentation mode shows only the active pane and puts the split back when it ends. The annotation tool works in the active pane only.',
     ],
   },
 ]

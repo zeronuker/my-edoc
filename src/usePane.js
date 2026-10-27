@@ -18,8 +18,8 @@ import { openTab } from "./appHelpers.js";
 // to layout, the viewer widget's own lifecycle, the sidebar, recents, the
 // app-wide error banner and the unsaved-annotations dialog respectively, none
 // of which are specific to "which document is open" the way everything here
-// is. confirmLeave(handle) resolves true once it's fine to drop that
-// document's unsaved annotations. `split` is true while two panes share the
+// is. confirmLeave({ handle, pdf, markSaved }) resolves true once it's fine to
+// drop that document's unsaved annotations. `split` is true while two panes share the
 // screen: each then shows one page at a time (two-page view would decode up to
 // four pages at once, which iPad Safari can't take with image-heavy scans).
 export function usePane({
@@ -47,6 +47,9 @@ export function usePane({
   const [loading, setLoading] = useState(false);
   const [outline, setOutline] = useState(null);
   const [hasUnsavedAnnotations, setHasUnsavedAnnotations] = useState(false);
+  // What confirmLeave needs to save this pane's document (not whichever pane
+  // happens to be the active one when the dialog's answer comes back).
+  const leave = { handle: selectedHandle, pdf, markSaved: () => setHasUnsavedAnnotations(false) };
 
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
@@ -157,7 +160,7 @@ export function usePane({
     // Switching files abandons whatever's in the current document's
     // annotationStorage — confirm rather than silently losing drawn/typed
     // edits the user hasn't saved yet.
-    if (hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) return;
+    if (hasUnsavedAnnotations && !(await confirmLeave(leave))) return;
     await loadFile(fileHandle);
   }
 
@@ -231,7 +234,7 @@ export function usePane({
   // happened, so callers can bail out of whatever else they were about to do
   // (e.g. not update the search field).
   async function closeDocument() {
-    if (hasUnsavedAnnotations && !(await confirmLeave(selectedHandle))) return false;
+    if (hasUnsavedAnnotations && !(await confirmLeave(leave))) return false;
     unloadDocument();
     return true;
   }
@@ -249,6 +252,8 @@ export function usePane({
     outline,
     hasUnsavedAnnotations,
     setHasUnsavedAnnotations,
+    leave,
+    chosenViewMode,
     selectFile,
     loadFile,
     unloadDocument,

@@ -77,7 +77,7 @@ export function usePdfDocument({ isNarrow, viewerApis, closeSidebarIfAutoHide, a
   async function closeTab(key) {
     const { split: isSplit, activePane: ap, shown } = latest.current;
     const id = (isSplit ? ["L", "R"] : [ap]).find((p) => shown[p] === key);
-    if (id && panes[id].hasUnsavedAnnotations && !(await confirmLeave(panes[id].selectedHandle))) return;
+    if (id && panes[id].hasUnsavedAnnotations && !(await confirmLeave(panes[id].leave))) return;
     dropTabs(new Set([key]));
   }
 
@@ -105,7 +105,7 @@ export function usePdfDocument({ isNarrow, viewerApis, closeSidebarIfAutoHide, a
   // tab stays in the bar; its document is released straight away.
   async function closePane(id) {
     if (!split) return;
-    if (panes[id].hasUnsavedAnnotations && !(await confirmLeave(panes[id].selectedHandle))) return;
+    if (panes[id].hasUnsavedAnnotations && !(await confirmLeave(panes[id].leave))) return;
     panes[id].unloadDocument();
     setSplit(false);
     setActivePaneRaw(otherOf(id));

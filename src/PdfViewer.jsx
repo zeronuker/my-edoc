@@ -186,6 +186,9 @@ export default function PdfViewer({
     const observer = new ResizeObserver(() => {
       clearTimeout(timer);
       timer = setTimeout(() => {
+        // A hidden pane (display:none) has nothing to fit, and pdf.js logs an
+        // error trying to scroll in one.
+        if (!containerRef.current?.offsetParent) return;
         const value = pdfViewer.currentScaleValue;
         if (value && isNaN(value)) pdfViewer.currentScaleValue = value;
       }, 150);
