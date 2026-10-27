@@ -726,17 +726,12 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.10', date: 'Oct 2026', title: 'Two-page continuous view',
+    v: 'v10.10', date: 'Oct 2026', current: true, title: 'Two-page continuous view',
     notes: [
       'NEW: Two-page continuous page view. Pages sit side by side in pairs, like an open book, and you scroll down through the whole document. Pick it from the page view menu in the toolbar.',
       'FIX: On phones the Reading theme and Annotate menus could open partly off the left edge of the screen, out of reach. They now open below the toolbar, inside the screen.',
       'IMP: On phones the top bar now shows only the title, aligned to the left. The sidebar and Settings buttons moved into the toolbar, which follows the desktop order and sits in two even rows.',
       'IMP: Settings and every dialog now share one look: a double-line border with cut corners that follows the theme.',
-    ],
-  },
-  {
-    v: 'v11.0', date: 'Oct 2026', current: true, title: 'Tabs, split view and document tools',
-    notes: [
       'NEW: Tabs. Opening a file from the folder tree, Recent, search results or a drop puts it in a tab above the page — or jumps to its tab if it is already open. Click a tab to switch (the file reopens on the page you left it); × (or a middle-click) closes it, and the neighbouring tab takes over. Only the tab you are looking at is loaded, so a lot of tabs costs almost no memory. Searching your library no longer closes the open files, and removing a file or folder closes its tabs.',
       'NEW: With Reading → Resume last position on, the app reopens every tab you had open, with the same one in front, instead of only the last file. Files you dropped onto the window are not brought back (there is no saved copy to reopen), and tabs for files that have since been removed are skipped.',
       'NEW: Split view. ⋯ → Split view shows two documents side by side, each with its own page counter. The new pane opens the file you used most recently, or stays empty until you pick one. Click a pane to make it the active one (it gets the coral outline): the toolbar, search, outline, thumbnails, bookmarks and Save then follow it, and a tab or file you pick opens in it. Tabs marked L or R show which file is in which pane; picking a file the other pane already shows just moves you there. The × on a pane header, or ⋯ → Close split view, closes a pane (its tab stays, and it asks about unsaved annotations first). In a split each pane shows one page at a time, the annotation tool works in the active pane only, and Presentation mode shows only the active pane and puts the split back when it ends.',
