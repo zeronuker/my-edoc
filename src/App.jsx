@@ -80,7 +80,7 @@ import Toolbar from "./Toolbar.jsx";
 import TabBar from "./TabBar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
-import ReceiveModal from "./ReceiveModal.jsx";
+import WifiModal from "./WifiModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
 import ChoiceModal from "./ChoiceModal.jsx";
@@ -180,7 +180,7 @@ function App() {
   const lastDocInfoRef = useRef(null);
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
-  const [receiveOpen, setReceiveOpen] = useState(false); // Receive from PC dialog
+  const [wifiOpen, setWifiOpen] = useState(false); // Send / receive via wifi dialog
   const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
   const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
@@ -917,10 +917,9 @@ function App() {
     setAddFiles({ files });
   }
 
-  // Files that came over wifi (ReceiveModal) go through the same flows as
+  // Files that came over wifi (WifiModal) go through the same flows as
   // picked ones: a folder like Add folder, loose PDFs like Add files.
   function handleReceived({ kind, files }) {
-    setReceiveOpen(false);
     if (kind === "folder") {
       addFolderFromList(files).catch((err) => setError(`Couldn't add the folder: ${err.message}`));
     } else if (addFilesTargets.length === 0) {
@@ -1279,7 +1278,7 @@ function App() {
     rawTree: folders.find((r) => r.key === f.key).tree,
   }));
   const fabMenu = usePresence(fabMenuOpen);
-  const receivePresence = usePresence(receiveOpen);
+  const wifiPresence = usePresence(wifiOpen);
   if (removeRequest) lastRemoveRef.current = removeRequest;
   const removePresence = usePresence(!!removeRequest);
   if (placement) lastPlacementRef.current = placement;
@@ -1335,11 +1334,12 @@ function App() {
           onClose={() => setAddFiles(null)}
         />
       )}
-      {receivePresence.present && (
-        <ReceiveModal
-          closing={receivePresence.closing}
+      {wifiPresence.present && (
+        <WifiModal
+          closing={wifiPresence.closing}
+          hidden={!!(addFiles || placement || copyProgress || choice)}
           onReceived={handleReceived}
-          onClose={() => setReceiveOpen(false)}
+          onClose={() => setWifiOpen(false)}
         />
       )}
       {placementPresence.present && placementShown && (
@@ -1584,10 +1584,10 @@ function App() {
                     style={{ "--i": 2 }}
                     onClick={() => {
                       setFabMenuOpen(false);
-                      setReceiveOpen(true);
+                      setWifiOpen(true);
                     }}
                   >
-                    <IconWifi size={16} /> Receive from PC
+                    <IconWifi size={16} /> Send / receive via wifi
                   </button>
                 </div>
               )}

@@ -1,43 +1,28 @@
-// PC → iPad/phone over the local wifi, with no server: the two devices swap
-// one pasted code each (a compressed WebRTC offer, then the answer), then the
-// PDFs go straight across a data channel. No STUN, so only same-network
-// (host) candidates are used and nothing leaves the LAN.
+import Peer from "peerjs";
 
-const READ_BLOCK = 256 * 1024;
+// PC ↔ iPad/phone over the local wifi. One device shows a short code, the
+// other types or scans it; PeerJS's public broker only passes the connection
+// details between them. The PDFs themselves go straight across the wifi, and
+// with no STUN/TURN servers configured only same-network routes are tried.
+
 const CHUNK = 16 * 1024; // the size every browser's data channel accepts
-const HIGH_WATER = 1024 * 1024;
-const GATHER_TIMEOUT_MS = 3000;
+const READ_BLOCK = 256 * 1024;
+const MAX_QUEUED = 64; // chunks PeerJS may hold before sending pauses
+const PEER_OPTIONS = { config: { iceServers: [] } };
+const ID_PREFIX = "edoc-";
+// No 0/O/1/I/L: the code gets read off one screen and typed on another.
+const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+export const CODE_LENGTH = 6;
 
-// ---- Codes ----
-
-function toBase64Url(bytes) {
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export function makeCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH));
+  return Array.from(bytes, (b) => CODE_CHARS[b % CODE_CHARS.length]).join("");
 }
 
-function fromBase64Url(text) {
-  const bin = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
-  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-}
-
-async function pipeBytes(bytes, transform) {
-  const stream = new Blob([bytes]).stream().pipeThrough(transform);
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-export async function encodeCode(desc) {
-  const json = new TextEncoder().encode(JSON.stringify({ type: desc.type, sdp: desc.sdp }));
-  return toBase64Url(await pipeBytes(json, new CompressionStream("deflate-raw")));
-}
-
-// Pasted codes pick up line breaks and spaces on the way; ignore them.
-export async function decodeCode(code) {
-  const bytes = fromBase64Url(code.replace(/\s+/g, ""));
-  const { type, sdp } = JSON.parse(
-    new TextDecoder().decode(await pipeBytes(bytes, new DecompressionStream("deflate-raw")))
-  );
-  return { type, sdp };
+// Typed or scanned text → the canonical code, or null if it can't be one.
+export function cleanCode(text) {
+  const code = text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return code.length === CODE_LENGTH ? code : null;
 }
 
 // ---- Receiving side's file reassembly ----
@@ -92,122 +77,97 @@ export class FileAssembler {
   }
 }
 
-// ---- WebRTC plumbing ----
+// ---- Pairing ----
 
-function newPeer() {
-  return new RTCPeerConnection({ iceServers: [] });
-}
-
-// The code has to hold every candidate, so wait for gathering to finish.
-function gathered(pc) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, GATHER_TIMEOUT_MS);
-    const check = () => {
-      if (pc.iceGatheringState !== "complete") return;
-      clearTimeout(timer);
-      pc.removeEventListener("icegatheringstatechange", check);
-      resolve();
-    };
-    pc.addEventListener("icegatheringstatechange", check);
-    check();
+// Shows up as `code` for the other device to join. onConnection fires once
+// with the first device to connect; any later one is turned away.
+export function hostSession(code, onConnection, onError) {
+  const peer = new Peer(ID_PREFIX + code, PEER_OPTIONS);
+  let taken = false;
+  peer.on("connection", (conn) => {
+    if (taken) return conn.close();
+    taken = true;
+    conn.on("open", () => onConnection(conn));
   });
+  peer.on("error", onError);
+  return peer;
 }
 
-function waitForOpen(channel) {
-  return new Promise((resolve, reject) => {
-    if (channel.readyState === "open") return resolve();
-    channel.addEventListener("open", resolve, { once: true });
-    channel.addEventListener("close", () => reject(new Error("Connection closed")), { once: true });
+export function joinSession(code, onConnection, onError) {
+  const peer = new Peer(PEER_OPTIONS);
+  peer.on("open", () => {
+    const conn = peer.connect(ID_PREFIX + code, { serialization: "raw", reliable: true });
+    conn.on("open", () => onConnection(conn));
+    conn.on("error", onError);
   });
+  peer.on("error", onError);
+  return peer;
 }
 
-// PC side. Returns the code to show, then call acceptAnswer with the reply.
-export async function createOffer() {
-  const pc = newPeer();
-  const channel = pc.createDataChannel("edoc");
-  await pc.setLocalDescription(await pc.createOffer());
-  await gathered(pc);
-  return { pc, channel, code: await encodeCode(pc.localDescription) };
-}
+// ---- The open link, both directions ----
 
-export async function acceptAnswer(pc, code) {
-  await pc.setRemoteDescription(await decodeCode(code));
-}
+// Wraps a connected `conn`. onReceived({ kind, files }) fires per completed
+// incoming transfer (kind is "folder" or "files"), onReceiveProgress(done,
+// total) while it arrives. Returns { send } for outgoing transfers.
+export function openLink(conn, { onReceived, onReceiveProgress, onError }) {
+  let assembler = null;
+  let kind = "";
+  let total = 0;
+  let got = 0;
+  let files = [];
+  let ack = null;
 
-// entries: [{ file, path }] where path is the file's relative path (folder
-// name first for a folder). Resolves once the other side confirms it has them.
-export async function sendFiles(channel, entries, kind, onProgress) {
-  await waitForOpen(channel);
-  channel.bufferedAmountLowThreshold = HIGH_WATER / 4;
-  const total = entries.reduce((sum, e) => sum + e.file.size, 0);
-  const acked = new Promise((resolve, reject) => {
-    channel.addEventListener("message", () => resolve(), { once: true });
-    channel.addEventListener("close", () => reject(new Error("Connection closed")), { once: true });
-  });
-  channel.send(JSON.stringify({ kind, files: entries.map((e) => ({ path: e.path, size: e.file.size })) }));
-
-  let sent = 0;
-  for (const { file } of entries) {
-    for (let at = 0; at < file.size; at += READ_BLOCK) {
-      const block = await file.slice(at, at + READ_BLOCK).arrayBuffer();
-      for (let i = 0; i < block.byteLength; i += CHUNK) {
-        while (channel.bufferedAmount > HIGH_WATER) {
-          await new Promise((r) => channel.addEventListener("bufferedamountlow", r, { once: true }));
+  conn.on("data", (data) => {
+    try {
+      if (typeof data === "string") {
+        const msg = JSON.parse(data);
+        if (msg.t === "ok") ack?.();
+        else if (msg.t === "manifest") {
+          assembler = new FileAssembler(msg);
+          kind = msg.kind;
+          total = msg.files.reduce((sum, f) => sum + f.size, 0);
+          got = 0;
+          files = [];
         }
-        channel.send(block.slice(i, i + CHUNK));
+        return;
       }
-      sent += block.byteLength;
-      onProgress?.(sent, total);
+      if (!assembler) throw new Error("Files arrived before their list");
+      files.push(...assembler.push(data));
+      got += data.byteLength;
+      onReceiveProgress?.(got, total);
+      if (assembler.done) {
+        assembler = null;
+        conn.send(JSON.stringify({ t: "ok" }));
+        onReceived({ kind, files });
+      }
+    } catch (err) {
+      onError?.(err);
     }
-  }
-  await acked;
-}
-
-// iPad side. Give it the PC's code; show the returned code to be pasted back.
-export async function createAnswer(offerCode) {
-  const pc = newPeer();
-  await pc.setRemoteDescription(await decodeCode(offerCode));
-  await pc.setLocalDescription(await pc.createAnswer());
-  await gathered(pc);
-  return { pc, code: await encodeCode(pc.localDescription) };
-}
-
-// Resolves { kind: "folder" | "files", files: File[] } once everything has
-// arrived. onProgress(receivedBytes, totalBytes) fires per chunk.
-export function receiveFiles(pc, onProgress) {
-  return new Promise((resolve, reject) => {
-    pc.addEventListener("connectionstatechange", () => {
-      if (pc.connectionState === "failed") reject(new Error("Couldn't connect to the PC"));
-    });
-    pc.addEventListener("datachannel", ({ channel }) => {
-      channel.binaryType = "arraybuffer";
-      let manifest = null;
-      let assembler = null;
-      let total = 0;
-      let got = 0;
-      const files = [];
-      channel.addEventListener("close", () => {
-        if (!assembler?.done) reject(new Error("Connection closed before the files arrived"));
-      });
-      channel.addEventListener("message", ({ data }) => {
-        try {
-          if (typeof data === "string") {
-            manifest = JSON.parse(data);
-            assembler = new FileAssembler(manifest);
-            total = manifest.files.reduce((sum, f) => sum + f.size, 0);
-            return;
-          }
-          files.push(...assembler.push(data));
-          got += data.byteLength;
-          onProgress?.(got, total);
-          if (assembler.done) {
-            channel.send("ok");
-            resolve({ kind: manifest.kind, files });
-          }
-        } catch (err) {
-          reject(err);
-        }
-      });
-    });
   });
+
+  // entries: [{ file, path }], path being the relative path (folder name
+  // first for a folder). Resolves when the other side confirms receipt.
+  async function send(entries, sendKind, onProgress) {
+    const total = entries.reduce((sum, e) => sum + e.file.size, 0);
+    const acked = new Promise((resolve, reject) => {
+      ack = resolve;
+      conn.once("close", () => reject(new Error("Connection closed")));
+    });
+    conn.send(JSON.stringify({ t: "manifest", kind: sendKind, files: entries.map((e) => ({ path: e.path, size: e.file.size })) }));
+    let sent = 0;
+    for (const { file } of entries) {
+      for (let at = 0; at < file.size; at += READ_BLOCK) {
+        const block = await file.slice(at, at + READ_BLOCK).arrayBuffer();
+        for (let i = 0; i < block.byteLength; i += CHUNK) {
+          while (conn.bufferSize > MAX_QUEUED) await new Promise((r) => setTimeout(r, 20));
+          conn.send(block.slice(i, i + CHUNK));
+        }
+        sent += block.byteLength;
+        onProgress?.(sent, total);
+      }
+    }
+    await acked;
+  }
+
+  return { send };
 }

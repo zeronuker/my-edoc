@@ -3280,47 +3280,51 @@ html,
   animation: none !important;
 }
 
-/* Receive from PC: the iPad dialog (ReceiveModal) and the PC page (SendPage) */
-.send-code {
-  width: 100%;
-  min-height: 84px;
-  margin-bottom: 8px;
-  padding: 8px;
-  box-sizing: border-box;
-  resize: vertical;
+/* Send / receive via wifi (WifiModal) */
+.wifi-code {
+  margin: 4px 0 12px;
+  text-align: center;
   font-family: var(--cb-font-mono);
-  font-size: 11px;
+  font-size: 34px;
+  letter-spacing: 0.3em;
+  padding-left: 0.3em;
+  color: var(--cb-mint);
+}
+
+.wifi-qr {
+  display: block;
+  margin: 0 auto 12px;
+  width: 176px;
+  height: 176px;
+  image-rendering: pixelated;
+  border-radius: var(--cb-radius-sm);
+}
+
+.wifi-input {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+  text-align: center;
+  font-family: var(--cb-font-mono);
+  font-size: 22px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
   color: var(--cb-ink);
   background: var(--cb-surface-2);
   border: 1px solid var(--cb-line-2);
   border-radius: var(--cb-radius-sm);
-  word-break: break-all;
 }
 
-.send-page {
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  box-sizing: border-box;
-  background: var(--cb-surface-0);
-  font-family: var(--cb-font-body);
+.wifi-scan {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  margin-bottom: 8px;
+  border-radius: var(--cb-radius-sm);
+  background: #000;
 }
 
-.send-card {
-  width: min(480px, 100%);
-  --cf-pad: 24px 22px 20px;
-}
-
-.send-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.send-row .cb-btn {
-  flex: 1;
-  justify-content: center;
-  cursor: pointer;
-}
+.wifi-status { margin-bottom: 8px; }
+.wifi-close { margin-top: 8px; }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FileAssembler, encodeCode, decodeCode, checkPath } from "./transfer.js";
+import { FileAssembler, checkPath, makeCode, cleanCode, CODE_LENGTH } from "./transfer.js";
 
 const bytes = (...n) => new Uint8Array(n).buffer;
 
@@ -37,10 +37,11 @@ test("zero or odd sizes are refused", () => {
   assert.throws(() => new FileAssembler({ files: [{ path: "a.pdf", size: 1.5 }] }), /Bad file size/);
 });
 
-test("a code survives the round trip, including pasted line breaks", async () => {
-  const desc = { type: "offer", sdp: "v=0\r\n" + "a=candidate:1 1 udp 2113937151 abcd.local 54321 typ host\r\n".repeat(20) };
-  const code = await encodeCode(desc);
-  assert.ok(code.length < JSON.stringify(desc).length);
-  const pasted = code.replace(/(.{40})/g, "$1\n  ");
-  assert.deepEqual(await decodeCode(pasted), desc);
+test("made codes read back clean, and typed ones are forgiven", () => {
+  const code = makeCode();
+  assert.equal(code.length, CODE_LENGTH);
+  assert.equal(cleanCode(code), code);
+  assert.equal(cleanCode(` ${code.slice(0, 3).toLowerCase()}-${code.slice(3)} `), code);
+  assert.equal(cleanCode("ABC"), null);
+  assert.equal(cleanCode("ABCDEFG"), null);
 });
