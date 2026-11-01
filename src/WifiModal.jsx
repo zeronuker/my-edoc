@@ -61,7 +61,7 @@ function QrScanner({ onCode, onFail }) {
 // Received files go to onReceived({ kind, files }), which runs the normal
 // Add folder / Add files flows; `hidden` tucks this dialog away while those
 // dialogs are up, without dropping the connection.
-export default function WifiModal({ hidden, onReceived, onClose, closing }) {
+export default function WifiModal({ hidden, appError, onReceived, onClose, closing }) {
   const [stage, setStage] = useState("menu"); // menu | show | enter | connected
   const [code, setCode] = useState("");
   const [typed, setTyped] = useState("");
@@ -255,7 +255,8 @@ export default function WifiModal({ hidden, onReceived, onClose, closing }) {
         )}
 
         {status && <div className="update-dialog-body wifi-status">{status}</div>}
-        {error && <div className="add-files-warning">{error}</div>}
+        {/* The app's own error banner sits behind this dialog, so show it here too. */}
+        {(error || appError) && <div className="add-files-warning">{error || appError}</div>}
 
         <div className="update-dialog-actions wifi-close">
           <button className="cb-btn" onClick={stage === "show" || stage === "enter" ? () => reset() : onClose}>

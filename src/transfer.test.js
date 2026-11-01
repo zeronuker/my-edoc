@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FileAssembler, checkPath, makeCode, cleanCode, CODE_LENGTH } from "./transfer.js";
+import { FileAssembler, withPath, checkPath, makeCode, cleanCode, CODE_LENGTH } from "./transfer.js";
 
 const bytes = (...n) => new Uint8Array(n).buffer;
 
@@ -23,6 +23,14 @@ test("a chunk that spans two files is split by the manifest sizes", async () => 
   assert.equal(last[0].webkitRelativePath, "Docs/sub/b.pdf");
   assert.deepEqual([...new Uint8Array(await last[0].arrayBuffer())], [4, 5, 6, 7, 8]);
   assert.equal(asm.done, true);
+});
+
+test("withPath copies a file under a folder path without changing its bytes", async () => {
+  const file = new File([new Uint8Array([1, 2, 3])], "a.pdf", { type: "application/pdf" });
+  const copy = withPath(file, "Received/a.pdf");
+  assert.equal(copy.name, "a.pdf");
+  assert.equal(copy.webkitRelativePath, "Received/a.pdf");
+  assert.deepEqual([...new Uint8Array(await copy.arrayBuffer())], [1, 2, 3]);
 });
 
 test("paths that could escape the folder are refused", () => {

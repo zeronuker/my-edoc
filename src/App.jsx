@@ -81,6 +81,7 @@ import TabBar from "./TabBar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import WifiModal from "./WifiModal.jsx";
+import { withPath } from "./transfer.js";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
 import ChoiceModal from "./ChoiceModal.jsx";
@@ -918,12 +919,15 @@ function App() {
   }
 
   // Files that came over wifi (WifiModal) go through the same flows as
-  // picked ones: a folder like Add folder, loose PDFs like Add files.
+  // picked ones: a folder like Add folder, loose PDFs like Add files. With no
+  // folder yet to put loose PDFs in, they start one called "Received".
   function handleReceived({ kind, files }) {
     if (kind === "folder") {
       addFolderFromList(files).catch((err) => setError(`Couldn't add the folder: ${err.message}`));
     } else if (addFilesTargets.length === 0) {
-      setError("Add a folder first, then receive files into it.");
+      addFolderFromList(files.map((f) => withPath(f, `Received/${f.name}`))).catch((err) =>
+        setError(`Couldn't add the files: ${err.message}`)
+      );
     } else {
       startAddFiles(files);
     }
@@ -1338,6 +1342,7 @@ function App() {
         <WifiModal
           closing={wifiPresence.closing}
           hidden={!!(addFiles || placement || copyProgress || choice)}
+          appError={error}
           onReceived={handleReceived}
           onClose={() => setWifiOpen(false)}
         />

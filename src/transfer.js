@@ -35,6 +35,14 @@ export function checkPath(path) {
   }
 }
 
+// A copy of `file` that reports `path` as its place inside a picked folder,
+// which is what buildTreeFromFileList reads. Copies the reference, not the bytes.
+export function withPath(file, path) {
+  const copy = new File([file], file.name, { type: file.type });
+  Object.defineProperty(copy, "webkitRelativePath", { value: path });
+  return copy;
+}
+
 // Files arrive back to back as raw chunks, in manifest order; a chunk can end
 // one file and start the next, so the manifest sizes are what split them.
 export class FileAssembler {
@@ -66,8 +74,7 @@ export class FileAssembler {
       offset += take;
       if (this.got === cur.size) {
         const file = new File(this.parts, cur.path.split("/").pop(), { type: "application/pdf" });
-        Object.defineProperty(file, "webkitRelativePath", { value: cur.path });
-        out.push(file);
+        out.push(withPath(file, cur.path));
         this.index++;
         this.got = 0;
         this.parts = [];
