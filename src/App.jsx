@@ -59,6 +59,7 @@ import {
   IconPlus,
   IconFolderPlus,
   IconFilePlus,
+  IconWifi,
   IconClock,
   IconBookmark,
   IconListTree,
@@ -79,6 +80,7 @@ import Toolbar from "./Toolbar.jsx";
 import TabBar from "./TabBar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
+import ReceiveModal from "./ReceiveModal.jsx";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
 import ChoiceModal from "./ChoiceModal.jsx";
@@ -178,6 +180,7 @@ function App() {
   const lastDocInfoRef = useRef(null);
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
+  const [receiveOpen, setReceiveOpen] = useState(false); // Receive from PC dialog
   const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
   const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
@@ -845,6 +848,10 @@ function App() {
     } catch {
       return; // cancelled
     }
+    await addFolderFromList(fileList);
+  }
+
+  async function addFolderFromList(fileList) {
     const folderId = crypto.randomUUID();
     const tree = buildTreeFromFileList(fileList, folderId);
     if (!tree) {
@@ -898,12 +905,29 @@ function App() {
     } catch {
       return; // cancelled
     }
+    startAddFiles(picked);
+  }
+
+  function startAddFiles(picked) {
     const files = picked.filter((f) => f.name.toLowerCase().endsWith(".pdf"));
     if (files.length === 0) {
       setError("No PDF files were selected.");
       return;
     }
     setAddFiles({ files });
+  }
+
+  // Files that came over wifi (ReceiveModal) go through the same flows as
+  // picked ones: a folder like Add folder, loose PDFs like Add files.
+  function handleReceived({ kind, files }) {
+    setReceiveOpen(false);
+    if (kind === "folder") {
+      addFolderFromList(files).catch((err) => setError(`Couldn't add the folder: ${err.message}`));
+    } else if (addFilesTargets.length === 0) {
+      setError("Add a folder first, then receive files into it.");
+    } else {
+      startAddFiles(files);
+    }
   }
 
   // Each picked file is written into the folder's own OPFS copy. Only the
@@ -1255,6 +1279,7 @@ function App() {
     rawTree: folders.find((r) => r.key === f.key).tree,
   }));
   const fabMenu = usePresence(fabMenuOpen);
+  const receivePresence = usePresence(receiveOpen);
   if (removeRequest) lastRemoveRef.current = removeRequest;
   const removePresence = usePresence(!!removeRequest);
   if (placement) lastPlacementRef.current = placement;
@@ -1308,6 +1333,13 @@ function App() {
             handleAddFilesConfirm(...args).catch((err) => setError(`Couldn't add the files: ${err.message}`))
           }
           onClose={() => setAddFiles(null)}
+        />
+      )}
+      {receivePresence.present && (
+        <ReceiveModal
+          closing={receivePresence.closing}
+          onReceived={handleReceived}
+          onClose={() => setReceiveOpen(false)}
         />
       )}
       {placementPresence.present && placementShown && (
@@ -1546,6 +1578,16 @@ function App() {
                     }}
                   >
                     <IconFilePlus size={16} /> Add files
+                  </button>
+                  <button
+                    className="tree-kebab-item"
+                    style={{ "--i": 2 }}
+                    onClick={() => {
+                      setFabMenuOpen(false);
+                      setReceiveOpen(true);
+                    }}
+                  >
+                    <IconWifi size={16} /> Receive from PC
                   </button>
                 </div>
               )}

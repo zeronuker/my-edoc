@@ -3279,3 +3279,48 @@ html,
 .slide-ghost * {
   animation: none !important;
 }
+
+/* Receive from PC: the iPad dialog (ReceiveModal) and the PC page (SendPage) */
+.send-code {
+  width: 100%;
+  min-height: 84px;
+  margin-bottom: 8px;
+  padding: 8px;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+  color: var(--cb-ink);
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  word-break: break-all;
+}
+
+.send-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  background: var(--cb-surface-0);
+  font-family: var(--cb-font-body);
+}
+
+.send-card {
+  width: min(480px, 100%);
+  --cf-pad: 24px 22px 20px;
+}
+
+.send-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.send-row .cb-btn {
+  flex: 1;
+  justify-content: center;
+  cursor: pointer;
+}

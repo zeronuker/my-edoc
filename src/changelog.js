@@ -742,6 +742,7 @@ export const CHANGELOG = [
       'FIX: On a touch screen, tapping a form field in the outer quarter of the page turned the page instead of selecting the field. Taps on form fields (and buttons) now stay with the field. Typing into form fields and ticking boxes already worked, and Save keeps your answers in the app copy, same as annotations.',
       'FIX: Opening a file while another was on a later page left the page counter (and the page remembered for the new file) stuck on the old number until you turned a page.',
       'IMP: The code that holds an open document (page, zoom, outline, unsaved annotations) is now one piece per viewer, with the tab list and tab closing handled above it. It is what lets two documents sit side by side.',
+      'NEW: Receive from PC. + → Receive from PC brings PDFs, or a whole folder, from a computer on the same wifi, with nothing uploaded anywhere. On the computer open the app address with ?send on the end, pick the PDFs or folder, then swap one pasted code each way. Folders arrive like Add folder, loose PDFs like Add files.',
     ],
   },
 ]
