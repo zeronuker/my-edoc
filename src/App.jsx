@@ -182,6 +182,7 @@ function App() {
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [wifiOpen, setWifiOpen] = useState(false); // Send / receive via wifi dialog
+  const [newKeys, setNewKeys] = useState(() => new Set()); // node keys that show the NEW chip; memory only, so a refresh clears them
   const fabRef = useRef(null);
   const [addFilesBusy, setAddFilesBusy] = useState(false);
   const lastAddFilesRef = useRef(null); // keeps the dialog's content on screen through its exit animation
@@ -823,6 +824,7 @@ function App() {
       )
     );
     await deleteLegacyFolderFiles(oldFolderId);
+    markNew([makeNodeKey(name, ""), ...newFiles.map((f) => fileKeyFor(name, f.relativePath))]);
     if (discard) for (const f of affectedFiles) await deleteAnnotatedCopy(fileKeyFor(name, f.relativePath));
     // The open document and Recent entries pointed at the old copy.
     handleFilesRemovedFromView(oldHandles);
@@ -840,6 +842,27 @@ function App() {
   function askPlacement(folderName) {
     if (displayFolders.length === 0) return Promise.resolve(null);
     return new Promise((resolve) => setPlacement({ folderName, resolve }));
+  }
+
+  // NEW chip: set when something is added or replaced, cleared when the
+  // file is opened or the folder is opened (see TreeView). Node keys are
+  // "rootName:path", the same as fileKeyFor.
+  function markNew(keys) {
+    setNewKeys((prev) => new Set([...prev, ...keys]));
+  }
+
+  function forgetNew(key) {
+    setNewKeys((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
+
+  function openFile(handle) {
+    forgetNew(extrasKey(handle));
+    return selectFile(handle);
   }
 
   async function handleAddFolder() {
@@ -892,6 +915,10 @@ function App() {
       saveFolderList(next);
       return next;
     });
+    markNew([
+      makeNodeKey(tree.name, ""),
+      ...flattenTreeFiles(tree).map((f) => fileKeyFor(tree.name, f.relativePath)),
+    ]);
     refreshStorageEstimate();
   }
 
@@ -1044,6 +1071,7 @@ function App() {
           saveFolderList(next);
           return next;
         });
+        markNew(added.map((n) => fileKeyFor(target.tree.name, n.relativePath)));
         refreshStorageEstimate();
         // A replaced file that's open now shows stale bytes — close it, same
         // as when its folder is removed.
@@ -1497,7 +1525,7 @@ function App() {
             <div className={`sidebar-tab-panel ${sidebarAnim.className}`} style={sidebarAnim.style}>
               <RecentView
                 recentFiles={recentFiles}
-                onSelectFile={selectFile}
+                onSelectFile={openFile}
                 selectedHandle={selectedHandle}
                 onClearAll={clearRecent}
               />
@@ -1552,7 +1580,9 @@ function App() {
             )}
             <TreeView
               displayFolders={displayFolders}
-              onSelectFile={selectFile}
+              onSelectFile={openFile}
+              newKeys={newKeys}
+              onSeen={forgetNew}
               selectedHandle={selectedHandle}
               onRemoveNode={requestRemoveNode}
               onDropNode={dropNode}
@@ -1702,7 +1732,7 @@ function App() {
             ))}
           </div>
           {globalSearch.trim() && !pdf && !loading && (
-            <SearchResults query={globalSearch} folders={displayFolders} onOpenResult={selectFile} />
+            <SearchResults query={globalSearch} folders={displayFolders} onOpenResult={openFile} />
           )}
           <button
             className={`sidebar-pill${pdf && !loading ? " over-doc" : ""}`}

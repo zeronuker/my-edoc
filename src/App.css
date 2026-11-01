@@ -2029,6 +2029,18 @@ html,
   }
 }
 
+.tree-new-chip {
+  flex-shrink: 0;
+  font-family: var(--cb-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  padding: 2px 5px;
+  border: 1px solid var(--cb-mint);
+  border-radius: 2px;
+  color: var(--cb-mint);
+}
+
 .tree-hide-btn {
   flex-shrink: 0;
   opacity: 0;

@@ -133,6 +133,8 @@ function Node({
   selectedHandle,
   expandedPaths,
   onToggleOpen,
+  newKeys,
+  onSeen,
   onRemoveNode,
   onDropNode,
   dragKeyRef,
@@ -140,6 +142,7 @@ function Node({
   setDropTarget,
 }) {
   const [shown, setShown] = useState(CHILD_PAGE);
+  const newChip = newKeys.has(node.key) && <span className="tree-new-chip">NEW</span>;
   // A connected folder's root, whether at the top level or placed inside
   // another folder (see applyOverlay): has the × (removes the whole
   // folder) but no drag handle — it can't be reordered or moved.
@@ -194,6 +197,7 @@ function Node({
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FileIcon />
         <TreeLabel name={node.name} />
+        {newChip}
         <span
           className="tree-drag-handle"
           title="Drag to reorder"
@@ -228,7 +232,10 @@ function Node({
     <div className="tree-folder">
       <div
         className={`tree-folder-label${zone ? ` drop-${zone}` : ""}`}
-        onClick={() => onToggleOpen(path)}
+        onClick={() => {
+          onToggleOpen(path);
+          onSeen(node.key);
+        }}
         title={node.name}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
@@ -237,6 +244,7 @@ function Node({
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
         <FolderIcon />
         <TreeLabel name={node.name} />
+        {newChip}
         {!isRoot && (
           <span
             className="tree-drag-handle"
@@ -279,6 +287,8 @@ function Node({
               selectedHandle={selectedHandle}
               expandedPaths={expandedPaths}
               onToggleOpen={onToggleOpen}
+              newKeys={newKeys}
+              onSeen={onSeen}
               onRemoveNode={onRemoveNode}
               onDropNode={onDropNode}
               dragKeyRef={dragKeyRef}
@@ -316,6 +326,8 @@ export default function TreeView({
   displayFolders,
   onSelectFile,
   selectedHandle,
+  newKeys,
+  onSeen,
   onRemoveNode,
   onDropNode,
 }) {
@@ -375,6 +387,8 @@ export default function TreeView({
                 selectedHandle={selectedHandle}
                 expandedPaths={expandedPaths}
                 onToggleOpen={toggleOpen}
+                newKeys={newKeys}
+                onSeen={onSeen}
                 onRemoveNode={onRemoveNode}
                 onDropNode={onDropNode}
                 dragKeyRef={dragKeyRef}
