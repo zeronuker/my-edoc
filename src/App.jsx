@@ -1634,7 +1634,7 @@ function App() {
                       handleAddFolder().catch((err) => setError(`Couldn't add the folder: ${err.message}`));
                     }}
                   >
-                    <IconFolderPlus size={16} /> Add folder
+                    <IconFolderPlus size={16} /> Add Folder
                   </button>
                   <button
                     className="tree-kebab-item"
@@ -1646,7 +1646,7 @@ function App() {
                       handleAddFiles().catch((err) => setError(`Couldn't add the files: ${err.message}`));
                     }}
                   >
-                    <IconFilePlus size={16} /> Add files
+                    <IconFilePlus size={16} /> Add Files
                   </button>
                   <button
                     className="tree-kebab-item"
@@ -1656,7 +1656,7 @@ function App() {
                       setWifiOpen(true);
                     }}
                   >
-                    <IconWifi size={16} /> Send / receive via wifi
+                    <IconWifi size={16} /> Send / Receive Via WIFI
                   </button>
                 </div>
               )}
