@@ -17,33 +17,41 @@ async function getWorkerSrc() {
   return workerSrcPromise;
 }
 
+// The app registers a function that asks the user for a password in its own
+// dialog (see App.jsx): it gets { name, wrong } and resolves to the password,
+// or null if they cancel. Until one is registered, the browser's own prompt
+// is used.
+let passwordAsker = null;
+export function setPasswordAsker(fn) {
+  passwordAsker = fn;
+}
+
 // onPasswordPrompt (optional) fires the instant a password is needed, before
-// the blocking window.prompt() call — callers use it to cancel any load
-// timeout they're racing against, since prompt() freezes the JS thread and
-// would otherwise leave that timeout queued to fire the moment the user
-// finally answers.
+// asking for it — callers use it to cancel any load timeout they're racing
+// against, since the user may take as long as they like to answer.
 //
-// skipPassword (optional) skips the prompt entirely and just fails the load
+// name (optional) is what to call the file when asking for its password.
+//
+// skipPassword (optional) skips the question entirely and just fails the load
 // — for background work (e.g. text indexing) that shouldn't ever pop a
-// blocking dialog for a file the user didn't ask to open.
-export async function loadDocument(fileOrArrayBuffer, { onPasswordPrompt, skipPassword } = {}) {
+// dialog for a file the user didn't ask to open.
+export async function loadDocument(fileOrArrayBuffer, { onPasswordPrompt, skipPassword, name } = {}) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = await getWorkerSrc();
   const data =
     fileOrArrayBuffer instanceof File
       ? await fileOrArrayBuffer.arrayBuffer()
       : fileOrArrayBuffer;
   const loadingTask = pdfjsLib.getDocument({ data });
-  loadingTask.onPassword = (updatePassword, reason) => {
+  loadingTask.onPassword = async (updatePassword, reason) => {
     if (skipPassword) {
       loadingTask.destroy();
       return;
     }
     onPasswordPrompt?.();
-    const message =
-      reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD
-        ? "Incorrect password. Try again:"
-        : "This PDF is password protected. Enter password:";
-    const password = window.prompt(message);
+    const wrong = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
+    const password = passwordAsker
+      ? await passwordAsker({ name, wrong })
+      : window.prompt(wrong ? "Incorrect password. Try again:" : "This PDF is password protected. Enter password:");
     if (password == null) {
       loadingTask.destroy();
       return;

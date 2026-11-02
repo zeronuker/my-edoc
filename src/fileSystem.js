@@ -122,6 +122,8 @@ export function buildTreeFromFileList(fileList, folderId = null) {
       kind: "file",
       relativePath,
       storedAs,
+      size: file.size,
+      addedAt: Date.now(),
       handle: permissiveHandle(file.name, {
         getFile: async () => file,
         file,
@@ -165,7 +167,9 @@ export function findNodeAt(tree, path) {
 // also dropping any folder left empty by it — scans only ever show folders
 // that contain PDFs, so a leftover empty one would be a ghost row. The root
 // itself is never removed. Only the nodes along `path` are copied.
-export function removeNodeFromTree(tree, path) {
+// `keep` (a Set of directory paths) names folders to leave in place even if
+// this empties them — the folder a moved file is about to land in.
+export function removeNodeFromTree(tree, path, keep = null) {
   if (!path) return tree;
   const parts = path.split("/");
   function rebuild(dir, depth) {
@@ -177,7 +181,7 @@ export function removeNodeFromTree(tree, path) {
         continue;
       } else if (child.kind === "directory") {
         const next = rebuild(child, depth + 1);
-        if (next.children.length > 0) children.push(next);
+        if (next.children.length > 0 || keep?.has(parts.slice(0, depth + 1).join("/"))) children.push(next);
       } else {
         children.push(child);
       }
@@ -193,10 +197,10 @@ export function filesInDirectory(tree, path) {
 }
 
 // "a.pdf" -> "a (1).pdf" -> "a (2).pdf" ... first name not in `taken`
-// (a Set of lowercase names).
-export function uniqueFileName(name, taken) {
+// (a Set of lowercase names). A folder has no extension: "v1.2" -> "v1.2 (1)".
+export function uniqueFileName(name, taken, isFolder = false) {
   if (!taken.has(name.toLowerCase())) return name;
-  const dot = name.lastIndexOf(".");
+  const dot = isFolder ? -1 : name.lastIndexOf(".");
   const base = dot > 0 ? name.slice(0, dot) : name;
   const ext = dot > 0 ? name.slice(dot) : "";
   for (let n = 1; ; n++) {
@@ -327,11 +331,119 @@ export function treeByteSize(tree) {
 export function buildLegacyManifest(tree) {
   function walk(node) {
     if (node.kind === "file") {
-      return { name: node.name, kind: "file", relativePath: node.relativePath, storedAs: node.storedAs };
+      return {
+        name: node.name,
+        kind: "file",
+        relativePath: node.relativePath,
+        storedAs: node.storedAs,
+        size: node.size,
+        addedAt: node.addedAt,
+      };
     }
     return { name: node.name, kind: "directory", children: node.children.map(walk) };
   }
   return walk(tree);
+}
+
+// ---- Copying ----
+
+const joinPath = (dir, name) => (dir ? `${dir}/${name}` : name);
+
+// A not-yet-written copy of a stored file or folder under `name`, to live in
+// directory `dirPath` of its destination folder. Every file gets a fresh
+// storedAs, so the copy never shares bytes with the original. `source` is the
+// original's handle (read when the copy is written) and `srcKey` its
+// bookmarks/annotations key, for copying those along.
+export function planCopy(node, name, dirPath) {
+  const relativePath = joinPath(dirPath, name);
+  if (node.kind === "file") {
+    return {
+      name,
+      kind: "file",
+      relativePath,
+      storedAs: newStoredName(),
+      size: node.size,
+      addedAt: Date.now(),
+      source: node.handle,
+      srcKey: node.handle.fileKey,
+    };
+  }
+  return { name, kind: "directory", children: node.children.map((c) => planCopy(c, c.name, relativePath)) };
+}
+
+// The same for a whole connected folder, which becomes a new connected
+// folder named `name`: its contents are relative to that new root.
+export function planCopyRoot(tree, name) {
+  return { name, kind: "directory", children: tree.children.map((c) => planCopy(c, c.name, "")) };
+}
+
+export function planBytes(plan) {
+  return planFiles(plan).reduce((sum, f) => sum + (f.size ?? 0), 0);
+}
+
+// The file leaves of a plan, with their source keys (flattenTreeFiles drops those).
+export function planFiles(plan) {
+  const out = [];
+  (function walk(n) {
+    if (n.kind === "file") out.push(n);
+    else n.children.forEach(walk);
+  })(plan);
+  return out;
+}
+
+// Writes a plan's files into folderId's OPFS directory, one at a time. Every
+// stored name written is pushed to `written` as it lands, so a cancel or
+// failure part-way can delete exactly what this copy made.
+export async function writePlan(folderId, plan, { signal, onFileDone, written = [] } = {}) {
+  for (const leaf of planFiles(plan)) {
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const file = await leaf.source.getFile();
+    await writeLegacyFile(folderId, leaf.storedAs, file);
+    written.push(leaf.storedAs);
+    leaf.size = file.size;
+    onFileDone?.();
+  }
+}
+
+// A written plan as real tree nodes, with working handles. `isRoot` gives the
+// top node the handle a connected folder's root has.
+export function finishPlan(plan, folderId, rootName, isRoot = false) {
+  function walk(n) {
+    if (n.kind === "file") {
+      return {
+        name: n.name,
+        kind: "file",
+        relativePath: n.relativePath,
+        storedAs: n.storedAs,
+        size: n.size,
+        addedAt: n.addedAt,
+        handle: reviveLegacyFileHandle(folderId, n.name, n.relativePath, rootName, n.storedAs),
+      };
+    }
+    return { name: n.name, kind: "directory", children: n.children.map(walk) };
+  }
+  const tree = walk(plan);
+  if (isRoot) tree.handle = permissiveHandle(plan.name);
+  return tree;
+}
+
+// Files saved before sizes were kept have none. Reads each one's size from
+// OPFS once so Size sorting has something to go on; returns how many it
+// filled in (the caller saves the manifest if that's more than zero).
+export async function fillMissingSizes(tree) {
+  let filled = 0;
+  async function walk(node) {
+    if (node.kind === "file") {
+      if (node.size == null) {
+        node.size = (await node.handle.getFile().catch(() => null))?.size ?? 0;
+        filled++;
+      }
+      return;
+    }
+    for (const child of node.children) await walk(child);
+  }
+  await walk(tree);
+  return filled;
 }
 
 // Rebuilds a single legacy file's handle from its OPFS address — used both
@@ -357,6 +469,8 @@ export function reviveLegacyManifest(folderId, manifest) {
         kind: "file",
         relativePath: node.relativePath,
         storedAs: node.storedAs,
+        size: node.size,
+        addedAt: node.addedAt,
         handle: reviveLegacyFileHandle(folderId, node.name, node.relativePath, manifest.name, node.storedAs),
       };
     }

@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  STAR_COLORS,
+  applyStar,
+  starredEntries,
   formatBytes,
   folderListRecords,
   freeSpaceWarning,
@@ -27,7 +30,7 @@ test("formatBytes formats across units", () => {
 });
 
 test("folderListRecords saves each folder's id, time, manifest and size", () => {
-  const tree = { name: "Lib", kind: "directory", children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf", storedAs: "s-1" }] };
+  const tree = { name: "Lib", kind: "directory", children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf", storedAs: "s-1", size: 4, addedAt: 9 }] };
   const [record] = folderListRecords([
     { dirHandle: { __legacy: true }, folderId: "id-1", connectedAt: 5, tree, sizeBytes: 12 },
   ]);
@@ -37,7 +40,7 @@ test("folderListRecords saves each folder's id, time, manifest and size", () => 
   assert.deepEqual(record.manifest, {
     name: "Lib",
     kind: "directory",
-    children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf", storedAs: "s-1" }],
+    children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf", storedAs: "s-1", size: 4, addedAt: 9 }],
   });
 });
 
@@ -191,4 +194,25 @@ test("tabsToRecords saves a tab's file address and leaves out dropped files that
     { name: "b.pdf", folderId: "f1", relativePath: "sub/b.pdf" },
   ]);
   assert.deepEqual(tabsToRecords([]), []);
+});
+
+test("the star colours are offered in the agreed order", () => {
+  assert.deepEqual(STAR_COLORS.map((c) => c.id), ["red", "green", "purple", "orange", "blue"]);
+});
+
+test("applyStar gives files a colour, changes it, and takes it away with null", () => {
+  const first = applyStar({}, ["Lib:a.pdf", "Lib:b.pdf"], "red");
+  assert.deepEqual(first, { "Lib:a.pdf": "red", "Lib:b.pdf": "red" });
+  const second = applyStar(first, ["Lib:a.pdf"], "blue");
+  assert.deepEqual(second, { "Lib:a.pdf": "blue", "Lib:b.pdf": "red" });
+  assert.deepEqual(applyStar(second, ["Lib:b.pdf"], null), { "Lib:a.pdf": "blue" });
+  assert.deepEqual(first, { "Lib:a.pdf": "red", "Lib:b.pdf": "red" }); // never changed in place
+});
+
+test("starredEntries keeps starred files in order, and can filter by colour", () => {
+  const file = (name) => ({ name, path: "", handle: { name, fileKey: `Lib:${name}` } });
+  const files = [file("a.pdf"), file("b.pdf"), file("c.pdf")];
+  const stars = { "Lib:a.pdf": "red", "Lib:c.pdf": "blue" };
+  assert.deepEqual(starredEntries(files, stars).map((e) => [e.name, e.color]), [["a.pdf", "red"], ["c.pdf", "blue"]]);
+  assert.deepEqual(starredEntries(files, stars, "blue").map((e) => e.name), ["c.pdf"]);
 });

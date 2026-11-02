@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { IconGripVertical } from "@tabler/icons-react";
 import { dbGet, dbSet } from "./db.js";
-import { folderLevelColor, fileLevelColor } from "./appHelpers.js";
+import { IconStarFilled } from "@tabler/icons-react";
+import { folderLevelColor, fileLevelColor, STAR_COLORS } from "./appHelpers.js";
+import { extrasKey } from "./fileSystem.js";
+import ManageBar from "./ManageBar.jsx";
 
 // A folder draws this many of its children at a time, with a row to reveal
 // the next batch. Drawing (and fitting the name of) every row of a folder
@@ -106,25 +108,23 @@ function TreeLabel({ name }) {
   return <span className="tree-label" ref={ref} />;
 }
 
-// Which third (or half, for files) of a row the pointer is over — "before"/
-// "after" reorder this node among its current siblings, "inside" (folders
-// only) nests the dragged node inside this one instead.
-function computeDropZone(e, isFolder, isRoot) {
-  if (isRoot) return "inside";
-  if (!isFolder) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    return e.clientY - rect.top < rect.height / 2 ? "before" : "after";
-  }
-  const rect = e.currentTarget.getBoundingClientRect();
-  const ratio = (e.clientY - rect.top) / rect.height;
-  if (ratio < 0.25) return "before";
-  if (ratio > 0.75) return "after";
-  return "inside";
+// Shown at the start of every row while Manage mode is on. Its click is its
+// own — it must not also open the file or toggle the folder.
+function SelectBox({ checked, onToggle, name }) {
+  return (
+    <input
+      type="checkbox"
+      className="tree-select-box"
+      checked={checked}
+      aria-label={`Select "${name}"`}
+      onChange={onToggle}
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
 }
 
 function Node({
   node,
-  index,
   path,
   depth,
   ancestorsLast,
@@ -135,93 +135,34 @@ function Node({
   onToggleOpen,
   newKeys,
   onSeen,
-  onRemoveNode,
-  onDropNode,
-  dragKeyRef,
-  dropTarget,
-  setDropTarget,
+  manageMode,
+  checkedKeys,
+  onToggleCheck,
+  stars,
 }) {
   const [shown, setShown] = useState(CHILD_PAGE);
+  const starId = node.kind === "file" ? stars[extrasKey(node.handle)] : null;
+  const star = starId ? STAR_COLORS.find((c) => c.id === starId)?.color : null;
   const newChip = newKeys.has(node.key) && <span className="tree-new-chip">NEW</span>;
-  // A connected folder's root, whether at the top level or placed inside
-  // another folder (see applyOverlay): has the × (removes the whole
-  // folder) but no drag handle — it can't be reordered or moved.
-  const isRoot = !!node.folderRef;
-  const isFolder = node.kind === "directory";
-  const zone = dropTarget?.key === node.key ? dropTarget.zone : null;
-
-  function handleDragStart(e) {
-    e.stopPropagation();
-    dragKeyRef.current = node.key;
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function handleDragEnd() {
-    dragKeyRef.current = null;
-    setDropTarget(null);
-  }
-
-  function handleDragOver(e) {
-    if (!dragKeyRef.current || dragKeyRef.current === node.key) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setDropTarget({ key: node.key, zone: computeDropZone(e, isFolder, isRoot) });
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    const draggedKey = dragKeyRef.current;
-    dragKeyRef.current = null;
-    setDropTarget(null);
-    if (!draggedKey || draggedKey === node.key) return;
-    const dropZone = computeDropZone(e, isFolder, isRoot);
-    if (dropZone === "inside") {
-      onDropNode(draggedKey, node.key, node.children.length);
-    } else if (node.parentKey !== null) {
-      onDropNode(draggedKey, node.parentKey, dropZone === "before" ? index : index + 1);
-    }
-  }
+  const selectBox = manageMode && (
+    <SelectBox checked={checkedKeys.has(node.key)} onToggle={() => onToggleCheck(node.key)} name={node.name} />
+  );
 
   if (node.kind === "file") {
     const isSelected = node.handle === selectedHandle;
     return (
       <div
-        className={`tree-file${isSelected ? " selected" : ""}${zone ? ` drop-${zone}` : ""}`}
+        className={`tree-file${isSelected ? " selected" : ""}`}
         onClick={() => onSelectFile(node.handle)}
         title={node.name}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
         style={{ "--level-color": fileLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
+        {selectBox}
         <FileIcon />
         <TreeLabel name={node.name} />
+        {star && <IconStarFilled className="tree-star" size={12} style={{ color: star }} aria-label="Starred" />}
         {newChip}
-        <span
-          className="tree-drag-handle"
-          title="Drag to reorder"
-          aria-label="Drag to reorder"
-          draggable
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <IconGripVertical size={12} />
-        </span>
-        <button
-          className="tree-hide-btn"
-          title={`Remove "${node.name}"`}
-          aria-label={`Remove "${node.name}"`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemoveNode(node);
-          }}
-        >
-          ×
-        </button>
       </div>
     );
   }
@@ -231,46 +172,19 @@ function Node({
   return (
     <div className="tree-folder">
       <div
-        className={`tree-folder-label${zone ? ` drop-${zone}` : ""}`}
+        className="tree-folder-label"
         onClick={() => {
           onToggleOpen(path);
           onSeen(node.key);
         }}
         title={node.name}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
         style={{ "--level-color": folderLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
+        {selectBox}
         <FolderIcon />
         <TreeLabel name={node.name} />
         {newChip}
-        {!isRoot && (
-          <span
-            className="tree-drag-handle"
-            title="Drag to reorder"
-            aria-label="Drag to reorder"
-            draggable
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <IconGripVertical size={12} />
-          </span>
-        )}
-        <button
-          className="tree-hide-btn"
-          title={`Remove "${node.name}"`}
-          aria-label={`Remove "${node.name}"`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemoveNode(node);
-          }}
-        >
-          ×
-        </button>
       </div>
       {isOpen && (
         <div className="tree-children">
@@ -278,8 +192,7 @@ function Node({
             <Node
               key={child.key}
               node={child}
-              index={childIndex}
-              path={`${path}/${child.name}`}
+              path={`${path}/${child.rawName}`}
               depth={depth + 1}
               ancestorsLast={[...ancestorsLast, isLast]}
               isLast={childIndex === node.children.length - 1}
@@ -289,11 +202,10 @@ function Node({
               onToggleOpen={onToggleOpen}
               newKeys={newKeys}
               onSeen={onSeen}
-              onRemoveNode={onRemoveNode}
-              onDropNode={onDropNode}
-              dragKeyRef={dragKeyRef}
-              dropTarget={dropTarget}
-              setDropTarget={setDropTarget}
+              manageMode={manageMode}
+              checkedKeys={checkedKeys}
+              onToggleCheck={onToggleCheck}
+              stars={stars}
             />
           ))}
           {node.children.length > shown && (
@@ -328,18 +240,27 @@ export default function TreeView({
   selectedHandle,
   newKeys,
   onSeen,
-  onRemoveNode,
-  onDropNode,
+  manageMode,
+  onDeleteNodes,
+  onRenameNode,
+  onMoveNodes,
+  onCopyNodes,
+  onRotateNode,
+  onFlattenNode,
+  onStarNodes,
+  onProtectNode,
+  stars,
 }) {
   const [expandedPaths, setExpandedPaths] = useState(() => new Set());
   // Guards the persist-effect below from firing (with the empty default
   // above) before the saved set has loaded, which would otherwise clobber it.
   const expandedLoadedRef = useRef(false);
+  const [checkedKeys, setCheckedKeys] = useState(() => new Set());
 
-  // Set (not state) so a drag reads the same value it started with even
-  // through the many dragover events fired mid-drag.
-  const dragKeyRef = useRef(null);
-  const [dropTarget, setDropTarget] = useState(null);
+  // Leaving Manage mode forgets what was ticked.
+  useEffect(() => {
+    if (!manageMode) setCheckedKeys(new Set());
+  }, [manageMode]);
 
   useEffect(() => {
     (async () => {
@@ -363,7 +284,42 @@ export default function TreeView({
     });
   };
 
+  const toggleCheck = (key) => {
+    setCheckedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  // Every row currently on screen: the roots, plus the contents of whatever
+  // is expanded.
+  function selectAll() {
+    const keys = new Set();
+    const walk = (node, path) => {
+      keys.add(node.key);
+      if (node.kind === "directory" && expandedPaths.has(path)) {
+        node.children.forEach((c) => walk(c, `${path}/${c.rawName}`));
+      }
+    };
+    displayFolders.forEach((f) => f.tree && walk(f.tree, f.tree.rawName));
+    setCheckedKeys(keys);
+  }
+
+  // The ticked nodes, in tree order.
+  function checkedNodes() {
+    const out = [];
+    const walk = (node) => {
+      if (checkedKeys.has(node.key)) out.push(node);
+      node.children.forEach(walk);
+    };
+    displayFolders.forEach((f) => f.tree && walk(f.tree));
+    return out;
+  }
+
   if (!displayFolders.length) return null;
+  const ticked = manageMode ? checkedNodes() : [];
 
   return (
     <div className="tree-view">
@@ -374,12 +330,11 @@ export default function TreeView({
               <Node
                 key={folder.key}
                 node={folder.tree}
-                index={folderIndex}
                 // ponytail: folder.key is a fresh random id every load, so
                 // expand-state must key off the folder name instead to
                 // survive a reload/reupload. Two root folders sharing a
                 // name will share expand-state; fine until that's reported.
-                path={folder.tree.name}
+                path={folder.tree.rawName}
                 depth={0}
                 ancestorsLast={[]}
                 isLast={folderIndex === displayFolders.length - 1}
@@ -389,15 +344,31 @@ export default function TreeView({
                 onToggleOpen={toggleOpen}
                 newKeys={newKeys}
                 onSeen={onSeen}
-                onRemoveNode={onRemoveNode}
-                onDropNode={onDropNode}
-                dragKeyRef={dragKeyRef}
-                dropTarget={dropTarget}
-                setDropTarget={setDropTarget}
+                manageMode={manageMode}
+                checkedKeys={checkedKeys}
+                onToggleCheck={toggleCheck}
+                stars={stars}
               />
             )
         )}
       </div>
+      {manageMode && (
+        <ManageBar
+          count={checkedKeys.size}
+          fileTools={ticked.length === 1 && ticked[0].kind === "file"}
+          canStar={ticked.length > 0 && ticked.every((n) => n.kind === "file")}
+          onStar={(colorId) => onStarNodes(ticked, colorId)}
+          onProtect={() => onProtectNode(ticked[0], () => setCheckedKeys(new Set()))}
+          onRotate={() => onRotateNode(ticked[0], () => setCheckedKeys(new Set()))}
+          onFlatten={() => onFlattenNode(ticked[0], () => setCheckedKeys(new Set()))}
+          onSelectAll={selectAll}
+          onDeselectAll={() => setCheckedKeys(new Set())}
+          onRename={() => onRenameNode(ticked[0])}
+          onCopy={() => onCopyNodes(ticked, () => setCheckedKeys(new Set()))}
+          onMove={() => onMoveNodes(ticked, () => setCheckedKeys(new Set()))}
+          onDelete={() => onDeleteNodes(ticked)}
+        />
+      )}
     </div>
   );
 }

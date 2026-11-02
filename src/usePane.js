@@ -187,12 +187,11 @@ export function usePane({
       const timeout = new Promise((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
       });
-      // A password prompt blocks the JS thread for as long as the user takes
-      // to answer it — cancel the load timeout the instant one appears, or
-      // it'd fire the moment the thread frees up regardless of how long ago
-      // the 15s actually elapsed.
+      // The user may take as long as they like to answer a password prompt —
+      // cancel the load timeout the instant one appears, or it would fire
+      // while they are still typing.
       const doc = await Promise.race([
-        loadDocument(file, { onPasswordPrompt: () => clearTimeout(timeoutId) }),
+        loadDocument(file, { name: fileHandle.name, onPasswordPrompt: () => clearTimeout(timeoutId) }),
         timeout,
       ]);
       // A newer load has since taken over — drop this stale result instead of

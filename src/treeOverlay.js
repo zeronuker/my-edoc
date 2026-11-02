@@ -5,7 +5,27 @@
 // scan brings it back in its original spot. (There is no "hidden" any more:
 // removing something removes it from the app for good — see App.jsx.)
 
-export const emptyOverlay = { moves: {}, order: {} };
+// names: node key -> display name the user gave it. Only what is drawn
+// changes — the key, and so the bookmarks and annotations filed under it,
+// stays the same.
+export const emptyOverlay = { moves: {}, names: {} };
+
+// by: "name" | "date" (added) | "size"; dir: "asc" | "desc".
+export const defaultSort = { by: "name", dir: "asc" };
+
+// Folders always come before files; within each, the chosen key, with the
+// name breaking ties so equal sizes/dates stay in a stable order. dir only
+// flips the chosen key, not the folders-first rule.
+export function compareNodes(sort = defaultSort) {
+  const sign = sort.dir === "desc" ? -1 : 1;
+  return (a, b) => {
+    if (a.kind !== b.kind) return a.kind === "directory" ? -1 : 1;
+    const key = sort.by === "date" ? a.addedAt - b.addedAt : sort.by === "size" ? a.size - b.size : 0;
+    if (key) return sign * key;
+    const byName = a.name.localeCompare(b.name);
+    return sort.by === "name" ? sign * byName : byName;
+  };
+}
 
 export function makeNodeKey(folderKey, relPath) {
   return `${folderKey}:${relPath}`;
@@ -49,18 +69,31 @@ function isSelfOrDescendant(candidate, node, nodesByKey) {
   return false;
 }
 
-export function applyOverlay(folders, overlay) {
+export function applyOverlay(folders, overlay, sort = defaultSort) {
   const moves = overlay.moves || {};
-  const order = overlay.order || {};
+  const names = overlay.names || {};
   const nodesByKey = new Map();
 
-  function clone(node, relPath, folderKey, parentKey) {
+  function clone(node, relPath, folderKey, parentKey, connectedAt) {
     const key = makeNodeKey(folderKey, relPath);
-    const out = { name: node.name, kind: node.kind, handle: node.handle, children: [], key, parentKey };
+    // rawName is the real name — what expand-state paths are built from, so
+    // renaming a folder doesn't collapse it. A file saved before dates were
+    // kept counts as added when its folder was connected.
+    const out = {
+      name: names[key] ?? node.name,
+      rawName: node.name,
+      kind: node.kind,
+      handle: node.handle,
+      children: [],
+      key,
+      parentKey,
+      size: node.size ?? 0,
+      addedAt: node.addedAt ?? connectedAt,
+    };
     nodesByKey.set(key, out);
     if (node.kind === "directory") {
       for (const child of node.children) {
-        clone(child, relPath ? `${relPath}/${child.name}` : child.name, folderKey, key);
+        clone(child, relPath ? `${relPath}/${child.name}` : child.name, folderKey, key, connectedAt);
       }
     }
     return out;
@@ -76,7 +109,7 @@ export function applyOverlay(folders, overlay) {
   const rootByFolderKey = new Map();
   for (const folder of folders) {
     if (!folder.tree) continue;
-    const root = clone(folder.tree, "", folder.tree.name, null);
+    const root = clone(folder.tree, "", folder.tree.name, null, folder.connectedAt ?? 0);
     // The connected folder this root belongs to — lets the tree tell a
     // folder's own root (which has a × that removes the whole folder) from
     // a subfolder, even when it's been placed inside another folder.
@@ -102,18 +135,24 @@ export function applyOverlay(folders, overlay) {
     nodesByKey.get(node.parentKey)?.children.push(node);
   }
 
-  for (const node of nodesByKey.values()) {
-    const orderList = order[node.key];
-    if (!orderList || node.children.length < 2) continue;
-    node.children.sort((a, b) => {
-      const ia = orderList.indexOf(a.key);
-      const ib = orderList.indexOf(b.key);
-      if (ia === -1 && ib === -1) return 0;
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
+  // A folder weighs what is inside it and counts as added when its first
+  // file was. Done after the moves so a moved subtree counts where it lands.
+  function total(node) {
+    if (node.kind === "file") return;
+    node.size = 0;
+    node.addedAt = Infinity;
+    for (const child of node.children) {
+      total(child);
+      node.size += child.size;
+      node.addedAt = Math.min(node.addedAt, child.addedAt);
+    }
+    if (node.children.length === 0) node.addedAt = 0;
   }
+  const compare = compareNodes(sort);
+  for (const node of nodesByKey.values()) {
+    if (node.parentKey === null) total(node);
+  }
+  for (const node of nodesByKey.values()) node.children.sort(compare);
 
   // `nested` marks a root that ended up inside another folder: it's drawn
   // there (as part of that folder's tree), not as a top-level row.
@@ -121,6 +160,43 @@ export function applyOverlay(folders, overlay) {
     const root = folder.tree ? rootByFolderKey.get(folder.tree.name) : undefined;
     return root ? { ...folder, tree: root, nested: root.parentKey !== null } : folder;
   });
+}
+
+// True if the node with key `key` is `ancestorKey` itself or sits anywhere
+// inside it, going by the displayed tree (`byKey` is flattenByKey's map).
+export function isInside(key, ancestorKey, byKey) {
+  for (let cur = byKey.get(key); cur; cur = cur.parentKey ? byKey.get(cur.parentKey) : null) {
+    if (cur.key === ancestorKey) return true;
+  }
+  return false;
+}
+
+// Sorts `moving` (displayed nodes) into the ones that can go into `dest`
+// untouched and the ones whose name is already taken there. A clash's
+// `existing` is a node already in dest, or — when `inBatch` — an earlier item
+// of this same move. Names compare case-insensitively, like the rest of the
+// app. dest is null for the top level, where nothing can clash. For a copy,
+// `copying` counts the originals already sitting in dest too — copying a file
+// next to itself clashes with it, where moving it there would do nothing.
+export function planMove(moving, dest, copying = false) {
+  const clean = [];
+  const clashes = [];
+  if (!dest) return { clean: [...moving], clashes };
+  const movingKeys = new Set(moving.map((n) => n.key));
+  const taken = new Map();
+  for (const child of dest.children) {
+    if (copying || !movingKeys.has(child.key)) taken.set(child.name.toLowerCase(), { node: child, inBatch: false });
+  }
+  for (const node of moving) {
+    const hit = taken.get(node.name.toLowerCase());
+    if (hit) {
+      clashes.push({ incoming: node, existing: hit.node, inBatch: hit.inBatch });
+    } else {
+      clean.push(node);
+      taken.set(node.name.toLowerCase(), { node, inBatch: true });
+    }
+  }
+  return { clean, clashes };
 }
 
 // Flat key -> node lookup over an already-overlaid folders array (i.e. the

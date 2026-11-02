@@ -13,6 +13,7 @@
     "brand:icons": "node brand-kit/scripts/generate-brand-icons.mjs"
   },
   "dependencies": {
+    "@cantoo/pdf-lib": "^2.11.1",
     "@tabler/icons-react": "^3.45.0",
     "jsqr": "^1.4.0",
     "pdfjs-dist": "^4.10.38",

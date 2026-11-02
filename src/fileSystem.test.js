@@ -14,6 +14,12 @@ import {
   reviveLegacyFileHandle,
   buildLegacyManifest,
   reviveLegacyManifest,
+  fillMissingSizes,
+  planCopy,
+  planCopyRoot,
+  planBytes,
+  planFiles,
+  finishPlan,
   flattenTreeFiles,
 } from "./fileSystem.js";
 
@@ -159,4 +165,69 @@ test("a folder's saved list keeps each file's stored name and hands it back on r
   for (const file of flattenTreeFiles(revived)) {
     assert.equal(file.storedAs, original[file.relativePath]);
   }
+});
+
+test("fillMissingSizes reads only the sizes that are missing", async () => {
+  const file = (name, size) => ({ name, kind: "file", size, handle: { getFile: async () => ({ size: 99 }) } });
+  const tree = { name: "R", kind: "directory", children: [file("a.pdf", undefined), file("b.pdf", 5)] };
+  assert.equal(await fillMissingSizes(tree), 1);
+  assert.deepEqual(tree.children.map((c) => c.size), [99, 5]);
+});
+
+test("a file's size and added date survive the manifest round trip", () => {
+  const tree = { name: "R", kind: "directory", children: [{ name: "a.pdf", kind: "file", relativePath: "a.pdf", storedAs: "s", size: 7, addedAt: 3 }] };
+  const revived = reviveLegacyManifest("id", JSON.parse(JSON.stringify(buildLegacyManifest(tree))));
+  assert.equal(revived.children[0].size, 7);
+  assert.equal(revived.children[0].addedAt, 3);
+});
+
+test("uniqueFileName keeps a folder's dots in its name", () => {
+  assert.equal(uniqueFileName("v1.2", new Set(["v1.2"]), true), "v1.2 (1)");
+  assert.equal(uniqueFileName("a.pdf", new Set(["a.pdf", "a (1).pdf"])), "a (2).pdf");
+});
+
+test("removeNodeFromTree keeps a folder named in `keep` even when it is emptied", () => {
+  const leaf = { name: "a.pdf", kind: "file", handle: {} };
+  const tree = { name: "R", kind: "directory", children: [{ name: "D", kind: "directory", children: [leaf] }] };
+  assert.equal(removeNodeFromTree(tree, "D/a.pdf").children.length, 0);
+  const kept = removeNodeFromTree(tree, "D/a.pdf", new Set(["D"]));
+  assert.equal(kept.children.length, 1);
+  assert.equal(kept.children[0].children.length, 0);
+});
+
+function storedTree() {
+  const f = (name, relativePath, size) => ({
+    name,
+    kind: "file",
+    relativePath,
+    storedAs: "orig-" + name,
+    size,
+    handle: { fileKey: `Lib:${relativePath}`, getFile: async () => ({ size }) },
+  });
+  return {
+    name: "Lib",
+    kind: "directory",
+    children: [f("a.pdf", "a.pdf", 10), { name: "Sub", kind: "directory", children: [f("b.pdf", "Sub/b.pdf", 5)] }],
+  };
+}
+
+test("planCopy gives every file a fresh stored name and a path under the destination", () => {
+  const tree = storedTree();
+  const plan = planCopy(tree.children[1], "Sub (1)", "Docs");
+  assert.equal(plan.name, "Sub (1)");
+  const [leaf] = planFiles(plan);
+  assert.equal(leaf.relativePath, "Docs/Sub (1)/b.pdf");
+  assert.notEqual(leaf.storedAs, "orig-b.pdf");
+  assert.equal(leaf.srcKey, "Lib:Sub/b.pdf");
+  assert.equal(planBytes(plan), 5);
+});
+
+test("planCopyRoot makes paths relative to the new root, and finishPlan gives working handles", () => {
+  const plan = planCopyRoot(storedTree(), "Lib (1)");
+  assert.deepEqual(planFiles(plan).map((l) => l.relativePath), ["a.pdf", "Sub/b.pdf"]);
+  assert.equal(planBytes(plan), 15);
+  const tree = finishPlan(plan, "folder-2", "Lib (1)", true);
+  assert.equal(tree.handle.name, "Lib (1)");
+  assert.equal(tree.children[0].handle.fileKey, "Lib (1):a.pdf");
+  assert.equal(tree.children[0].handle.folderId, "folder-2");
 });

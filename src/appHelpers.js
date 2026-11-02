@@ -1,5 +1,37 @@
 import { buildLegacyManifest, extrasKey } from "./fileSystem.js";
 
+// The star colours a file can be given, in the order they are offered.
+export const STAR_COLORS = [
+  { id: "red", label: "Red", color: "#E5484D" },
+  { id: "green", label: "Green", color: "#30C48D" },
+  { id: "purple", label: "Purple", color: "#9B7BEA" },
+  { id: "orange", label: "Orange", color: "#F5A142" },
+  { id: "blue", label: "Blue", color: "#4C9AF5" },
+];
+
+// stars is { fileKey: colourId }. Gives `keys` that colour, or takes their
+// star away when colourId is null. Returns a new object.
+export function applyStar(stars, keys, colorId) {
+  const next = { ...stars };
+  for (const key of keys) {
+    if (colorId) next[key] = colorId;
+    else delete next[key];
+  }
+  return next;
+}
+
+// The starred files among `files` ([{ name, path, handle }], see
+// flattenTreeFileHandlesWithPath), each with its colour, in the order given.
+// `only` (a colour id) keeps just that colour.
+export function starredEntries(files, stars, only = null) {
+  const out = [];
+  for (const f of files) {
+    const color = stars[extrasKey(f.handle)];
+    if (color && (!only || color === only)) out.push({ ...f, color });
+  }
+  return out;
+}
+
 export function formatBytes(bytes) {
   if (bytes == null) return "";
   const units = ["B", "KB", "MB", "GB", "TB"];

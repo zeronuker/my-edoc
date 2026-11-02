@@ -1,14 +1,23 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   pickFolderLegacy,
   buildTreeFromFileList,
   wrapDroppedFile,
   writeLegacyFiles,
   reviveLegacyManifest,
+  fillMissingSizes,
+  uniqueFileName,
+  planCopy,
+  planCopyRoot,
+  planBytes,
+  planFiles,
+  writePlan,
+  finishPlan,
   reviveLegacyFileHandle,
   treeByteSize,
   flattenTreeFiles,
   flattenTreeFileHandles,
+  flattenTreeFileHandlesWithPath,
   isMobileDevice,
   extrasKey,
   fileKeyFor,
@@ -28,6 +37,8 @@ import {
   readLegacyFile,
   listAnnotatedCopyNames,
   deleteAnnotatedCopy,
+  readAnnotatedCopy,
+  writeAnnotatedCopy,
 } from "./opfs.js";
 import { requestPersistentStorage, getStorageEstimate } from "./storage.js";
 import { saveAnnotations } from "./annotations.js";
@@ -38,12 +49,14 @@ import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { usePresentation } from "./usePresentation.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
 import { usePresence } from "./usePresence.js";
-import { makeNodeKey, parseNodeKey } from "./treeOverlay.js";
+import { flattenByKey, isInside, makeNodeKey, parseNodeKey, planMove } from "./treeOverlay.js";
 import { dbGet, dbSet } from "./db.js";
 import {
   formatBytes,
   freeSpaceWarning,
   omitKeys,
+  applyStar,
+  starredEntries,
   folderListRecords,
   nextRecentFiles,
   toggleBookmarkList,
@@ -57,6 +70,7 @@ import { AnnotationEditorType } from "pdfjs-dist";
 import {
   IconX,
   IconFolder,
+  IconChecklist,
   IconPlus,
   IconFolderPlus,
   IconFilePlus,
@@ -84,11 +98,21 @@ import AddFilesModal from "./AddFilesModal.jsx";
 import WifiModal from "./WifiModal.jsx";
 import { withPath } from "./transfer.js";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
+import RenameModal from "./RenameModal.jsx";
+import SortMenu from "./SortMenu.jsx";
+import MovePicker from "./MovePicker.jsx";
+import MoveClashModal from "./MoveClashModal.jsx";
+import CopyExtrasModal from "./CopyExtrasModal.jsx";
+import RotateSheet from "./RotateSheet.jsx";
+import ToolModal from "./ToolModal.jsx";
+import ProtectModal from "./ProtectModal.jsx";
+import PasswordModal from "./PasswordModal.jsx";
+import { setPasswordAsker } from "./edoc.js";
+import { flattenAnnotations, protectPdf, rotatePages } from "./pdfTools.js";
 import PlaceFolderModal from "./PlaceFolderModal.jsx";
 import ChoiceModal from "./ChoiceModal.jsx";
 import DocumentInfoModal from "./DocumentInfoModal.jsx";
 import BrandBanner from "@brand/BrandBanner";
-import SettingsIcon from "@brand/SettingsIcon";
 import SplashScreen from "@brand/SplashScreen";
 import UpdatePrompt from "@brand/UpdatePrompt";
 import { useUpdate } from "@brand/useUpdate";
@@ -123,7 +147,6 @@ const SIDEBAR_TAB_ORDER = ["folders", "recent", "bookmarks", "outline", "pages"]
 // sidebar's default open/closed state and isn't affected by window width.
 const NARROW_QUERY = "(max-width: 880px)";
 const IS_MOBILE = isMobileDevice();
-
 const ANNOTATION_EDITOR_MODE_BY_TOOL = {
   highlight: AnnotationEditorType.HIGHLIGHT,
   ink: AnnotationEditorType.INK,
@@ -159,6 +182,7 @@ function App() {
   // { [fileName]: [{ page, createdAt }] }, page-ascending — user-created
   // marks, distinct from the PDF's own outline.
   const [bookmarks, setBookmarks] = useState({});
+  const [stars, setStars] = useState({}); // { fileKey: colour id } — see STAR_COLORS
   // { [fileName]: [path, ...] } — which outline nodes are expanded, keyed by
   // a stable "0-2-1" index path rather than title (titles repeat; paths are
   // stable across reopens since getOutline() returns the same structure
@@ -172,8 +196,26 @@ function App() {
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneCount } while copying files into OPFS
   const [globalSearch, setGlobalSearch] = useState("");
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
-  const [removeRequest, setRemoveRequest] = useState(null); // { node, name, kind, isRoot?, folderKey, relPath, count, cleanNames, annotatedCount, otherCount } while the × confirmation is open
+  const [removeRequest, setRemoveRequest] = useState(null); // { name, kind, count, annotatedCount, otherCount, items: [{ isRoot, folderKey, relPath, cleanNames, ... }] } while the Delete confirmation is open
   const [removeBusy, setRemoveBusy] = useState(false);
+  const [manageMode, setManageMode] = useState(false); // tree rows show checkboxes and the Manage bar is up
+  const [renameRequest, setRenameRequest] = useState(null); // { key, name } while the Rename dialog is open
+  const lastRenameRef = useRef(null);
+  const [moveRequest, setMoveRequest] = useState(null); // { nodes, done } while the Move picker is open; done() clears the ticks
+  const [clashRequest, setClashRequest] = useState(null); // { clash, remaining, resolve } while the "name already there" prompt is open
+  const lastClashRef = useRef(null);
+  const [extrasRequest, setExtrasRequest] = useState(null); // { otherCount, annotatedCount, resolve } while the "copy with notes?" prompt is open
+  const lastExtrasRef = useRef(null);
+  const [rotateRequest, setRotateRequest] = useState(null); // { node, file, done } while the Rotate sheet is open
+  const [flattenRequest, setFlattenRequest] = useState(null); // { node, file, done } while the Flatten dialog is open
+  const [protectRequest, setProtectRequest] = useState(null); // { node, file, done } while the Protect dialog is open
+  const [passwordRequest, setPasswordRequest] = useState(null); // { name, wrong, resolve } while a file is asking for its password
+  const [toolBusy, setToolBusy] = useState(false); // a PDF tool dialog is saving its result
+  // A file that needs a password asks for it in our own dialog (see edoc.js).
+  useEffect(() => {
+    setPasswordAsker(({ name, wrong }) => new Promise((resolve) => setPasswordRequest({ name, wrong, resolve })));
+    return () => setPasswordAsker(null);
+  }, []);
   const [placement, setPlacement] = useState(null); // { folderName, resolve } while the Add folder "where to show it" dialog is open
   const lastPlacementRef = useRef(null); // keeps that dialog's content on screen through its exit animation
   const [choice, setChoice] = useState(null); // { ...ChoiceModal spec, resolve } while a "pick one" question is open
@@ -236,7 +278,7 @@ function App() {
   // Shared between the sidebar tree (renders/edits it) and search (needs the
   // same arranged view so results show where things are drawn) — see
   // useTreeOverlay.js.
-  const { displayFolders, allDisplayFolders, placeRoot, releaseNested, dropNode } = useTreeOverlay(
+  const { displayFolders, allDisplayFolders, placeRoot, releaseNested, renameNode, moveNodes, sort, setSort } = useTreeOverlay(
     folders.filter((f) => f.tree)
   );
 
@@ -276,6 +318,16 @@ function App() {
       if (cancelled) return;
       setFolders(loaded);
       refreshStorageEstimate();
+      // Files saved before sizes were kept get theirs filled in once, in the
+      // background, so Size sorting works on them too.
+      Promise.all(loaded.map((f) => fillMissingSizes(f.tree))).then((counts) => {
+        if (cancelled || !counts.some(Boolean)) return;
+        setFolders((prev) => {
+          const next = [...prev];
+          saveFolderList(next);
+          return next;
+        });
+      });
       // Free any copy a killed app left half-written (see sweepOrphanFolders).
       sweepOrphanFolders(loaded.map((f) => f.folderId))
         .then((n) => n > 0 && refreshStorageEstimate())
@@ -300,6 +352,7 @@ function App() {
       );
       setBookmarks((await dbGet("bookmarks")) || {});
       setOutlineExpanded((await dbGet("outlineExpanded")) || {});
+      setStars((await dbGet("stars")) || {});
 
       if (resolvedSettings.resumePosition) {
         // Tabs are saved as OPFS addresses (see tabsToRecords) — "still
@@ -1065,6 +1118,8 @@ function App() {
               kind: "file",
               relativePath,
               storedAs,
+              size: file.size,
+              addedAt: Date.now(),
               handle: reviveLegacyFileHandle(target.folderId, name, relativePath, target.tree.name, storedAs),
             });
             bytesDelta += file.size - oldSize;
@@ -1160,17 +1215,57 @@ function App() {
     });
     const positions = (await dbGet("filePositions")) || {};
     await dbSet("filePositions", omitKeys(positions, keys));
+    setStars((prev) => {
+      const next = omitKeys(prev, keys);
+      dbSet("stars", next);
+      return next;
+    });
   }
 
-  // TreeView's × on a subfolder, file or whole folder: ask first. A node's
-  // key always points back at the folder it physically lives in (see
-  // parseNodeKey), so this finds the right connected folder and path even if
-  // the overlay has moved the node somewhere else in the displayed tree.
-  function requestRemoveNode(node) {
-    buildRemoveRequest(node).catch((err) => setError(`Couldn't prepare the removal: ${err.message}`));
+  // Gives the files (by key) a star colour, or takes it away with null.
+  function starFiles(keys, colorId) {
+    setStars((prev) => {
+      const next = applyStar(prev, keys, colorId);
+      dbSet("stars", next);
+      return next;
+    });
   }
 
-  async function buildRemoveRequest(node) {
+  // The Manage bar's Delete on the ticked subfolders, files or whole
+  // folders: ask first, once for the lot. A node's key always points back at
+  // the folder it physically lives in (see parseNodeKey), so this finds the
+  // right connected folder and path even if the overlay has moved the node
+  // somewhere else in the displayed tree.
+  async function requestRemoveNodes(nodes) {
+    try {
+      const built = (await Promise.all(nodes.map(buildRemoveItem))).filter(Boolean);
+      // Whatever sits inside another ticked item goes with it already.
+      const items = built.filter(
+        (a) =>
+          !built.some(
+            (b) =>
+              b !== a &&
+              b.folderKey === a.folderKey &&
+              !a.isRoot &&
+              (b.isRoot || a.relPath.startsWith(`${b.relPath}/`))
+          )
+      );
+      if (items.length === 0) return;
+      const sum = (k) => items.reduce((n, i) => n + i[k], 0);
+      setRemoveRequest({
+        name: items.length === 1 ? items[0].name : `${items.length} items`,
+        kind: items.length === 1 ? items[0].kind : "multi",
+        count: sum("count"),
+        annotatedCount: sum("annotatedCount"),
+        otherCount: sum("otherCount"),
+        items,
+      });
+    } catch (err) {
+      setError(`Couldn't prepare the removal: ${err.message}`);
+    }
+  }
+
+  async function buildRemoveItem(node) {
     const roots = folders.filter((f) => f.tree);
     let folder;
     let relPath = "";
@@ -1197,8 +1292,7 @@ function App() {
     const otherCount = cleanNames.filter(
       (n) => !annotated.has(n) && (bookmarks[n] || positions[n] || outlineExpanded[n])
     ).length;
-    setRemoveRequest({
-      node,
+    return {
       name: node.name,
       kind: isRoot ? "directory" : node.kind,
       isRoot,
@@ -1208,14 +1302,14 @@ function App() {
       cleanNames,
       annotatedCount,
       otherCount,
-    });
+    };
   }
 
   // Takes the given paths (files or whole subfolders) out of one connected
   // folder for good: deletes the app's stored copies and frees the space.
   // The user's original files outside the app are never involved. Shared by
   // the tree's × and the one-time clean-up of the old hidden list.
-  async function removePathsFromFolder(target, relPaths) {
+  async function removePathsFromFolder(target, relPaths, keep = null) {
     const nodes = relPaths.map((p) => findNodeAt(target.tree, p)).filter(Boolean);
     const leaves = nodes.flatMap((n) => flattenTreeFileHandles(n));
     const removedFiles = nodes.flatMap((n) => flattenTreeFiles(n));
@@ -1227,7 +1321,7 @@ function App() {
         f.key === target.key
           ? {
               ...f,
-              tree: relPaths.reduce((tree, p) => removeNodeFromTree(tree, p), f.tree),
+              tree: relPaths.reduce((tree, p) => removeNodeFromTree(tree, p, keep), f.tree),
               sizeBytes: Math.max(0, (f.sizeBytes || 0) - freedBytes),
             }
           : f
@@ -1252,18 +1346,38 @@ function App() {
     });
   }
 
+  // Deletes what buildRemoveItem described, for good: paths inside a folder
+  // first (grouped per folder), then whole folders. Shared by the Delete
+  // confirmation and by a move that replaces a file. keepKeys are node keys
+  // of folders that must survive being emptied (see removeNodeFromTree).
+  async function removeItems(items, keepKeys = []) {
+    const roots = foldersRef.current.filter((f) => f.tree);
+    const keepByFolder = new Map();
+    for (const k of keepKeys) {
+      const parsed = parseNodeKey(k, roots.map((f) => f.tree.name));
+      const folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
+      if (folder && parsed.relPath) {
+        keepByFolder.set(folder.key, (keepByFolder.get(folder.key) ?? new Set()).add(parsed.relPath));
+      }
+    }
+    const pathsByFolder = new Map();
+    for (const i of items.filter((i) => !i.isRoot)) {
+      pathsByFolder.set(i.folderKey, [...(pathsByFolder.get(i.folderKey) ?? []), i.relPath]);
+    }
+    for (const [folderKey, relPaths] of pathsByFolder) {
+      const target = foldersRef.current.find((f) => f.key === folderKey);
+      if (target?.tree) await removePathsFromFolder(target, relPaths, keepByFolder.get(folderKey));
+    }
+    for (const i of items.filter((i) => i.isRoot)) await handleRemoveFolder(i.folderKey);
+    await forgetFileExtras(items.flatMap((i) => i.cleanNames));
+  }
+
   async function confirmRemoveNode() {
     const req = removeRequest;
     if (!req) return;
     setRemoveBusy(true);
     try {
-      if (req.isRoot) {
-        await handleRemoveFolder(req.folderKey);
-      } else {
-        const target = folders.find((f) => f.key === req.folderKey);
-        if (target?.tree) await removePathsFromFolder(target, [req.relPath]);
-      }
-      await forgetFileExtras(req.cleanNames ?? []);
+      await removeItems(req.items);
       setRemoveRequest(null);
     } catch (err) {
       setError(`Couldn't remove "${req.name}": ${err.message}`);
@@ -1271,6 +1385,351 @@ function App() {
     } finally {
       setRemoveBusy(false);
     }
+  }
+
+  // Moving only changes where things are shown (see treeOverlay.js). Items
+  // whose name is already taken in the destination are asked about one at a
+  // time — keep the one already there, replace it, or keep both (the arriving
+  // one is shown as "x (1)").
+  async function runMove(nodes, destKey) {
+    const dest = destKey ? flattenByKey(displayFolders).get(destKey) : null;
+    const { clean, clashes } = planMove(nodes, dest);
+    const entries = clean.map((n) => ({ key: n.key, destKey }));
+    const taken = new Set([...(dest?.children ?? []).map((c) => c.name.toLowerCase())]);
+    for (const n of clean) taken.add(n.name.toLowerCase());
+    let all = null;
+    try {
+      for (const [i, clash] of clashes.entries()) {
+        const choice = all ?? (await askClash(clash, clashes.length - i));
+        if (choice.all) all = choice;
+        const incoming = clash.incoming;
+        if (choice.action === "skip") continue;
+        let name;
+        if (choice.action === "replace" && !clash.inBatch && incoming.kind === "file") {
+          // The folder it lands in must survive losing its only file.
+          await removeItems([await buildRemoveItem(clash.existing)], destKey ? [destKey] : []);
+        } else {
+          name = uniqueFileName(incoming.name, taken, incoming.kind === "directory");
+          taken.add(name.toLowerCase());
+        }
+        entries.push({ key: incoming.key, destKey, name });
+      }
+    } catch (err) {
+      setError(`Couldn't finish the move: ${err.message}`);
+    }
+    if (entries.length) moveNodes(entries);
+  }
+
+  // Copy makes real duplicates (unlike Move): each file is written to storage
+  // again under a new stored name, so the copy and the original never share
+  // anything. A connected folder becomes a new connected folder; anything else
+  // goes into the destination folder. Items are copied one at a time, and a
+  // cancel or failure undoes only the item in progress.
+  async function runCopy(picked, destKey) {
+    const roots = foldersRef.current.filter((f) => f.tree);
+    const rootNames = roots.map((f) => f.tree.name);
+    const byKey = flattenByKey(displayFolders);
+    // Whatever sits inside another ticked item is copied with it already.
+    const nodes = picked.filter((n) => !picked.some((m) => m !== n && isInside(n.key, m.key, byKey)));
+    const dest = destKey ? byKey.get(destKey) : null;
+    let destFolder = null;
+    let destDir = "";
+    if (dest) {
+      const parsed = parseNodeKey(destKey, rootNames);
+      destFolder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
+      if (!destFolder) return;
+      destDir = parsed.relPath;
+    }
+    const rawOf = (node) => {
+      if (node.folderRef) return roots.find((f) => f.key === node.folderRef.key)?.tree;
+      const parsed = parseNodeKey(node.key, rootNames);
+      const folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
+      return folder && findNodeAt(folder.tree, parsed.relPath);
+    };
+
+    const items = []; // { node, name, plan, isRoot, replace? }
+    const takenRoots = new Set(rootNames.map((n) => n.toLowerCase()));
+    for (const n of nodes.filter((n) => n.folderRef)) {
+      const raw = rawOf(n);
+      if (!raw) continue;
+      const name = uniqueFileName(n.name, takenRoots, true);
+      takenRoots.add(name.toLowerCase());
+      items.push({ node: n, name, isRoot: true, plan: planCopyRoot(raw, name) });
+    }
+    const others = nodes.filter((n) => !n.folderRef);
+    if (dest && others.length) {
+      const { clean, clashes } = planMove(others, dest, true);
+      const taken = new Set(dest.children.map((c) => c.name.toLowerCase()));
+      for (const n of clean) {
+        const raw = rawOf(n);
+        if (raw) items.push({ node: n, name: n.name, plan: planCopy(raw, n.name, destDir) });
+      }
+      let all = null;
+      for (const [i, clash] of clashes.entries()) {
+        const choice = all ?? (await askClash(clash, clashes.length - i));
+        if (choice.all) all = choice;
+        if (choice.action === "skip") continue;
+        const n = clash.incoming;
+        const raw = rawOf(n);
+        if (!raw) continue;
+        if (choice.action === "replace" && !clash.inBatch && n.kind === "file") {
+          items.push({ node: n, name: n.name, plan: planCopy(raw, n.name, destDir), replace: clash.existing });
+        } else {
+          const name = uniqueFileName(n.name, taken, n.kind === "directory");
+          taken.add(name.toLowerCase());
+          items.push({ node: n, name, plan: planCopy(raw, name, destDir) });
+        }
+      }
+    }
+    if (items.length === 0) return;
+
+    // Bookmarks and annotations go along only if the user says so.
+    const leaves = items.flatMap((i) => planFiles(i.plan));
+    const annotated = new Set(await listAnnotatedCopyNames());
+    const positions = (await dbGet("filePositions")) || {};
+    let annotatedCount = 0;
+    let otherCount = 0;
+    for (const { srcKey: k } of leaves) {
+      if (!k) continue;
+      if (annotated.has(k)) annotatedCount++;
+      if (bookmarks[k]?.length || positions[k] || outlineExpanded[k]) otherCount++;
+    }
+    let notes = { bookmarks: false, annotations: false };
+    if (annotatedCount + otherCount > 0) {
+      notes = await askExtras({ otherCount, annotatedCount });
+      if (!notes) return;
+    }
+
+    const estimate = await getStorageEstimate();
+    const spaceNote = freeSpaceWarning(
+      "This copy",
+      items.reduce((sum, i) => sum + planBytes(i.plan), 0),
+      estimate ? estimate.quota - foldersBytesUsed : null
+    );
+    if (spaceNote) setError(spaceNote);
+
+    const controller = new AbortController();
+    copyControllerRef.current = controller;
+    setCopyProgress({
+      title: "Copying",
+      folderName: destFolder ? destFolder.tree.name : "Top level",
+      files: items.flatMap((it, i) => planFiles(it.plan).map((l) => ({ name: l.name, relativePath: `${i}/${l.relativePath}` }))),
+      doneCount: 0,
+    });
+    const tick = makeProgressTicker();
+    try {
+      for (const item of items) {
+        const folderId = item.isRoot ? crypto.randomUUID() : destFolder.folderId;
+        const written = [];
+        try {
+          await writePlan(folderId, item.plan, { signal: controller.signal, onFileDone: tick, written });
+        } catch (err) {
+          if (item.isRoot) await deleteLegacyFolderFiles(folderId);
+          else await deleteLegacyFiles(folderId, written);
+          if (err.name !== "AbortError") setError(`Couldn't copy "${item.node.name}": ${err.message}`);
+          break;
+        }
+        const bytes = planBytes(item.plan);
+        const rootName = item.isRoot ? item.name : destFolder.tree.name;
+        const finished = finishPlan(item.plan, folderId, rootName, item.isRoot);
+        if (item.replace) {
+          // Safe order: the new file is already written before the old one goes.
+          await removeItems([await buildRemoveItem(item.replace)], destKey ? [destKey] : []);
+        }
+        if (item.isRoot) {
+          placeRoot(makeNodeKey(item.name, ""), destKey);
+          setFolders((prev) => {
+            const next = [
+              ...prev,
+              { key: crypto.randomUUID(), dirHandle: finished.handle, tree: finished, connectedAt: Date.now(), folderId, sizeBytes: bytes },
+            ];
+            saveFolderList(next);
+            return next;
+          });
+        } else {
+          setFolders((prev) => {
+            const next = prev.map((f) =>
+              f.key === destFolder.key
+                ? { ...f, tree: insertFilesIntoTree(f.tree, destDir, [finished]), sizeBytes: (f.sizeBytes || 0) + bytes }
+                : f
+            );
+            saveFolderList(next);
+            return next;
+          });
+        }
+        const pairs = planFiles(item.plan).map((l) => ({ from: l.srcKey, to: fileKeyFor(rootName, l.relativePath) }));
+        await copyFileExtras(pairs, notes);
+        markNew([makeNodeKey(rootName, item.isRoot ? "" : destDir ? `${destDir}/${item.name}` : item.name), ...pairs.map((p) => p.to)]);
+      }
+    } finally {
+      setCopyProgress(null);
+      copyControllerRef.current = null;
+      refreshStorageEstimate();
+    }
+  }
+
+  // Gives each new file the bookmarks / saved page / outline state and the
+  // annotated copy of the file it was copied from, as far as the user chose.
+  async function copyFileExtras(pairs, { bookmarks: withMarks, annotations: withNotes }) {
+    const carry = (prev, store) => {
+      const next = { ...prev };
+      for (const { from, to } of pairs) if (from && prev[from] !== undefined) next[to] = prev[from];
+      dbSet(store, next);
+      return next;
+    };
+    if (withMarks) {
+      setBookmarks((prev) => carry(prev, "bookmarks"));
+      setOutlineExpanded((prev) => carry(prev, "outlineExpanded"));
+      await dbSet("filePositions", carry((await dbGet("filePositions")) || {}, "filePositions"));
+    }
+    if (withNotes) {
+      for (const { from, to } of pairs) {
+        const saved = from && (await readAnnotatedCopy(from));
+        if (saved) await writeAnnotatedCopy(to, saved);
+      }
+    }
+  }
+
+  // Rotate: opens the sheet on what the file shows (its saved annotated
+  // version when it has one), so the turned file keeps the annotations.
+  async function startRotate(node, done) {
+    try {
+      const file = (await readAnnotatedCopy(extrasKey(node.handle))) ?? (await node.handle.getFile());
+      setRotateRequest({ node, file, done });
+    } catch (err) {
+      setError(`Couldn't open "${node.name}": ${err.message}`);
+    }
+  }
+
+  // Saves what a PDF tool made (a Blob) next to the original as "name
+  // (suffix).pdf", or over it. Replacing also drops the saved annotated
+  // version, which would otherwise keep opening instead of the new file.
+  async function saveFileResult(node, blob, suffix, replace) {
+    const roots = foldersRef.current.filter((f) => f.tree);
+    const parsed = parseNodeKey(node.key, roots.map((f) => f.tree.name));
+    const folder = parsed && roots.find((f) => f.tree.name === parsed.rootName);
+    const raw = folder && findNodeAt(folder.tree, parsed.relPath);
+    if (!raw) throw new Error("the file is no longer in the app");
+    if (replace) {
+      await writeLegacyFile(folder.folderId, raw.storedAs, blob);
+      const delta = blob.size - (raw.size ?? 0);
+      raw.size = blob.size;
+      await deleteAnnotatedCopy(extrasKey(raw.handle));
+      setFolders((prev) => {
+        const next = prev.map((f) =>
+          f.key === folder.key ? { ...f, sizeBytes: Math.max(0, (f.sizeBytes || 0) + delta) } : f
+        );
+        saveFolderList(next);
+        return next;
+      });
+      handleFilesRemovedFromView([raw.handle]);
+    } else {
+      const dir = parsed.relPath.includes("/") ? parsed.relPath.slice(0, parsed.relPath.lastIndexOf("/")) : "";
+      const taken = new Set(filesInDirectory(folder.tree, dir).map((f) => f.name.toLowerCase()));
+      const name = uniqueFileName(`${raw.name.replace(/\.pdf$/i, "")} (${suffix}).pdf`, taken);
+      const relativePath = dir ? `${dir}/${name}` : name;
+      const storedAs = newStoredName();
+      await writeLegacyFile(folder.folderId, storedAs, blob);
+      const added = {
+        name,
+        kind: "file",
+        relativePath,
+        storedAs,
+        size: blob.size,
+        addedAt: Date.now(),
+        handle: reviveLegacyFileHandle(folder.folderId, name, relativePath, folder.tree.name, storedAs),
+      };
+      setFolders((prev) => {
+        const next = prev.map((f) =>
+          f.key === folder.key
+            ? { ...f, tree: insertFilesIntoTree(f.tree, dir, [added]), sizeBytes: (f.sizeBytes || 0) + blob.size }
+            : f
+        );
+        saveFolderList(next);
+        return next;
+      });
+      markNew([fileKeyFor(folder.tree.name, relativePath)]);
+    }
+    refreshStorageEstimate();
+  }
+
+  async function saveRotated(rotations, replace) {
+    const { node, file, done } = rotateRequest;
+    try {
+      const blob = new Blob([await rotatePages(await file.arrayBuffer(), rotations)], { type: "application/pdf" });
+      await saveFileResult(node, blob, "rotated", replace);
+      setRotateRequest(null);
+      done();
+    } catch (err) {
+      setError(`Couldn't rotate "${node.name}": ${err.message}`);
+    }
+  }
+
+  // Protect: asks for the password, working on what the file shows.
+  async function startProtect(node, done) {
+    try {
+      const file = (await readAnnotatedCopy(extrasKey(node.handle))) ?? (await node.handle.getFile());
+      setProtectRequest({ node, file, done });
+    } catch (err) {
+      setError(`Couldn't open "${node.name}": ${err.message}`);
+    }
+  }
+
+  async function saveProtected(replace, password) {
+    const { node, file, done } = protectRequest;
+    setToolBusy(true);
+    try {
+      const bytes = await protectPdf(await file.arrayBuffer(), password);
+      await saveFileResult(node, new Blob([bytes], { type: "application/pdf" }), "protected", replace);
+      setProtectRequest(null);
+      done();
+    } catch (err) {
+      const already = /encrypt/i.test(err.message) ? "it is already password protected" : err.message;
+      setError(`Couldn't protect "${node.name}": ${already}`);
+    } finally {
+      setToolBusy(false);
+    }
+  }
+
+  // Flatten: asks first (it can't be taken back), working on what the file
+  // shows, so its saved annotations are the ones baked in.
+  async function startFlatten(node, done) {
+    try {
+      const file = (await readAnnotatedCopy(extrasKey(node.handle))) ?? (await node.handle.getFile());
+      setFlattenRequest({ node, file, done });
+    } catch (err) {
+      setError(`Couldn't open "${node.name}": ${err.message}`);
+    }
+  }
+
+  async function saveFlattened(replace) {
+    const { node, file, done } = flattenRequest;
+    setToolBusy(true);
+    try {
+      const { bytes, count } = await flattenAnnotations(await file.arrayBuffer());
+      if (count === 0) {
+        setError(`There is nothing to flatten in "${node.name}": it has no annotations or form fields.`);
+      } else {
+        await saveFileResult(node, new Blob([bytes], { type: "application/pdf" }), "flattened", replace);
+        done();
+      }
+      setFlattenRequest(null);
+    } catch (err) {
+      setError(`Couldn't flatten "${node.name}": ${err.message}`);
+    } finally {
+      setToolBusy(false);
+    }
+  }
+
+  // Resolves to { bookmarks, annotations }, or null if the user cancelled.
+  function askExtras(counts) {
+    return new Promise((resolve) => setExtrasRequest({ ...counts, resolve }));
+  }
+
+  // Opens the "name already there" prompt and resolves with the user's pick:
+  // { action: "skip" | "replace" | "both", all }.
+  function askClash(clash, remaining) {
+    return new Promise((resolve) => setClashRequest({ clash, remaining, resolve }));
   }
 
   function handleDragOver(e) {
@@ -1321,14 +1780,19 @@ function App() {
   const currentBookmarks = selectedHandle ? bookmarks[extrasKey(selectedHandle)] || [] : [];
   const isBookmarked = currentBookmarks.some((b) => b.page === currentPage);
   const currentOutlineExpanded = new Set(selectedHandle ? outlineExpanded[extrasKey(selectedHandle)] || [] : []);
+  const starredAll = useMemo(
+    () => starredEntries(folders.flatMap((f) => (f.tree ? flattenTreeFileHandlesWithPath(f.tree) : [])), stars),
+    [folders, stars]
+  );
   const tabAvailable = {
     folders: true,
-    recent: recentFiles.length > 0,
+    recent: recentFiles.length > 0 || starredAll.length > 0,
     bookmarks: currentBookmarks.length > 0,
     outline: !!outline,
     pages: !!pdf && numPages > 0,
   };
-  const showTabs = tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
+  const showTabs =
+    folders.length > 0 || tabAvailable.recent || tabAvailable.bookmarks || tabAvailable.outline || tabAvailable.pages;
   const activeTab = showTabs && tabAvailable[sidebarTab] ? sidebarTab : "folders";
   const sidebarAnim = useTransitionAnim(activeTab, SIDEBAR_TAB_ORDER, settings.animStyle);
   if (addFiles) lastAddFilesRef.current = addFiles;
@@ -1351,6 +1815,15 @@ function App() {
   const placementPresence = usePresence(!!placement);
   const placementShown = placement ?? lastPlacementRef.current;
   const removeShown = removeRequest ?? lastRemoveRef.current;
+  if (renameRequest) lastRenameRef.current = renameRequest;
+  const renamePresence = usePresence(!!renameRequest);
+  const renameShown = renameRequest ?? lastRenameRef.current;
+  if (clashRequest) lastClashRef.current = clashRequest;
+  const clashPresence = usePresence(!!clashRequest);
+  const clashShown = clashRequest ?? lastClashRef.current;
+  if (extrasRequest) lastExtrasRef.current = extrasRequest;
+  const extrasPresence = usePresence(!!extrasRequest);
+  const extrasShown = extrasRequest ?? lastExtrasRef.current;
   if (choice) lastChoiceRef.current = choice;
   const choicePresence = usePresence(!!choice);
   const choiceShown = choice ?? lastChoiceRef.current;
@@ -1363,6 +1836,7 @@ function App() {
   const backBannerPresence = usePresence(!!(globalSearch.trim() && pdf));
   const presentExitPresence = usePresence(presenting);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
+  const storagePercent = storageEstimate?.quota ? (foldersBytesUsed / storageEstimate.quota) * 100 : 0;
 
   return (
     <div
@@ -1460,6 +1934,97 @@ function App() {
           onClose={() => setRemoveRequest(null)}
         />
       )}
+      {moveRequest && (
+        <MovePicker
+          folders={displayFolders}
+          moving={moveRequest.nodes}
+          copy={!!moveRequest.copy}
+          onClose={() => setMoveRequest(null)}
+          onConfirm={(destKey) => {
+            const { nodes, done, copy } = moveRequest;
+            setMoveRequest(null);
+            (copy ? runCopy : runMove)(nodes, destKey).then(done);
+          }}
+        />
+      )}
+      {rotateRequest && (
+        <RotateSheet
+          file={rotateRequest.file}
+          name={rotateRequest.node.name}
+          onSave={saveRotated}
+          onClose={() => setRotateRequest(null)}
+        />
+      )}
+      {protectRequest && (
+        <ProtectModal
+          name={protectRequest.node.name}
+          busy={toolBusy}
+          onSave={saveProtected}
+          onClose={() => setProtectRequest(null)}
+        />
+      )}
+      {passwordRequest && (
+        <PasswordModal
+          key={passwordRequest.wrong ? "again" : "first"}
+          request={passwordRequest}
+          onSubmit={(password) => {
+            passwordRequest.resolve(password);
+            setPasswordRequest(null);
+          }}
+          onCancel={() => {
+            passwordRequest.resolve(null);
+            setPasswordRequest(null);
+          }}
+        />
+      )}
+      {flattenRequest && (
+        <ToolModal
+          title="FLATTEN"
+          subtitle={flattenRequest.node.name}
+          busy={toolBusy}
+          onSave={saveFlattened}
+          onClose={() => setFlattenRequest(null)}
+        >
+          <p>
+            Bakes your annotations and filled-in form fields into the pages, so they can no longer be edited or
+            removed. Links keep working.
+          </p>
+          <p>Replace original overwrites the file and can't be undone.</p>
+        </ToolModal>
+      )}
+      {extrasPresence.present && extrasShown && (
+        <CopyExtrasModal
+          closing={extrasPresence.closing}
+          request={extrasShown}
+          onChoose={(choice) => {
+            extrasShown.resolve(choice);
+            setExtrasRequest(null);
+          }}
+        />
+      )}
+      {clashPresence.present && clashShown && (
+        <MoveClashModal
+          key={clashShown.clash.incoming.key}
+          closing={clashPresence.closing}
+          request={clashShown}
+          onChoose={(action, all) => {
+            clashShown.resolve({ action, all });
+            setClashRequest(null);
+          }}
+        />
+      )}
+      {renamePresence.present && renameShown && (
+        <RenameModal
+          key={renameShown.key}
+          closing={renamePresence.closing}
+          request={renameShown}
+          onConfirm={(name) => {
+            renameNode(renameShown.key, name);
+            setRenameRequest(null);
+          }}
+          onClose={() => setRenameRequest(null)}
+        />
+      )}
       <div className={`topbar-wrap${sidebarOpen ? "" : " collapsed"}`}>
       <div ref={topbarRef} className="topbar">
         <button
@@ -1471,15 +2036,6 @@ function App() {
           <IconLayoutSidebar size={16} />
         </button>
         <BrandBanner subtitle="eDoc" />
-        <button
-          className="icon-btn settings-toggle"
-          style={{ marginLeft: "auto" }}
-          onClick={openSettings}
-          aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
-        >
-          <SettingsIcon size={16} />
-          {update.needRefresh && <span className="update-dot" />}
-        </button>
         <button
           className="icon-btn toolbar-toggle"
           onClick={() => setToolbarOpen(true)}
@@ -1529,7 +2085,7 @@ function App() {
                   onClick={() => setSidebarTab("recent")}
                 >
                   <IconClock size={14} />
-                  Recent
+                  Recent/Favs
                 </button>
               )}
               {tabAvailable.bookmarks && (
@@ -1561,10 +2117,25 @@ function App() {
               )}
             </div>
           )}
+          {showTabs && folders.length > 0 && (
+            <button
+              className={`sidebar-tab manage-row${manageMode && activeTab === "folders" ? " active" : ""}`}
+              aria-pressed={manageMode && activeTab === "folders"}
+              onClick={() => {
+                // From any other tab: go to the folders and start managing.
+                setManageMode(activeTab === "folders" ? !manageMode : true);
+                setSidebarTab("folders");
+              }}
+            >
+              <IconChecklist size={14} />
+              {manageMode && activeTab === "folders" ? "Done" : "Manage"}
+            </button>
+          )}
           {activeTab === "recent" && (
             <div className={`sidebar-tab-panel ${sidebarAnim.className}`} style={sidebarAnim.style}>
               <RecentView
                 recentFiles={recentFiles}
+                starred={starredAll}
                 onSelectFile={openFile}
                 selectedHandle={selectedHandle}
                 onClearAll={clearRecent}
@@ -1613,9 +2184,24 @@ function App() {
               unmounting it collapses the whole tree back to the root. */}
           <div className={`folders-panel ${sidebarAnim.className}`} style={sidebarAnim.style} hidden={activeTab !== "folders"}>
             {folders.length === 0 && <p className="folders-empty-hint">No folders yet — tap + to add one.</p>}
-            {storageEstimate && (
-              <div className="storage-usage">
-                {formatBytes(foldersBytesUsed)} used of {formatBytes(storageEstimate.quota)}
+            {(storageEstimate || folders.length > 0) && (
+              <div className="folders-header">
+                <div className="storage-meter">
+                  {storageEstimate && (
+                    <>
+                      <div className="storage-usage">
+                        {formatBytes(foldersBytesUsed)} / {formatBytes(storageEstimate.quota)}
+                      </div>
+                      <div className="storage-bar">
+                        <div
+                          className={`storage-bar-fill${storagePercent >= 80 ? " warn" : ""}`}
+                          style={{ width: `${foldersBytesUsed > 0 ? Math.max(storagePercent, 2) : 0}%` }}
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+                {folders.length > 0 && <SortMenu sort={sort} onChange={setSort} />}
               </div>
             )}
             <TreeView
@@ -1624,12 +2210,20 @@ function App() {
               newKeys={newKeys}
               onSeen={forgetNew}
               selectedHandle={selectedHandle}
-              onRemoveNode={requestRemoveNode}
-              onDropNode={dropNode}
+              manageMode={manageMode}
+              onDeleteNodes={requestRemoveNodes}
+              onRenameNode={(node) => setRenameRequest({ key: node.key, name: node.name })}
+              onMoveNodes={(nodes, done) => setMoveRequest({ nodes, done })}
+              onCopyNodes={(nodes, done) => setMoveRequest({ nodes, done, copy: true })}
+              onRotateNode={startRotate}
+              onFlattenNode={startFlatten}
+              onProtectNode={startProtect}
+              onStarNodes={(nodes, colorId) => starFiles(nodes.map((n) => extrasKey(n.handle)), colorId)}
+              stars={stars}
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the
                 corner as the tree scrolls underneath it. */}
-            <div className="add-fab" ref={fabRef}>
+            <div className="add-fab" ref={fabRef} hidden={manageMode}>
               {fabMenu.present && (
                 <div className={`add-fab-menu${fabMenu.closing ? " is-closing" : ""}`}>
                   <button

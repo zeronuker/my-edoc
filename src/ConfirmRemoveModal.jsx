@@ -7,10 +7,13 @@ import ChamferFrame from "@brand/ChamferFrame";
 export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, closing }) {
   const { name, kind, count, annotatedCount = 0, otherCount = 0 } = request;
   const isFolder = kind === "directory";
+  const isMulti = kind === "multi";
 
-  const body = isFolder
-    ? `Remove "${name}" and its ${count} file${count === 1 ? "" : "s"} from this device? Your original files aren't touched.`
-    : `Remove "${name}" from this device? Your original file isn't touched.`;
+  const body = isMulti
+    ? `Remove ${name} (${count} file${count === 1 ? "" : "s"}) from this device? Your original files aren't touched.`
+    : isFolder
+      ? `Remove "${name}" and its ${count} file${count === 1 ? "" : "s"} from this device? Your original files aren't touched.`
+      : `Remove "${name}" from this device? Your original file isn't touched.`;
 
   let extra = null;
   if (annotatedCount > 0) {
@@ -26,7 +29,7 @@ export default function ConfirmRemoveModal({ request, busy, onConfirm, onClose, 
         <div className="update-dialog-header">
           <span className="update-dialog-icon">×</span>
           <div>
-            <div className="update-dialog-title">REMOVE {isFolder ? "FOLDER" : "FILE"}</div>
+            <div className="update-dialog-title">REMOVE {isMulti ? "ITEMS" : isFolder ? "FOLDER" : "FILE"}</div>
             <div className="update-dialog-subtitle">{name}</div>
           </div>
         </div>
