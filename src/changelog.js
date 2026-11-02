@@ -744,6 +744,8 @@ export const CHANGELOG = [
       'IMP: The code that holds an open document (page, zoom, outline, unsaved annotations) is now one piece per viewer, with the tab list and tab closing handled above it. It is what lets two documents sit side by side.',
       'NEW: Send / receive via wifi. + → Send / receive via wifi links two devices on the same wifi, for example a PC and an iPad. One shows a 6-character code and a QR, the other types it or scans it with the camera. Once connected, either device can send PDFs or a whole folder to the other, and the files go straight across the wifi, never through a server. Received folders arrive like Add folder, loose PDFs like Add files (or, if you have no folder yet, into a new folder called Received). Only the short pairing handshake passes through the free PeerJS service.',
       'NEW: Anything you add or replace (Add folder, Add files, Update folder, or files received over wifi) now shows a small NEW chip in the folder tree. A file loses its chip when you open it, a folder when you open it, and every chip goes when the page is refreshed.',
+      'FIX: Receiving a big folder over wifi could fail on an iPad ("The I/O read operation failed"), because the whole folder was held in memory until it had all arrived. Each file is now saved the moment it arrives, so a folder of any size uses little memory. The sender now only says Sent once the other device has saved the files, and gets the reason if it could not.',
+      'FIX: A lost connection to the pairing service no longer drops a wifi link that is already connected.',
     ],
   },
 ]

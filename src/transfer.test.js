@@ -1,8 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { FileAssembler, withPath, checkPath, makeCode, cleanCode, CODE_LENGTH } from "./transfer.js";
+import { FileAssembler, withPath, checkPath, makeCode, cleanCode, openLink, CODE_LENGTH } from "./transfer.js";
 
 const bytes = (...n) => new Uint8Array(n).buffer;
+const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
+
+function fakeConn() {
+  const handlers = {};
+  const sent = [];
+  return {
+    sent,
+    bufferSize: 0,
+    on: (e, f) => (handlers[e] = f),
+    once: (e, f) => (handlers[`once:${e}`] = f),
+    send: (m) => sent.push(m),
+    emit: (e, d) => handlers[e](d),
+  };
+}
+
+const manifest = (files) => JSON.stringify({ t: "manifest", kind: "folder", files });
 
 test("a chunk that spans two files is split by the manifest sizes", async () => {
   const asm = new FileAssembler({
@@ -52,4 +68,68 @@ test("made codes read back clean, and typed ones are forgiven", () => {
   assert.equal(cleanCode(` ${code.slice(0, 3).toLowerCase()}-${code.slice(3)} `), code);
   assert.equal(cleanCode("ABC"), null);
   assert.equal(cleanCode("ABCDEFG"), null);
+});
+
+test("a received folder is saved file by file, and only confirmed once all are saved", async () => {
+  const conn = fakeConn();
+  const saved = [];
+  const store = {
+    save: async (file) => {
+      saved.push(file.name);
+      return withPath(file, file.webkitRelativePath, `saved-${file.name}`);
+    },
+  };
+  let received = null;
+  openLink(conn, { onReceived: (r) => (received = r), beginReceive: () => store });
+  conn.emit("data", manifest([{ path: "F/a.pdf", size: 3 }, { path: "F/b.pdf", size: 2 }]));
+  conn.emit("data", bytes(1, 2, 3, 4, 5));
+  assert.equal(conn.sent.length, 0); // nothing confirmed before the saves finish
+  await tick();
+  assert.deepEqual(saved, ["a.pdf", "b.pdf"]);
+  assert.deepEqual(conn.sent.map((m) => JSON.parse(m).t), ["ok"]);
+  assert.deepEqual(received.files.map((f) => f.name), ["saved-a.pdf", "saved-b.pdf"]);
+  assert.equal(received.store, store);
+});
+
+test("if saving fails the sender is told, the partial save is discarded, and nothing is added", async () => {
+  const conn = fakeConn();
+  let discarded = false;
+  let n = 0;
+  const store = {
+    save: async (file) => {
+      if (++n === 2) throw new Error("Out of space");
+      return file;
+    },
+    discard: async () => (discarded = true),
+  };
+  let received = null;
+  let error = null;
+  openLink(conn, { onReceived: (r) => (received = r), onError: (e) => (error = e), beginReceive: () => store });
+  conn.emit("data", manifest([{ path: "F/a.pdf", size: 1 }, { path: "F/b.pdf", size: 1 }]));
+  conn.emit("data", bytes(1, 2));
+  await tick();
+  assert.deepEqual(JSON.parse(conn.sent[0]), { t: "fail", message: "Out of space" });
+  assert.equal(discarded, true);
+  assert.equal(received, null);
+  assert.equal(error.message, "Out of space");
+});
+
+test("without a store, files are kept in memory as before", async () => {
+  const conn = fakeConn();
+  let received = null;
+  openLink(conn, { onReceived: (r) => (received = r) });
+  conn.emit("data", manifest([{ path: "F/a.pdf", size: 2 }]));
+  conn.emit("data", bytes(1, 2));
+  await tick();
+  assert.equal(received.files[0].webkitRelativePath, "F/a.pdf");
+  assert.equal(JSON.parse(conn.sent[0]).t, "ok");
+});
+
+test("a send fails with the receiver's reason when it could not save", async () => {
+  const conn = fakeConn();
+  const link = openLink(conn, { onReceived() {} });
+  const sending = link.send([{ file: new File([new Uint8Array([1, 2, 3])], "a.pdf"), path: "F/a.pdf" }], "folder");
+  await tick(20); // all chunks are out; now waiting on the receiver
+  conn.emit("data", JSON.stringify({ t: "fail", message: "Out of space" }));
+  await assert.rejects(sending, /Out of space/);
 });

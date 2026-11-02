@@ -25,6 +25,7 @@ import {
   deleteLegacyFiles,
   sweepOrphanFolders,
   writeLegacyFile,
+  readLegacyFile,
   listAnnotatedCopyNames,
   deleteAnnotatedCopy,
 } from "./opfs.js";
@@ -769,7 +770,8 @@ function App() {
   // deletes the old copy — in that order, so a cancel or a failure leaves
   // the old one untouched. Its placement and order are kept, and anything
   // that had been removed from it comes back.
-  async function updateExistingFolder(existing, tree, folderId) {
+  // Resolves to true once the folder is updated, false if it wasn't.
+  async function updateExistingFolder(existing, tree, folderId, alreadySaved = false) {
     const name = tree.name;
     const oldCount = flattenTreeFiles(existing.tree).length;
     const newFiles = flattenTreeFiles(tree);
@@ -779,7 +781,7 @@ function App() {
       body: `"${name}" is already in the app. Update it with the folder you picked? Its ${oldCount} file${oldCount === 1 ? "" : "s"} are replaced by these ${newFiles.length}, and anything you removed from it comes back. If this is a different folder that just has the same name, cancel and rename it first.`,
       actions: [{ label: "Update", value: "update", primary: true }],
     });
-    if (go !== "update") return;
+    if (go !== "update") return false;
 
     // A saved annotated copy is opened instead of the file with the same
     // name, so it would keep hiding the new version — ask what to do.
@@ -798,7 +800,7 @@ function App() {
           { label: "Keep annotations", value: "keep" },
         ],
       });
-      if (c === undefined) return;
+      if (c === undefined) return false;
       discard = c === "discard";
     }
 
@@ -807,11 +809,11 @@ function App() {
     const spaceNote = freeSpaceWarning(`"${name}"`, sizeBytes, estimate ? estimate.quota - foldersBytesUsed : null);
     if (spaceNote) setError(spaceNote);
     try {
-      await copyFolderFiles(folderId, tree, "Updating folder", name);
+      if (!alreadySaved) await copyFolderFiles(folderId, tree, "Updating folder", name);
     } catch (err) {
       await deleteLegacyFolderFiles(folderId);
       if (err.name !== "AbortError") setError(`Couldn't update "${name}": ${err.message}`);
-      return;
+      return false;
     }
 
     const oldFolderId = existing.folderId;
@@ -834,6 +836,7 @@ function App() {
       return next;
     });
     refreshStorageEstimate();
+    return true;
   }
 
   // Resolves to a node key (show the new folder inside that one), null
@@ -875,21 +878,31 @@ function App() {
     await addFolderFromList(fileList);
   }
 
-  async function addFolderFromList(fileList) {
-    const folderId = crypto.randomUUID();
+  // `savedAs`: the storage id the files were already saved under as they
+  // arrived over wifi. Without it they're copied into storage here instead.
+  async function addFolderFromList(fileList, savedAs) {
+    const folderId = savedAs ?? crypto.randomUUID();
+    let kept = false;
+    try {
+      kept = await addFolderToStorage(fileList, folderId, !!savedAs);
+    } finally {
+      // Cancelled or failed after the files were saved: don't leave them behind.
+      if (savedAs && !kept) await deleteLegacyFolderFiles(folderId);
+    }
+  }
+
+  // Resolves to true once the folder is in the app, false if it wasn't added.
+  async function addFolderToStorage(fileList, folderId, alreadySaved) {
     const tree = buildTreeFromFileList(fileList, folderId);
     if (!tree) {
       setError("No PDF files found in that folder.");
-      return;
+      return false;
     }
     const alreadyThere = folders.find((f) => f.tree?.name === tree.name);
-    if (alreadyThere) {
-      await updateExistingFolder(alreadyThere, tree, folderId);
-      return;
-    }
+    if (alreadyThere) return updateExistingFolder(alreadyThere, tree, folderId, alreadySaved);
     const dirHandle = tree.handle;
     const parentKey = await askPlacement(dirHandle.name);
-    if (parentKey === undefined) return;
+    if (parentKey === undefined) return false;
     const sizeBytes = treeByteSize(tree);
 
     const estimate = await getStorageEstimate();
@@ -900,11 +913,11 @@ function App() {
     );
     if (spaceNote) setError(spaceNote);
     try {
-      await copyFolderFiles(folderId, tree, "Adding folder", dirHandle.name);
+      if (!alreadySaved) await copyFolderFiles(folderId, tree, "Adding folder", dirHandle.name);
     } catch (err) {
       await deleteLegacyFolderFiles(folderId);
       if (err.name !== "AbortError") setError(`Couldn't save "${dirHandle.name}": ${err.message}`);
-      return;
+      return false;
     }
     const connectedAt = Date.now();
     const key = crypto.randomUUID();
@@ -920,6 +933,7 @@ function App() {
       ...flattenTreeFiles(tree).map((f) => fileKeyFor(tree.name, f.relativePath)),
     ]);
     refreshStorageEstimate();
+    return true;
   }
 
   // "Add files" (floating + menu): the native file picker has to open straight
@@ -945,12 +959,31 @@ function App() {
     setAddFiles({ files });
   }
 
+  // A folder arriving over wifi is saved to storage file by file as it comes
+  // in (see openLink), so a folder of any size never sits in memory.
+  function beginReceive(kind) {
+    if (kind !== "folder") return null;
+    const folderId = crypto.randomUUID();
+    return {
+      folderId,
+      async save(file) {
+        const storedAs = newStoredName();
+        await writeLegacyFile(folderId, storedAs, file);
+        // Backed by the stored copy, not by memory; keeps the real name and path.
+        const saved = withPath(await readLegacyFile(folderId, storedAs), file.webkitRelativePath, file.name);
+        saved.storedAs = storedAs;
+        return saved;
+      },
+      discard: () => deleteLegacyFolderFiles(folderId),
+    };
+  }
+
   // Files that came over wifi (WifiModal) go through the same flows as
   // picked ones: a folder like Add folder, loose PDFs like Add files. With no
   // folder yet to put loose PDFs in, they start one called "Received".
-  function handleReceived({ kind, files }) {
+  function handleReceived({ kind, files, store }) {
     if (kind === "folder") {
-      addFolderFromList(files).catch((err) => setError(`Couldn't add the folder: ${err.message}`));
+      addFolderFromList(files, store?.folderId).catch((err) => setError(`Couldn't add the folder: ${err.message}`));
     } else if (addFilesTargets.length === 0) {
       addFolderFromList(files.map((f) => withPath(f, `Received/${f.name}`))).catch((err) =>
         setError(`Couldn't add the files: ${err.message}`)
@@ -1372,6 +1405,7 @@ function App() {
           hidden={!!(addFiles || placement || copyProgress || choice)}
           appError={error}
           onReceived={handleReceived}
+          beginReceive={beginReceive}
           onClose={() => setWifiOpen(false)}
         />
       )}

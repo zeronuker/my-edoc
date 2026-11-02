@@ -61,7 +61,7 @@ function QrScanner({ onCode, onFail }) {
 // Received files go to onReceived({ kind, files }), which runs the normal
 // Add folder / Add files flows; `hidden` tucks this dialog away while those
 // dialogs are up, without dropping the connection.
-export default function WifiModal({ hidden, appError, onReceived, onClose, closing }) {
+export default function WifiModal({ hidden, appError, onReceived, beginReceive, onClose, closing }) {
   const [stage, setStage] = useState("menu"); // menu | show | enter | connected
   const [code, setCode] = useState("");
   const [typed, setTyped] = useState("");
@@ -75,6 +75,8 @@ export default function WifiModal({ hidden, appError, onReceived, onClose, closi
   // The link outlives many renders; always hand files to the latest handler.
   const onReceivedRef = useRef(onReceived);
   onReceivedRef.current = onReceived;
+  const beginReceiveRef = useRef(beginReceive);
+  beginReceiveRef.current = beginReceive;
 
   useEffect(
     () => () => {
@@ -106,6 +108,7 @@ export default function WifiModal({ hidden, appError, onReceived, onClose, closi
       },
       onReceiveProgress: (done, total) => setStatus(`Receiving… ${mb(done)} of ${mb(total)}`),
       onError: (err) => setError(err.message),
+      beginReceive: (kind) => beginReceiveRef.current?.(kind),
     });
     setBusy(false);
     setScanning(false);
@@ -119,6 +122,8 @@ export default function WifiModal({ hidden, appError, onReceived, onClose, closi
     setStage("show");
     peer.current?.destroy();
     peer.current = hostSession(next, connected, (err) => {
+      // The pairing service is only needed to connect; once linked, its errors don't matter.
+      if (link.current) return;
       if (err.type === "unavailable-id") startHost(); // someone else has that code; draw another
       else reset(`Couldn't start: ${err.message}`);
     });
@@ -132,6 +137,7 @@ export default function WifiModal({ hidden, appError, onReceived, onClose, closi
     setScanning(false);
     peer.current?.destroy();
     peer.current = joinSession(entered, connected, (err) => {
+      if (link.current) return;
       reset(err.type === "peer-unavailable" ? "No device is showing that code." : `Couldn't connect: ${err.message}`);
     });
     timer.current = setTimeout(

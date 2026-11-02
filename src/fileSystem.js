@@ -114,7 +114,9 @@ export function buildTreeFromFileList(fileList, folderId = null) {
     // Files entry opened straight from this fresh pick can be saved and
     // looked back up in OPFS after the app restarts.
     const relativePath = parts.slice(1).join("/");
-    const storedAs = newStoredName();
+    // A file received over wifi was already saved as it arrived (see
+    // transfer.js), and carries the name it was saved under.
+    const storedAs = file.storedAs ?? newStoredName();
     parent.children.push({
       name: file.name,
       kind: "file",

@@ -37,8 +37,8 @@ export function checkPath(path) {
 
 // A copy of `file` that reports `path` as its place inside a picked folder,
 // which is what buildTreeFromFileList reads. Copies the reference, not the bytes.
-export function withPath(file, path) {
-  const copy = new File([file], file.name, { type: file.type });
+export function withPath(file, path, name = file.name) {
+  const copy = new File([file], name, { type: file.type });
   Object.defineProperty(copy, "webkitRelativePath", { value: path });
   return copy;
 }
@@ -113,39 +113,79 @@ export function joinSession(code, onConnection, onError) {
 
 // ---- The open link, both directions ----
 
-// Wraps a connected `conn`. onReceived({ kind, files }) fires per completed
-// incoming transfer (kind is "folder" or "files"), onReceiveProgress(done,
-// total) while it arrives. Returns { send } for outgoing transfers.
-export function openLink(conn, { onReceived, onReceiveProgress, onError }) {
+// Wraps a connected `conn`. onReceived({ kind, files, store }) fires per
+// completed incoming transfer (kind is "folder" or "files"), onReceiveProgress
+// (done, total) while it arrives. Returns { send } for outgoing transfers.
+//
+// beginReceive(kind) may return a store { save(file) → file, discard() }:
+// each file is then handed to save() the moment it is complete and only what
+// save() returns is kept, so a big folder never sits in memory all at once.
+// The "ok" goes back only after every file is saved; if saving fails the
+// sender is told instead (and discard() cleans up).
+export function openLink(conn, { onReceived, onReceiveProgress, onError, beginReceive }) {
   let assembler = null;
   let kind = "";
   let total = 0;
   let got = 0;
   let files = [];
+  let store = null;
+  let saving = Promise.resolve();
+  let saveError = null;
   let ack = null;
+  let nack = null;
+
+  function fail(err) {
+    conn.send(JSON.stringify({ t: "fail", message: err.message }));
+    onError?.(err);
+  }
 
   conn.on("data", (data) => {
     try {
       if (typeof data === "string") {
         const msg = JSON.parse(data);
         if (msg.t === "ok") ack?.();
+        else if (msg.t === "fail") nack?.(new Error(msg.message));
         else if (msg.t === "manifest") {
           assembler = new FileAssembler(msg);
           kind = msg.kind;
           total = msg.files.reduce((sum, f) => sum + f.size, 0);
           got = 0;
           files = [];
+          store = beginReceive?.(kind) ?? null;
+          saving = Promise.resolve();
+          saveError = null;
         }
         return;
       }
       if (!assembler) throw new Error("Files arrived before their list");
-      files.push(...assembler.push(data));
+      const done = assembler.push(data);
+      if (!store) files.push(...done);
+      for (const file of done) {
+        if (!store) break;
+        saving = saving.then(async () => {
+          if (saveError) return;
+          try {
+            files.push(await store.save(file));
+          } catch (err) {
+            saveError = err;
+          }
+        });
+      }
       got += data.byteLength;
       onReceiveProgress?.(got, total);
       if (assembler.done) {
         assembler = null;
-        conn.send(JSON.stringify({ t: "ok" }));
-        onReceived({ kind, files });
+        const finished = { kind, store, files };
+        saving
+          .then(async () => {
+            if (saveError) {
+              await finished.store?.discard();
+              return fail(saveError);
+            }
+            conn.send(JSON.stringify({ t: "ok" }));
+            onReceived({ kind: finished.kind, files: finished.files, store: finished.store });
+          })
+          .catch((err) => onError?.(err));
       }
     } catch (err) {
       onError?.(err);
@@ -153,11 +193,13 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError }) {
   });
 
   // entries: [{ file, path }], path being the relative path (folder name
-  // first for a folder). Resolves when the other side confirms receipt.
+  // first for a folder). Resolves when the other side confirms it has saved
+  // them, or rejects if it couldn't.
   async function send(entries, sendKind, onProgress) {
     const total = entries.reduce((sum, e) => sum + e.file.size, 0);
     const acked = new Promise((resolve, reject) => {
       ack = resolve;
+      nack = reject;
       conn.once("close", () => reject(new Error("Connection closed")));
     });
     conn.send(JSON.stringify({ t: "manifest", kind: sendKind, files: entries.map((e) => ({ path: e.path, size: e.file.size })) }));
