@@ -3380,6 +3380,14 @@ html,
 
 .wifi-status { margin-bottom: 8px; }
 
+/* Search results: the header and list fade in when a search opens (they mount
+   once; typing only changes the rows). The opaque .search-results container
+   itself stays put, same reasoning as .viewer-empty above. */
+@media (prefers-reduced-motion: no-preference) {
+  .search-results-header,
+  .search-results-list { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+}
+
 /* Each wifi step fades in when the stage changes (keyed in WifiModal.jsx), and
    the status line fades in when it first appears. */
 @media (prefers-reduced-motion: no-preference) {
