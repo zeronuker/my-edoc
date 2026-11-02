@@ -2048,9 +2048,23 @@ html,
   border: none;
   color: var(--cb-ink-dim);
   cursor: pointer;
-  padding: 0 2px;
+  /* A finger-sized target the height of the row, and nudged in from the right
+     edge so the scroll bar doesn't sit over it. */
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  font-size: 20px;
+  padding: 0 12px;
+  margin: 0 12px 0 0;
   line-height: 1;
-  margin-top: 2px;
+  position: relative;
+}
+
+/* The row's own padding, so the tap area is the whole row height. */
+.tree-hide-btn::after {
+  content: "";
+  position: absolute;
+  inset: -3px 0;
 }
 
 .tree-drag-handle {
