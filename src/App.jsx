@@ -180,6 +180,7 @@ function App() {
   const lastChoiceRef = useRef(null);
   const [docInfo, setDocInfo] = useState(null); // [{ label, value }] while the Document properties dialog is open
   const lastDocInfoRef = useRef(null);
+  const lastErrorRef = useRef(null);
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [wifiOpen, setWifiOpen] = useState(false); // Send / receive via wifi dialog
@@ -1356,6 +1357,11 @@ function App() {
   if (docInfo) lastDocInfoRef.current = docInfo;
   const docInfoPresence = usePresence(!!docInfo);
   const docInfoShown = docInfo ?? lastDocInfoRef.current;
+  if (error) lastErrorRef.current = error;
+  const errorPresence = usePresence(!!error);
+  const errorShown = error ?? lastErrorRef.current;
+  const backBannerPresence = usePresence(!!(globalSearch.trim() && pdf));
+  const presentExitPresence = usePresence(presenting);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
 
   return (
@@ -1722,24 +1728,28 @@ function App() {
               onStartPresentation={startPresentation}
             />
           )}
-          {error && (
-            <div className="error-banner">
-              <span>{error}</span>
+          {errorPresence.present && (
+            <div className={`error-banner${errorPresence.closing ? " is-closing" : ""}`}>
+              <span>{errorShown}</span>
               <button aria-label="Dismiss" onClick={() => setError(null)}>
                 <IconX size={16} />
               </button>
             </div>
           )}
-          {globalSearch.trim() && pdf && (
-            <div className="back-to-results-banner">
+          {backBannerPresence.present && (
+            <div className={`back-to-results-banner${backBannerPresence.closing ? " is-closing" : ""}`}>
               <button className="cb-btn" onClick={backToResults}>
                 <IconArrowLeft size={14} />
                 Back to results
               </button>
             </div>
           )}
-          {presenting && (
-            <button className="presentation-exit" aria-label="Exit presentation" onClick={stopPresentation}>
+          {presentExitPresence.present && (
+            <button
+              className={`presentation-exit${presentExitPresence.closing ? " is-closing" : ""}`}
+              aria-label="Exit presentation"
+              onClick={stopPresentation}
+            >
               <IconX size={18} />
             </button>
           )}

@@ -3243,7 +3243,16 @@ html,
   .error-banner,
   .empty-illustration,
   .reopen-banner { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+  .error-banner.is-closing,
+  .back-to-results-banner.is-closing { animation: ed-fade-out var(--ed-dur, 180ms) ease forwards; pointer-events: none; }
+  .back-to-results-banner,
+  .settings-update-status { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+  /* Resting opacity is 0.3 (1 on hover), so these only name one end. */
+  .presentation-exit { animation: ed-fade-from var(--ed-dur, 180ms) ease backwards; }
+  .presentation-exit.is-closing { animation: ed-fade-to var(--ed-dur, 180ms) ease forwards; pointer-events: none; }
 }
+@keyframes ed-fade-from { from { opacity: 0; } }
+@keyframes ed-fade-to   { to { opacity: 0; } }
 
 /* Menu chevrons turn over while their menu is open. */
 .zoom-more svg,
