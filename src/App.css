@@ -2536,8 +2536,17 @@ html,
   }
 }
 
+/* A closed tab lingers as an inert copy (TabBar.jsx) that fades and collapses
+   to nothing so its neighbours slide over. --w is its last measured width. */
+@keyframes ed-tab-out { from { opacity: 1; max-width: var(--w, 220px); } to { opacity: 0; max-width: 0; } }
+
 @media (prefers-reduced-motion: no-preference) {
   .doc-tab { animation: ed-row-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .doc-tab.is-leaving {
+    overflow: hidden;
+    pointer-events: none;
+    animation: ed-tab-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards;
+  }
 }
 
 /* The viewers: one pane, or two side by side in split view. A hidden pane

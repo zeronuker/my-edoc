@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { IconX, IconDots, IconInfoCircle, IconColumns2, IconPresentation } from "@tabler/icons-react";
 import { useDropdown } from "./useDropdown.js";
+import { animDurationMs } from "./useTransitionAnim.js";
 
 // The ⋯ on a tab that is on screen: actions for that file. It is drawn into
 // <body>, positioned from its button — the tab strip scrolls sideways and would
@@ -108,22 +109,65 @@ export default function TabBar({
   onStartPresentation,
 }) {
   const activeRef = useRef(null);
+  const prevTabs = useRef(tabs);
+  const widths = useRef({});
+  // Tabs that just left, kept as inert copies for one collapse animation. The
+  // switch to the next document is immediate; only the strip lags.
+  const [leaving, setLeaving] = useState([]);
 
   // Keep the active tab in view when the strip overflows.
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [activeKey, tabs.length]);
 
+  // Layout effect so the copy is in place before the removal ever paints.
+  useLayoutEffect(() => {
+    const ms = animDurationMs();
+    const keys = new Set(tabs.map((t) => t.key));
+    const gone = ms
+      ? prevTabs.current
+          .map((t, i) => ({ key: t.key, name: t.handle.name, i, w: widths.current[t.key] }))
+          .filter((t) => !keys.has(t.key))
+      : [];
+    prevTabs.current = tabs;
+    if (!gone.length) return;
+    setLeaving((l) => [...l.filter((x) => !keys.has(x.key)), ...gone]);
+    const goneKeys = new Set(gone.map((t) => t.key));
+    setTimeout(() => setLeaving((l) => l.filter((x) => !goneKeys.has(x.key))), ms);
+  }, [tabs]);
+
+  const items = tabs.map((t) => ({ tab: t }));
+  [...leaving]
+    .filter((g) => !tabs.some((t) => t.key === g.key))
+    .sort((a, b) => a.i - b.i)
+    .forEach((g) => items.splice(Math.min(g.i, items.length), 0, { ghost: g }));
+
   return (
     <div className="tab-bar">
-      {tabs.map(({ key, handle }) => {
+      {items.map(({ tab, ghost }) => {
+        if (ghost) {
+          return (
+            <div
+              key={`leaving-${ghost.key}`}
+              className="doc-tab is-leaving"
+              style={ghost.w ? { "--w": `${ghost.w}px` } : undefined}
+              aria-hidden="true"
+            >
+              <span className="doc-tab-name">{ghost.name}</span>
+            </div>
+          );
+        }
+        const { key, handle } = tab;
         const active = key === activeKey;
         const pane = paneOf(key);
         const marked = split && pane;
         return (
           <div
             key={key}
-            ref={active ? activeRef : null}
+            ref={(el) => {
+              if (el) widths.current[key] = el.offsetWidth;
+              if (active) activeRef.current = el;
+            }}
             className={`doc-tab${active ? " active" : ""}`}
             data-pane={marked || undefined}
             title={marked ? `${handle.name} — shown in the ${pane === "L" ? "left" : "right"} pane` : handle.name}
