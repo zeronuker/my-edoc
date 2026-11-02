@@ -2536,6 +2536,14 @@ html,
   }
 }
 
+/* Opening split view fades the new right pane and the pane headers in. Opacity
+   only, never the layout: pdf.js re-fits its viewer whenever a pane resizes, so
+   the width change itself stays a single step. */
+@media (prefers-reduced-motion: no-preference) {
+  .panes.is-split .pane + .pane,
+  .pane-header { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+}
+
 /* A closed tab lingers as an inert copy (TabBar.jsx) that fades and collapses
    to nothing so its neighbours slide over. --w is its last measured width. */
 @keyframes ed-tab-out { from { opacity: 1; max-width: var(--w, 220px); } to { opacity: 0; max-width: 0; } }
