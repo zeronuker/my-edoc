@@ -262,7 +262,7 @@ export default function WifiModal({ hidden, appError, onReceived, beginReceive, 
 
         {status && <div className="update-dialog-body wifi-status">{status}</div>}
         {/* The app's own error banner sits behind this dialog, so show it here too. */}
-        {(error || appError) && <div className="add-files-warning">{error || appError}</div>}
+        {(error || appError) && <div className="add-files-warning wifi-error">{error || appError}</div>}
 
         <div className="update-dialog-actions wifi-close">
           <button className="cb-btn" onClick={stage === "show" || stage === "enter" ? () => reset() : onClose}>
