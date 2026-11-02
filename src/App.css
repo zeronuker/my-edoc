@@ -3379,6 +3379,13 @@ html,
 }
 
 .wifi-status { margin-bottom: 8px; }
+
+/* Each wifi step fades in when the stage changes (keyed in WifiModal.jsx), and
+   the status line fades in when it first appears. */
+@media (prefers-reduced-motion: no-preference) {
+  .wifi-stage,
+  .wifi-status { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+}
 /* .add-files-warning pulls up under body text; here it follows a button row. */
 .add-files-warning.wifi-error { margin: 12px 0 8px; }
 .wifi-close { margin-top: 8px; }

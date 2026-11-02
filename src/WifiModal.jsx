@@ -186,6 +186,8 @@ export default function WifiModal({ hidden, appError, onReceived, beginReceive, 
           </div>
         </div>
 
+        {/* Keyed by stage so each step fades in as its own element. */}
+        <div className="wifi-stage" key={stage}>
         {stage === "menu" && (
           <>
             <div className="update-dialog-body">
@@ -259,6 +261,7 @@ export default function WifiModal({ hidden, appError, onReceived, beginReceive, 
             </div>
           </>
         )}
+        </div>
 
         {status && <div className="update-dialog-body wifi-status">{status}</div>}
         {/* The app's own error banner sits behind this dialog, so show it here too. */}
