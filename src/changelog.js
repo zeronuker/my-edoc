@@ -746,6 +746,7 @@ export const CHANGELOG = [
       'NEW: Anything you add or replace (Add folder, Add files, Update folder, or files received over wifi) now shows a small NEW chip in the folder tree. A file loses its chip when you open it, a folder when you open it, and every chip goes when the page is refreshed.',
       'FIX: Receiving a big folder over wifi could fail on an iPad ("The I/O read operation failed"), because the whole folder was held in memory until it had all arrived. Each file is now saved the moment it arrives, so a folder of any size uses little memory. The sender now only says Sent once the other device has saved the files, and gets the reason if it could not.',
       'FIX: A lost connection to the pairing service no longer drops a wifi link that is already connected.',
+      'FIX: Sending a folder with thousands of PDFs over wifi disconnected straight away, because the list of files was too big for one message. The list now goes in small pieces. Update both devices before sending a big folder.',
     ],
   },
 ]

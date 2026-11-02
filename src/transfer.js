@@ -8,6 +8,7 @@ import Peer from "peerjs";
 const CHUNK = 16 * 1024; // the size every browser's data channel accepts
 const READ_BLOCK = 256 * 1024;
 const MAX_QUEUED = 64; // chunks PeerJS may hold before sending pauses
+const LIST_PIECE = 12 * 1024; // bytes of the file list per message
 const PEER_OPTIONS = { config: { iceServers: [] } };
 const ID_PREFIX = "edoc-";
 // No 0/O/1/I/L: the code gets read off one screen and typed on another.
@@ -124,6 +125,7 @@ export function joinSession(code, onConnection, onError) {
 // sender is told instead (and discard() cleans up).
 export function openLink(conn, { onReceived, onReceiveProgress, onError, beginReceive }) {
   let assembler = null;
+  let list = null; // the incoming file list while its pieces are still arriving
   let kind = "";
   let total = 0;
   let got = 0;
@@ -145,15 +147,21 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
         const msg = JSON.parse(data);
         if (msg.t === "ok") ack?.();
         else if (msg.t === "fail") nack?.(new Error(msg.message));
-        else if (msg.t === "manifest") {
-          assembler = new FileAssembler(msg);
-          kind = msg.kind;
-          total = msg.files.reduce((sum, f) => sum + f.size, 0);
-          got = 0;
-          files = [];
-          store = beginReceive?.(kind) ?? null;
-          saving = Promise.resolve();
-          saveError = null;
+        else if (msg.t === "manifest") list = { kind: msg.kind, count: msg.count, files: [] };
+        else if (msg.t === "files") {
+          if (!list) throw new Error("File list arrived without its header");
+          list.files.push(...msg.files);
+          if (list.files.length >= list.count) {
+            assembler = new FileAssembler({ files: list.files });
+            kind = list.kind;
+            total = list.files.reduce((sum, f) => sum + f.size, 0);
+            got = 0;
+            files = [];
+            store = beginReceive?.(kind) ?? null;
+            saving = Promise.resolve();
+            saveError = null;
+            list = null;
+          }
         }
         return;
       }
@@ -202,7 +210,22 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
       nack = reject;
       conn.once("close", () => reject(new Error("Connection closed")));
     });
-    conn.send(JSON.stringify({ t: "manifest", kind: sendKind, files: entries.map((e) => ({ path: e.path, size: e.file.size })) }));
+    // The list goes in small pieces: a data channel refuses a message much
+    // over 256 KB, and the list of a few thousand files is bigger than that.
+    conn.send(JSON.stringify({ t: "manifest", kind: sendKind, count: entries.length }));
+    let piece = [];
+    let pieceBytes = 0;
+    for (const { file, path } of entries) {
+      const item = { path, size: file.size };
+      piece.push(item);
+      pieceBytes += new TextEncoder().encode(JSON.stringify(item)).length;
+      if (pieceBytes >= LIST_PIECE) {
+        conn.send(JSON.stringify({ t: "files", files: piece }));
+        piece = [];
+        pieceBytes = 0;
+      }
+    }
+    if (piece.length > 0) conn.send(JSON.stringify({ t: "files", files: piece }));
     let sent = 0;
     for (const { file } of entries) {
       for (let at = 0; at < file.size; at += READ_BLOCK) {
