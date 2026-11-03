@@ -149,10 +149,16 @@ html,
 }
 
 @media (min-width: 521px) {
+  /* The row is spread edge to edge, so its last icon always ends 8px from the
+     right edge — the same place Settings does. */
+  .app.is-phone .toolbar {
+    justify-content: space-between;
+  }
+
   .app.is-phone .topbar-settings {
     display: inline-flex;
     margin-left: auto;
-    margin-right: 16px;
+    margin-right: 8px;
   }
 
   .app.is-phone .toolbar .settings-toggle {
