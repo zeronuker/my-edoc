@@ -1,45 +1,25 @@
-// Version scheme: first commit is v1.0. Each subsequent commit is +0.1, up
-// to a max of x.10 — the commit after any x.10 rolls to (x+1).0. One entry
-// per commit, oldest first below (rendered newest-first in the UI).
+// Version scheme: first entry is v1.0, each subsequent entry is +0.1, up to a max of x.10 —
+// the entry after any x.10 rolls to (x+1).0. One entry per release round (not per commit).
+// Oldest first below (rendered newest-first in the UI).
 export const CHANGELOG = [
   {
-    v: 'v1.0', date: 'Jun 2026', title: 'Folder scanning & PDF viewer',
+    v: 'v1.0', date: 'Jun 2026', title: 'Folder scanning, PDF viewer & brand kit',
     notes: [
       'NEW: Scan folders of PDFs, with a tree sidebar, single/continuous/two-up viewer, saved library and a basic PWA shell.',
+      'NEW: Shared ClaudeBorne brand kit: fonts, icons, dark theme and the BrandBanner header.',
     ],
   },
   {
-    v: 'v1.1', date: 'Jun 2026', title: 'ClaudeBorne brand kit',
-    notes: [
-      'NEW: Shared brand kit added: fonts, icons, dark theme and the shared BrandBanner header.',
-    ],
-  },
-  {
-    v: 'v1.2', date: 'Jun 2026', title: 'Explorer-style folder tree',
+    v: 'v1.1', date: 'Jun 2026', title: 'Explorer-style folder tree',
     notes: [
       'NEW: Explorer-style folder tree, collapsed by default, with icons and one-line rows.',
-    ],
-  },
-  {
-    v: 'v1.3', date: 'Jun 2026', title: 'Fix blank pages from render races',
-    notes: [
       'FIX: Some pages stayed blank because two renders raced on the same canvas; the old render is now cancelled.',
-    ],
-  },
-  {
-    v: 'v1.4', date: 'Jun 2026', title: 'Virtualized continuous scrolling',
-    notes: [
       'IMP: Continuous view only loads pages near the screen, so far-off pages no longer stay blank.',
-    ],
-  },
-  {
-    v: 'v1.5', date: 'Jun 2026', title: 'Fix page 1 clipped in continuous view',
-    notes: [
       'FIX: Page 1 was pushed off-screen in continuous view on documents taller than the viewer.',
     ],
   },
   {
-    v: 'v1.7', date: 'Jun 2026', title: 'Touch nav, zoom, search, multi-folder',
+    v: 'v1.2', date: 'Jun 2026', title: 'Touch nav, zoom, search, multi-folder',
     notes: [
       'NEW: Touch gestures: tap to turn page, swipe and pinch to zoom.',
       'NEW: Fit-width and fit-page zoom presets.',
@@ -48,248 +28,168 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v1.10', date: 'Jun 2026', title: 'Rebrand icon wordmark to StratoNimbus',
+    v: 'v1.3', date: 'Jun 2026', title: 'Rebrand icon wordmark to StratoNimbus',
     notes: [
       'IMP: App icon wordmark changed to Strato/Nimbus, with the S and N enlarged in brand mint.',
     ],
   },
   {
-    v: 'v2.1', date: 'Jun 2026', title: 'Safari/iOS folder picker fallback',
+    v: 'v1.4', date: 'Jun 2026', title: 'Safari/iOS folder picker fallback',
     notes: [
       'NEW: Safari and iPad can now add folders through a fallback picker, using a one-time snapshot of the folder.',
     ],
   },
   {
-    v: 'v2.2', date: 'Jun 2026', title: 'Fit layout to any device viewport',
+    v: 'v1.5', date: 'Jun 2026', title: 'Fit layout to any device viewport',
     notes: [
       'IMP: Layout now fits the screen height and respects the notch and home indicator; sidebar becomes a slide-in drawer below 720px.',
       'NEW: Home Screen app tags for status-bar styling and better Add-to-Home-Screen support on older iOS.',
     ],
   },
   {
-    v: 'v2.3', date: 'Jun 2026', title: 'Update-available prompt',
+    v: 'v1.6', date: 'Jun 2026', title: 'Update prompt & splash screen',
     notes: [
       'NEW: "Update available" prompt, matching the other ClaudeBorne apps.',
       "FIX: The 2.2MB PDF engine file was missing from the offline cache; it's now cached.",
-    ],
-  },
-  {
-    v: 'v2.4', date: 'Jun 2026', title: 'Animated splash screen',
-    notes: [
       'NEW: Animated splash screen on launch, matching the other apps.',
     ],
   },
   {
-    v: 'v2.5', date: 'Jun 2026', title: 'Reconnect-all button',
+    v: 'v1.7', date: 'Jun 2026', title: 'Reconnect-all & PDF link fix',
     notes: [
       'NEW: One "Reconnect all" button re-grants access to every pending folder at once.',
-    ],
-  },
-  {
-    v: 'v2.6', date: 'Jun 2026', title: 'Fix internal PDF link navigation',
-    notes: [
       'FIX: Links inside a PDF (e.g. table of contents) did nothing; they now jump to the right page.',
     ],
   },
   {
-    v: 'v2.10', date: 'Jun 2026', title: 'Wider mobile breakpoint for tablets',
+    v: 'v1.8', date: 'Jun 2026', title: 'Wider mobile breakpoint for tablets',
     notes: [
       'IMP: Portrait iPads now get the mobile drawer (breakpoint 880px), and touch targets grow to 44px.',
     ],
   },
   {
-    v: 'v3.0', date: 'Jun 2026', title: 'Outline panel',
+    v: 'v1.9', date: 'Jun 2026', title: 'Outline panel, drag-and-drop & settings',
     notes: [
       "NEW: Outline tab shows a PDF's table of contents and jumps to the chapter.",
-    ],
-  },
-  {
-    v: 'v3.1', date: 'Jun 2026', title: 'Drag-and-drop open & per-file memory',
-    notes: [
       'NEW: Drop a PDF to open it, or a folder to add it (Chromium).',
       "NEW: Each file's last page and zoom are remembered and restored.",
-    ],
-  },
-  {
-    v: 'v3.2', date: 'Jun 2026', title: 'Settings modal',
-    notes: [
       'NEW: Settings with theme, resume-last-position and keep-screen-awake.',
       'FIX: Saved settings were overwritten by defaults on every reload.',
     ],
   },
   {
-    v: 'v3.5', date: 'Jun 2026', title: 'Default to single-page on narrow screens',
+    v: 'v1.10', date: 'Jun 2026', title: 'Single-page view on narrow screens',
     notes: [
       'NEW: Narrow screens default to single-page view and switch back live when you rotate; manual choice is kept.',
-    ],
-  },
-  {
-    v: 'v3.7', date: 'Jun 2026', title: 'Keep tree mounted across tabs',
-    notes: [
       'FIX: Folders collapsed when you switched to the Outline tab; the tree now keeps its expanded state.',
     ],
   },
   {
-    v: 'v4.6', date: 'Jun 2026', title: 'Fix blank bar on installed iOS app',
+    v: 'v2.0', date: 'Jun 2026', title: 'Fix blank bar on installed iOS app',
     notes: [
       'FIX: An empty bar at the bottom of the installed iOS/iPad app is gone; it was drawn by iOS because of the edge-to-edge setting.',
     ],
   },
   {
-    v: 'v4.8', date: 'Jul 2026', title: 'Persist Safari/iOS folder connections',
+    v: 'v2.1', date: 'Jul 2026', title: 'Folder storage hardening & Safari/Android access',
     notes: [
       "FIX: Folders added on Safari/iOS vanished from the sidebar on every reopen; they're now saved.",
-    ],
-  },
-  {
-    v: 'v4.9', date: 'Jul 2026', title: 'Harden folder storage',
-    notes: [
+      'FIX: Safari and Android folders lost access on every reopen; live folder links are now desktop-only.',
+      'NEW: A way to clear a stuck pending folder that can never reconnect.',
       'NEW: Asks the browser for persistent storage, and moves old folder copies to app storage with a one-time migration.',
       'NEW: Warns before a folder exceeds free space; per-folder "last updated" chip and a safe refresh button.',
-    ],
-  },
-  {
-    v: 'v5.0', date: 'Jul 2026', title: 'Copy-progress modal',
-    notes: [
       'NEW: Progress window lists each file as it copies, with an overall bar and a Cancel that cleans up.',
     ],
   },
   {
-    v: 'v5.4', date: 'Jul 2026', title: 'Fix Safari & Android folder access',
-    notes: [
-      'FIX: Safari and Android folders lost access on every reopen; live folder links are now desktop-only.',
-      'NEW: A way to clear a stuck pending folder that can never reconnect.',
-    ],
-  },
-  {
-    v: 'v5.6', date: 'Jul 2026', title: 'Desktop sidebar collapse',
+    v: 'v2.2', date: 'Jul 2026', title: 'Sidebar collapse & pinch-zoom fix',
     notes: [
       'NEW: Sidebar collapses on desktop, and auto-collapses when a file opens for more reading space.',
-    ],
-  },
-  {
-    v: 'v5.10', date: 'Jul 2026', title: 'Fix pinch-zoom fighting native zoom',
-    notes: [
       "FIX: Pinch triggered both the app's zoom and the browser's zoom, causing glitches; the app now handles it alone.",
     ],
   },
   {
-    v: 'v6.0', date: 'Jul 2026', title: 'Shared update-available modal',
+    v: 'v2.3', date: 'Jul 2026', title: 'Thumbnails, rotate, recents, full-text search',
     notes: [
       'NEW: Shared update prompt with build info; Settings gets an App Update section and the gear shows a dot when an update is waiting.',
-    ],
-  },
-  {
-    v: 'v6.1', date: 'Jul 2026', title: 'Thumbnails, rotate, recents, full-text search',
-    notes: [
       'NEW: Page thumbnails tab, rotate-page buttons and a password prompt for protected PDFs.',
       'NEW: Reading-progress chip, Recent tab, night reading mode and full-text search across your library.',
     ],
   },
   {
-    v: 'v6.2', date: 'Jul 2026', title: 'Sidebar rework: mobile detection & auto-hide',
+    v: 'v2.4', date: 'Jul 2026', title: 'Sidebar rework: mobile detection & auto-hide',
     notes: [
       'IMP: Phones start with a hidden, auto-hiding sidebar; elsewhere auto-hide is an optional setting. Night reading is now a toolbar toggle.',
     ],
   },
   {
-    v: 'v6.5', date: 'Jul 2026', title: 'Bookmarks and annotations',
+    v: 'v2.5', date: 'Jul 2026', title: 'Bookmarks and annotations',
     notes: [
       'NEW: Per-page bookmarks, and Highlight, Draw and Note annotation tools.',
       'NEW: Save annotations back to the original file or to an app copy, asking first time and before discarding edits.',
-    ],
-  },
-  {
-    v: 'v6.6', date: 'Jul 2026', title: 'Pause indexing while reading; reopen recovery',
-    notes: [
       'FIX: Background indexing ran while reading and could get the app closed by iPadOS; it now waits until no file is open.',
       'NEW: A one-tap "Reopen" banner recovers the last file when auto-restore fails.',
     ],
   },
   {
-    v: 'v6.7', date: 'Jul 2026', title: 'Persist tree state; toolbar regroup',
+    v: 'v2.6', date: 'Jul 2026', title: 'Persisted tree state, toolbar regroup & re-fit',
     notes: [
       'NEW: Expanded folders are remembered across reloads.',
       'IMP: Toolbar grouped into Zoom and Annotate menus; Settings moved into it.',
-    ],
-  },
-  {
-    v: 'v6.8', date: 'Jul 2026', title: 'Re-fit page on viewer resize',
-    notes: [
       "FIX: Fit-page/fit-width didn't re-fit when the sidebar collapsed or the window resized; it does now.",
     ],
   },
   {
-    v: 'v6.9', date: 'Jul 2026', title: 'Restyle toolbar icons & empty state',
+    v: 'v2.7', date: 'Jul 2026', title: 'Restyled icons & update toast',
     notes: [
       'IMP: New icons across the toolbar and search, clearer active states, and a line-art drop-zone illustration when no file is open.',
-    ],
-  },
-  {
-    v: 'v6.10', date: 'Jul 2026', title: 'Update prompt: toast with auto-update',
-    notes: [
       'IMP: Update prompt is now a bottom-right toast with a 15s auto-update countdown.',
     ],
   },
   {
-    v: 'v7.1', date: 'Jul 2026', title: 'Mobile toolbar rework',
+    v: 'v2.8', date: 'Jul 2026', title: 'Mobile toolbar rework',
     notes: [
       'IMP: Mobile toolbar split into a nav row and a tools row, then condensed to one line: view mode and search collapse to icons, page count becomes tap-to-jump.',
       'NEW: Folder-plus icon on Add folder; selected files get a coral accent bar.',
     ],
   },
   {
-    v: 'v9.1', date: 'Aug 2026', title: 'Rename to eDoc',
+    v: 'v2.9', date: 'Aug 2026', title: 'eDoc rename & iPad landscape toolbar fix',
     notes: [
       'IMP: App name shortened to the consistent "eDoc".',
-    ],
-  },
-  {
-    v: 'v9.2', date: 'Aug 2026', title: 'Fix iPad landscape toolbar wrapping',
-    notes: [
       'FIX: On iPad landscape the search bar and view-mode select pushed Settings onto its own line; touch devices now use compact versions.',
     ],
   },
   {
-    v: 'v9.4', date: 'Aug 2026', title: 'Collapsible outline, per-tab scroll',
+    v: 'v2.10', date: 'Aug 2026', title: 'Collapsible outline & floating Add folder',
     notes: [
       'NEW: Outline items with children can be collapsed, start collapsed and are remembered per file.',
       'FIX: Sidebar tab bar scrolled out of view with long content; each tab now scrolls on its own.',
-    ],
-  },
-  {
-    v: 'v9.5', date: 'Aug 2026', title: 'Floating Add-folder button',
-    notes: [
       'IMP: The full-width Add folder button is now a floating button on the Folders tab.',
     ],
   },
   {
-    v: 'v9.7', date: 'Aug 2026', title: 'Global filename + content search',
+    v: 'v3.0', date: 'Aug 2026', title: 'Global filename + content search',
     notes: [
       'NEW: Library-wide search with grouped snippet results shown over the viewer.',
     ],
   },
   {
-    v: 'v10.0', date: 'Aug 2026', title: 'Fix resume opening orphaned files',
+    v: 'v3.1', date: 'Aug 2026', title: 'Remove full-text content search',
     notes: [
       "FIX: Reopening on launch could bring back a file whose folder was removed; it's now checked first.",
-    ],
-  },
-  {
-    v: 'v10.1', date: 'Aug 2026', title: 'Remove full-text content search',
-    notes: [
       'DEP: Removed full-text indexing and its progress UI; indexing 10,000+ files was too slow.',
       'IMP: Global search now matches filenames only; in-document search is unaffected.',
     ],
   },
   {
-    v: 'v10.2', date: 'Aug 2026', title: 'Tree remove-from-view & drag-to-rearrange',
+    v: 'v3.2', date: 'Aug 2026', title: 'Tree remove-from-view & drag-to-rearrange',
     notes: [
       'NEW: Hide files/folders from the tree or drag them to reorder and move, without touching your real files; survives Refresh.',
     ],
   },
   {
-    v: 'v10.3', date: 'Sep 2026', title: 'Floating page pill & mobile toolbar fixes',
+    v: 'v3.3', date: 'Sep 2026', title: 'Floating page pill & mobile toolbar fixes',
     notes: [
       'FIX: The annotate menu spilled off the right edge on mobile; it now anchors to its right edge.',
       'IMP: Prev/next and the page counter moved into a floating pill at the bottom of the viewer.',
@@ -298,14 +198,14 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.4', date: 'Sep 2026', title: 'PDF link tap & hit-box fixes',
+    v: 'v3.4', date: 'Sep 2026', title: 'PDF link tap & hit-box fixes',
     notes: [
       'FIX: Tapping a link inside a PDF on touch devices turned the page instead of following the link.',
       'FIX: Table-of-contents links went to the chapter above at low zoom because link areas drifted from the page; they now line up.',
     ],
   },
   {
-    v: 'v10.5', date: 'Sep 2026', title: 'Memory leak & save-failure fixes',
+    v: 'v3.5', date: 'Sep 2026', title: 'Memory leak & save-failure fixes',
     notes: [
       "FIX: Switching or closing a PDF never freed its memory; it's now released right away.",
       'FIX: A failed annotation save failed silently; it now shows an error banner.',
@@ -314,20 +214,20 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.6', date: 'Sep 2026', title: 'Persist folder expand-state and legacy Recent/resume files',
+    v: 'v3.6', date: 'Sep 2026', title: 'Persist folder expand-state and legacy Recent/resume files',
     notes: [
       'FIX: The tree was fully collapsed after every restart; expanded folders are now remembered by folder name.',
       "FIX: iPad/Android files were missing from Recent and last-opened resume; they're now saved and restored.",
     ],
   },
   {
-    v: 'v10.7', date: 'Sep 2026', title: 'Clear all button for Recent tab',
+    v: 'v3.7', date: 'Sep 2026', title: 'Clear all button for Recent tab',
     notes: [
       'NEW: "Clear all" button in the Recent tab empties the list immediately.',
     ],
   },
   {
-    v: 'v10.8', date: 'Sep 2026', title: 'Tree persistence & link security fixes',
+    v: 'v3.8', date: 'Sep 2026', title: 'Tree persistence & link security fixes',
     notes: [
       "FIX: Hidden, moved or reordered tree items reset on every reload; they're now remembered by folder name.",
       'FIX: Search showed files hidden from the tree; search and tree now share the same view.',
@@ -339,7 +239,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.9', date: 'Oct 2026', title: 'Add files & app-managed storage',
+    v: 'v3.9', date: 'Oct 2026', title: 'Add files & app-managed storage',
     notes: [
       'NEW: The floating + button opens Add folder or Add files; Add files lets you pick PDFs, choose where they go, and Replace or Keep both on name clashes.',
       'NEW: Add folder asks where to show the new folder: top level or inside any folder, with its own copy and its own ×.',
@@ -354,7 +254,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v10.10', date: 'Oct 2026', title: 'Two-page continuous view',
+    v: 'v3.10', date: 'Oct 2026', title: 'Two-page continuous view',
     notes: [
       'NEW: Two-page continuous view: pages sit side by side like an open book; pick it from the page view menu.',
       'FIX: On phones, the Reading theme and Annotate menus could open off the left edge; they now open inside the screen.',
@@ -363,7 +263,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.0', date: 'Oct 2026', title: 'Tabs & split view',
+    v: 'v4.0', date: 'Oct 2026', title: 'Tabs & split view',
     notes: [
       'NEW: Tabs: open files in tabs above the page; × or middle-click closes one, and only the visible tab is loaded.',
       'NEW: Reading → Resume last position reopens all your tabs, with the same one in front.',
@@ -377,7 +277,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v11.1', date: 'Nov 2026', current: true, title: 'Wifi transfer & Manage tools',
+    v: 'v4.1', date: 'Nov 2026', current: true, title: 'Wifi transfer & Manage tools',
     notes: [
       'NEW: + → Send / receive via wifi: pair two devices with a 6-character code or QR and send PDFs or whole folders straight across wifi, never through a server.',
       'NEW: A NEW chip marks added, replaced or received files and folders until you open them or refresh.',
