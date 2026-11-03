@@ -98,6 +98,7 @@ import AddFilesModal from "./AddFilesModal.jsx";
 import WifiModal from "./WifiModal.jsx";
 import { withPath } from "./transfer.js";
 import ConfirmRemoveModal from "./ConfirmRemoveModal.jsx";
+import SettingsIcon from "@brand/SettingsIcon";
 import RenameModal from "./RenameModal.jsx";
 import SortMenu from "./SortMenu.jsx";
 import MovePicker from "./MovePicker.jsx";
@@ -2036,6 +2037,16 @@ function App() {
           <IconLayoutSidebar size={16} />
         </button>
         <BrandBanner subtitle="eDoc" />
+        {/* Only shown on a phone that gets the toolbar row (wider than the
+            ⋮ panel's breakpoint): the row is too full there, see App.css. */}
+        <button
+          className="icon-btn settings-toggle topbar-settings"
+          onClick={openSettings}
+          aria-label={update.needRefresh ? "Settings · update available" : "Settings"}
+        >
+          <SettingsIcon size={16} />
+          {update.needRefresh && <span className="update-dot" />}
+        </button>
         <button
           className="icon-btn toolbar-toggle"
           onClick={() => setToolbarOpen(true)}
