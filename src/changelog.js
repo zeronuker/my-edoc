@@ -3,761 +3,392 @@
 // per commit, oldest first below (rendered newest-first in the UI).
 export const CHANGELOG = [
   {
-    v: 'v1.0', date: 'Jun 2026', title: 'Initial scaffold',
+    v: 'v1.0', date: 'Jun 2026', title: 'Folder scanning & PDF viewer',
     notes: [
-      'NEW: Folder/subfolder PDF scanning via the File System Access API, tree sidebar, single/continuous/two-up viewer, IndexedDB persistence, and a basic PWA shell.',
+      'NEW: Scan folders of PDFs, with a tree sidebar, single/continuous/two-up viewer, saved library and a basic PWA shell.',
     ],
   },
   {
     v: 'v1.1', date: 'Jun 2026', title: 'ClaudeBorne brand kit',
     notes: [
-      'NEW: brand-kit wired in as a submodule — fonts, icons, manifest, and dark-theme tokens shared with sibling apps, restyled with the shared BrandBanner header.',
+      'NEW: Shared brand kit added: fonts, icons, dark theme and the shared BrandBanner header.',
     ],
   },
   {
-    v: 'v1.2', date: 'Jun 2026', title: 'Explorer tree view & width fix',
+    v: 'v1.2', date: 'Jun 2026', title: 'Explorer-style folder tree',
     notes: [
-      'NEW: Explorer-style tree — folders collapsed by default, with icons and single-line ellipsis-truncated rows.',
-      "FIX: Leftover Vite scaffold CSS was capping the whole app's width, leaving dead space beside the PDF viewer.",
+      'NEW: Explorer-style folder tree, collapsed by default, with icons and one-line rows.',
     ],
   },
   {
     v: 'v1.3', date: 'Jun 2026', title: 'Fix blank pages from render races',
     notes: [
-      "FIX: React StrictMode's double-mount raced two pdf.js render calls on the same canvas; the losing page silently stayed blank. Now tracks and cancels the in-flight render per canvas.",
+      'FIX: Some pages stayed blank because two renders raced on the same canvas; the old render is now cancelled.',
     ],
   },
   {
-    v: 'v1.4', date: 'Jun 2026', title: 'Virtualized scrolling & dev SW fix',
+    v: 'v1.4', date: 'Jun 2026', title: 'Virtualized continuous scrolling',
     notes: [
-      'IMP: Continuous view virtualized via IntersectionObserver so only pages near the visible area mount, fixing far-off pages sitting blank behind hundreds of queued renders.',
-      "FIX: The service worker was serving stale cached JS over Vite's dev server; registration now only runs against a production build.",
+      'IMP: Continuous view only loads pages near the screen, so far-off pages no longer stay blank.',
     ],
   },
   {
     v: 'v1.5', date: 'Jun 2026', title: 'Fix page 1 clipped in continuous view',
     notes: [
-      "FIX: Continuous view's column layout flipped justify-content:center onto the vertical axis, centering the whole page stack and pushing page 1 off-screen on any doc taller than the viewer.",
-    ],
-  },
-  {
-    v: 'v1.6', date: 'Jun 2026', title: "Adopt pdf.js's official PDFViewer",
-    notes: [
-      "IMP: Replaced the hand-written canvas renderer with pdf.js's own PDFViewer/EventBus/PDFLinkService widget — the foundation for the search, zoom-preset, and spread-mode work that follows.",
+      'FIX: Page 1 was pushed off-screen in continuous view on documents taller than the viewer.',
     ],
   },
   {
     v: 'v1.7', date: 'Jun 2026', title: 'Touch nav, zoom, search, multi-folder',
     notes: [
-      'NEW: Tap-to-page, swipe, and pinch-to-zoom touch gestures.',
-      "NEW: Fit-width/fit-page zoom presets via pdf.js's own scale API.",
-      "NEW: In-document search wired to pdf.js's PDFFindController, separate from the tree's filename filter.",
-      'NEW: Multi-folder workspace — folders are additive, each with its own remove/reconnect control.',
-    ],
-  },
-  {
-    v: 'v1.8', date: 'Jun 2026', title: 'iOS standalone meta tags',
-    notes: [
-      'NEW: apple-mobile-web-app-* meta tags for status-bar styling and broader Add-to-Home-Screen compatibility on older iOS.',
-    ],
-  },
-  {
-    v: 'v1.9', date: 'Jun 2026', title: 'Rename app display strings',
-    notes: [
-      'IMP: Updated the tab title and the PWA short/full install names.',
+      'NEW: Touch gestures: tap to turn page, swipe and pinch to zoom.',
+      'NEW: Fit-width and fit-page zoom presets.',
+      "NEW: Search inside a document, separate from the tree's filename filter.",
+      'NEW: Multiple folders at once, each with its own remove/reconnect control.',
     ],
   },
   {
     v: 'v1.10', date: 'Jun 2026', title: 'Rebrand icon wordmark to StratoNimbus',
     notes: [
-      'IMP: PWA icon wordmark switched from the ED/OC placeholder to Strato/Nimbus, with the S and N enlarged in brand mint.',
-    ],
-  },
-  {
-    v: 'v2.0', date: 'Jun 2026', title: 'Icon wordmark sizing tweak',
-    notes: [
-      'IMP: Wordmark font size increased so it fits the double-line icon frame with comfortable margin at every generated size.',
+      'IMP: App icon wordmark changed to Strato/Nimbus, with the S and N enlarged in brand mint.',
     ],
   },
   {
     v: 'v2.1', date: 'Jun 2026', title: 'Safari/iOS folder picker fallback',
     notes: [
-      "NEW: Falls back to <input webkitdirectory> on browsers without showDirectoryPicker (Safari/iPad), rebuilding the same tree shape from a one-time snapshot instead of a live folder handle.",
+      'NEW: Safari and iPad can now add folders through a fallback picker, using a one-time snapshot of the folder.',
     ],
   },
   {
     v: 'v2.2', date: 'Jun 2026', title: 'Fit layout to any device viewport',
     notes: [
-      'IMP: 100dvh plus safe-area-inset padding so mobile browser chrome and the notch/home-indicator no longer cause overflow or overlap.',
-      'NEW: Toolbar wraps on narrow screens; sidebar becomes a slide-in drawer below 720px width.',
+      'IMP: Layout now fits the screen height and respects the notch and home indicator; sidebar becomes a slide-in drawer below 720px.',
+      'NEW: Home Screen app tags for status-bar styling and better Add-to-Home-Screen support on older iOS.',
     ],
   },
   {
     v: 'v2.3', date: 'Jun 2026', title: 'Update-available prompt',
     notes: [
-      "NEW: vite-plugin-pwa replaces the hand-written service worker and shows an UPDATE AVAILABLE modal, matching sibling ClaudeBorne apps.",
-      "FIX: pdf.worker.mjs (2.2MB) exceeded the default offline-cache size limit and was silently left out of the precache; limit raised so it's actually cached.",
+      'NEW: "Update available" prompt, matching the other ClaudeBorne apps.',
+      "FIX: The 2.2MB PDF engine file was missing from the offline cache; it's now cached.",
     ],
   },
   {
     v: 'v2.4', date: 'Jun 2026', title: 'Animated splash screen',
     notes: [
-      "NEW: brand-kit's animated SplashScreen wired in on launch, matching sibling apps.",
+      'NEW: Animated splash screen on launch, matching the other apps.',
     ],
   },
   {
     v: 'v2.5', date: 'Jun 2026', title: 'Reconnect-all button',
     notes: [
-      'NEW: One "Reconnect all" button re-grants permission for every pending folder instead of one click per folder.',
+      'NEW: One "Reconnect all" button re-grants access to every pending folder at once.',
     ],
   },
   {
     v: 'v2.6', date: 'Jun 2026', title: 'Fix internal PDF link navigation',
     notes: [
-      'FIX: PDFLinkService was wired to the viewer but never given the document to resolve destinations against, so internal table-of-contents links silently did nothing.',
-    ],
-  },
-  {
-    v: 'v2.7', date: 'Jun 2026', title: 'Simplify reconnect UI to one button',
-    notes: [
-      'IMP: Always shows a single "Reconnect all" control instead of switching to per-folder buttons once more than one folder is pending.',
-    ],
-  },
-  {
-    v: 'v2.8', date: 'Jun 2026', title: 'Fix cramped mobile toolbar spacing',
-    notes: [
-      'FIX: Page-nav and zoom button groups had no internal gap on mobile, so their buttons sat squeezed flush together.',
-    ],
-  },
-  {
-    v: 'v2.9', date: 'Jun 2026', title: 'Dark-theme error banner & a11y fixes',
-    notes: [
-      'FIX: Error banner used light pink/red colors that clashed with the dark theme; switched to the cb-* tokens.',
-      'IMP: Added aria-labels to icon-only buttons and contained viewer overscroll so iOS rubber-banding no longer fights pinch/swipe gestures.',
+      'FIX: Links inside a PDF (e.g. table of contents) did nothing; they now jump to the right page.',
     ],
   },
   {
     v: 'v2.10', date: 'Jun 2026', title: 'Wider mobile breakpoint for tablets',
     notes: [
-      'IMP: Sidebar-drawer breakpoint raised from 720px to 880px so portrait iPads get the mobile drawer instead of a cramped fixed sidebar; touch targets bumped to 44px on touch-primary devices.',
+      'IMP: Portrait iPads now get the mobile drawer (breakpoint 880px), and touch targets grow to 44px.',
     ],
   },
   {
-    v: 'v3.0', date: 'Jun 2026', title: 'Outline panel & search Escape-to-clear',
+    v: 'v3.0', date: 'Jun 2026', title: 'Outline panel',
     notes: [
-      "NEW: Folders/Outline sidebar tabs surface a PDF's built-in table of contents, navigable via PDFLinkService.",
-      'IMP: Ctrl/Cmd+F focuses the search box, Escape clears and blurs it, and a loading indicator shows while a file opens.',
+      "NEW: Outline tab shows a PDF's table of contents and jumps to the chapter.",
     ],
   },
   {
     v: 'v3.1', date: 'Jun 2026', title: 'Drag-and-drop open & per-file memory',
     notes: [
-      'NEW: Dropping a PDF file opens it directly; dropping a folder adds it to the sidebar (Chromium).',
-      "NEW: Each file's last page and zoom level are remembered and restored automatically on reopen.",
+      'NEW: Drop a PDF to open it, or a folder to add it (Chromium).',
+      "NEW: Each file's last page and zoom are remembered and restored.",
     ],
   },
   {
     v: 'v3.2', date: 'Jun 2026', title: 'Settings modal',
     notes: [
-      'NEW: Settings modal with theme, default view mode, resume-last-position, and keep-screen-awake options.',
-      'FIX: Settings/viewState wrote default values on mount before the async load finished, silently clobbering saved settings on every reload.',
-    ],
-  },
-  {
-    v: 'v3.3', date: 'Jun 2026', title: 'Merge concurrent settings & drag-drop work',
-    notes: [
-      'IMP: Merged the settings-modal branch with the drag-and-drop/per-file-memory branch, resolving conflicts in App.jsx.',
-    ],
-  },
-  {
-    v: 'v3.4', date: 'Jun 2026', title: 'Force two-page/fit-page on open',
-    notes: [
-      'IMP: Every file now opens in two-up/fit-page regardless of any remembered scale; page-position memory still applies. Dropped the now-unused default-view-mode setting.',
+      'NEW: Settings with theme, resume-last-position and keep-screen-awake.',
+      'FIX: Saved settings were overwritten by defaults on every reload.',
     ],
   },
   {
     v: 'v3.5', date: 'Jun 2026', title: 'Default to single-page on narrow screens',
     notes: [
-      "NEW: View mode defaults to single-page under the 880px breakpoint and re-asserts live if the breakpoint is crossed while reading (e.g. rotating a phone); manual selection is unaffected.",
-    ],
-  },
-  {
-    v: 'v3.6', date: 'Jun 2026', title: 'Fix view mode reset on new document',
-    notes: [
-      'FIX: pdf.js resets scroll/spread mode on every setDocument call; opening a second file at the same viewMode value left it stuck on continuous instead of the forced single/two-up mode.',
+      'NEW: Narrow screens default to single-page view and switch back live when you rotate; manual choice is kept.',
     ],
   },
   {
     v: 'v3.7', date: 'Jun 2026', title: 'Keep tree mounted across tabs',
     notes: [
-      "FIX: TreeView was unmounted on switching to the Outline tab, losing each folder's expand state; now hidden instead of unmounted so it stays mounted.",
+      'FIX: Folders collapsed when you switched to the Outline tab; the tree now keeps its expanded state.',
     ],
   },
   {
-    v: 'v3.8', date: 'Jun 2026', title: 'Loading spinner with filename',
+    v: 'v4.6', date: 'Jun 2026', title: 'Fix blank bar on installed iOS app',
     notes: [
-      'NEW: A small spinner plus the loading file\'s name replaces the bare "Loading..." text.',
-    ],
-  },
-  {
-    v: 'v3.9', date: 'Jun 2026', title: 'Remove blank bottom safe-area padding',
-    notes: [
-      'FIX: The reserved bottom safe-area inset showed as an empty strip on devices with no home button (e.g. iPad); dropped, top/left/right insets kept.',
-    ],
-  },
-  {
-    v: 'v3.10', date: 'Jun 2026', title: 'iOS viewport fix: fixed positioning',
-    notes: [
-      'FIX: iOS miscalculates 100dvh on first paint in standalone PWA mode, leaving blank space until a scroll forces a recompute; .app pinned with position:fixed/inset:0 to sidestep it.',
-    ],
-  },
-  {
-    v: 'v4.0', date: 'Jun 2026', title: 'iOS viewport fix: scroll nudge',
-    notes: [
-      'FIX: position:fixed removed the scroll escape hatch, making the blank bottom bar permanent instead of dismissible; reverted to 100dvh and forces the same recompute automatically via a no-op scrollTo on mount.',
-    ],
-  },
-  {
-    v: 'v4.1', date: 'Jun 2026', title: 'iOS viewport fix: visualViewport',
-    notes: [
-      "FIX: The scrollTo nudge didn't trigger the real recompute; now drives --app-vh off visualViewport's resize/scroll events once a correct value settles, overriding the miscalculated 100dvh.",
-    ],
-  },
-  {
-    v: 'v4.2', date: 'Jun 2026', title: 'Debug overlay for iOS bottom-bar bug',
-    notes: [
-      'NEW: Temporary on-screen readout of innerHeight/visualViewport/scroll/computed .app height to get real numbers from the affected device instead of guessing.',
-    ],
-  },
-  {
-    v: 'v4.3', date: 'Jun 2026', title: 'iOS viewport fix: clientHeight-rooted sizing',
-    notes: [
-      'FIX: documentElement.clientHeight was correct from the first frame, unlike innerHeight/visualViewport; .app now sized via height:100% rooted in that chain instead of vh/dvh, sidestepping the bug entirely.',
-      'DEP: Removes the temporary debug overlay added to diagnose this.',
-    ],
-  },
-  {
-    v: 'v4.4', date: 'Jun 2026', title: 'Debug overlay: add DOM chain measurements',
-    notes: [
-      'NEW: Debug overlay extended with client/offset/computed height readings for html, body, and #root, since height:100% alone did not fix the bug.',
-    ],
-  },
-  {
-    v: 'v4.5', date: 'Jun 2026', title: 'Debug overlay: identify bottom-bar element',
-    notes: [
-      'NEW: Debug overlay samples elementFromPoint along the bottom edge to find the actual DOM element rendered there, since every height measurement already matched.',
-    ],
-  },
-  {
-    v: 'v4.6', date: 'Jun 2026', title: 'Fix iOS home-indicator overlay bar',
-    notes: [
-      'FIX: The remaining bar was an iOS-drawn overlay triggered by viewport-fit=cover\'s edge-to-edge opt-in, not an app element; removing it lets iOS auto-exclude the home-indicator area.',
-      'DEP: Removes the temporary debug overlay used to diagnose this.',
-    ],
-  },
-  {
-    v: 'v4.7', date: 'Jun 2026', title: 'Defer update prompt past splash',
-    notes: [
-      'FIX: The update prompt could show during or over the splash animation, confusing what was happening; now gated until the splash finishes naturally or is skipped.',
+      'FIX: An empty bar at the bottom of the installed iOS/iPad app is gone; it was drawn by iOS because of the edge-to-edge setting.',
     ],
   },
   {
     v: 'v4.8', date: 'Jul 2026', title: 'Persist Safari/iOS folder connections',
     notes: [
-      "FIX: Folders picked via the webkitdirectory fallback were excluded from persistence because their handles carry unclonable functions, wiping them from the sidebar on every reopen; now serializes the picked Files and rebuilds the handle functions on load.",
+      "FIX: Folders added on Safari/iOS vanished from the sidebar on every reopen; they're now saved.",
     ],
   },
   {
-    v: 'v4.9', date: 'Jul 2026', title: 'Harden legacy folder storage',
+    v: 'v4.9', date: 'Jul 2026', title: 'Harden folder storage',
     notes: [
-      'NEW: Requests persistent storage on startup so connected folders survive as evictable "untouched site data"; legacy folder copies moved from IndexedDB blobs into OPFS, with a one-time migration for the old format.',
-      "NEW: Warns before connecting a folder would exceed free space; adds a per-folder \"last updated\" chip and a refresh button that writes the new copy before deleting the old one, so a failed refresh can't lose data.",
-    ],
-  },
-  {
-    v: 'v4.10', date: 'Jul 2026', title: 'Fix storage lag & refresh layout',
-    notes: [
-      "FIX: navigator.storage.estimate()'s usage figure lagged behind real writes/deletes on WebKit, showing stale totals; folder byte size is now tracked directly instead.",
-      'NEW: Loading spinner on Add folder while the picked folder is scanned/copied.',
-      'FIX: Long folder names pushed the refresh/remove buttons out of the visible row.',
+      'NEW: Asks the browser for persistent storage, and moves old folder copies to app storage with a one-time migration.',
+      'NEW: Warns before a folder exceeds free space; per-folder "last updated" chip and a safe refresh button.',
     ],
   },
   {
     v: 'v5.0', date: 'Jul 2026', title: 'Copy-progress modal',
     notes: [
-      'NEW: A modal lists every file up front and checks each off as it copies into OPFS, with an overall progress bar and a Cancel that aborts mid-copy and cleans up the partial write.',
+      'NEW: Progress window lists each file as it copies, with an overall bar and a Cancel that cleans up.',
     ],
   },
   {
-    v: 'v5.1', date: 'Jul 2026', title: 'Auto-scroll copy-progress modal',
+    v: 'v5.4', date: 'Jul 2026', title: 'Fix Safari & Android folder access',
     notes: [
-      'IMP: The currently-copying row stays centered in view as a long file list advances.',
-    ],
-  },
-  {
-    v: 'v5.2', date: 'Jul 2026', title: 'Overflow menu for folder actions',
-    notes: [
-      'IMP: Refresh/Remove moved into a single "more actions" (⋮) menu at a fixed position, fixing icon position shifting based on folder name or "updated" chip length.',
-    ],
-  },
-  {
-    v: 'v5.3', date: 'Jul 2026', title: 'Folder row: chip/menu on their own line',
-    notes: [
-      'IMP: Folder name now gets a dedicated line that never shifts; the "updated" chip and actions menu moved to a second line so nothing moves regardless of text length.',
-    ],
-  },
-  {
-    v: 'v5.4', date: 'Jul 2026', title: 'Fix Safari folder-handle detection',
-    notes: [
-      'FIX: Feature-detecting showDirectoryPicker was not enough — Safari exposes the property with no working implementation, routing folders down a live-handle path that permanently loses permission on every reopen; now explicitly excludes WebKit via navigator.vendor.',
-      'NEW: A way to clear a stuck pending folder that could never successfully reconnect.',
-    ],
-  },
-  {
-    v: 'v5.5', date: 'Jul 2026', title: 'Exclude Android from live-handle path',
-    notes: [
-      "FIX: Android shows the same failure mode as Safari — permission doesn't survive an app relaunch — so the live-handle folder path is now only trusted on actual desktop platforms.",
+      'FIX: Safari and Android folders lost access on every reopen; live folder links are now desktop-only.',
+      'NEW: A way to clear a stuck pending folder that can never reconnect.',
     ],
   },
   {
     v: 'v5.6', date: 'Jul 2026', title: 'Desktop sidebar collapse',
     notes: [
-      'NEW: Sidebar collapses to 0 width via the same toggle already used for the mobile drawer, and auto-collapses whenever a file is opened so the viewer gets maximum space.',
+      'NEW: Sidebar collapses on desktop, and auto-collapses when a file opens for more reading space.',
     ],
   },
   {
-    v: 'v5.7', date: 'Jul 2026', title: 'Move sidebar toggle into toolbar',
+    v: 'v5.10', date: 'Jul 2026', title: 'Fix pinch-zoom fighting native zoom',
     notes: [
-      'IMP: Desktop sidebar toggle moved into the toolbar next to the view-mode dropdown, since the topbar has no room for it like mobile does.',
-      'FIX: The toolbar was unclickable behind the "Select a PDF to view" placeholder when no document was open.',
-    ],
-  },
-  {
-    v: 'v5.8', date: 'Jul 2026', title: 'Spell out folder timestamps',
-    notes: [
-      'IMP: "3h ago" becomes "updated 3 hours ago", with singular/plural handling and month/year buckets for anything older than a day.',
-    ],
-  },
-  {
-    v: 'v5.9', date: 'Jul 2026', title: 'Fix pinch-zoom fighting native zoom',
-    notes: [
-      "FIX: The custom pinch handler had nothing stopping the browser from also treating the same gesture as a native viewport zoom, producing a glitchy double-zoom; touch-action:manipulation hands pinch/double-tap entirely to the JS handler.",
-    ],
-  },
-  {
-    v: 'v5.10', date: 'Jul 2026', title: 'Fix pinch-zoom: correct touch-action value',
-    notes: [
-      "FIX: manipulation is shorthand that still allows native pinch-zoom; switched to pan-x pan-y (which omits it) and disabled native page scaling via the viewport meta as a fallback for gestures starting outside the PDF area.",
+      "FIX: Pinch triggered both the app's zoom and the browser's zoom, causing glitches; the app now handles it alone.",
     ],
   },
   {
     v: 'v6.0', date: 'Jul 2026', title: 'Shared update-available modal',
     notes: [
-      "NEW: Adopts brand-kit's standard UpdatePrompt/useUpdate with commit-sha build-info plumbing; Settings gains an App Update section and the gear icon shows a persistent dot while an update is pending.",
+      'NEW: Shared update prompt with build info; Settings gets an App Update section and the gear shows a dot when an update is waiting.',
     ],
   },
   {
     v: 'v6.1', date: 'Jul 2026', title: 'Thumbnails, rotate, recents, full-text search',
     notes: [
-      'NEW: Page thumbnails sidebar tab, lazy-rendered via IntersectionObserver.',
-      'NEW: Rotate-page toolbar buttons and a password-protected PDF prompt.',
-      'NEW: Per-file reading-progress chip, a Recent files tab, night reading mode, tree sort by name/recently-opened, and background-indexed full-text search across the library.',
+      'NEW: Page thumbnails tab, rotate-page buttons and a password prompt for protected PDFs.',
+      'NEW: Reading-progress chip, Recent tab, night reading mode and full-text search across your library.',
     ],
   },
   {
     v: 'v6.2', date: 'Jul 2026', title: 'Sidebar rework: mobile detection & auto-hide',
     notes: [
-      'IMP: Detects real phones via user agent (iPadOS reports as desktop) so only phones default to a hidden, forced-auto-hide panel; auto-hide is now an optional Settings toggle off-phone.',
-      'IMP: Long file/folder names scroll horizontally instead of truncating; night reading moved from Settings into a toolbar toggle.',
-    ],
-  },
-  {
-    v: 'v6.3', date: 'Jul 2026', title: 'Night-reading icon & scrollbar fix',
-    notes: [
-      'IMP: Replaced the emoji night-reading icon with a plain glyph matching the other toolbar icons.',
-      "FIX: The tree row list was not bounded to the panel's available height, so its horizontal scrollbar trailed after however many rows were expanded instead of staying fixed at the bottom.",
-    ],
-  },
-  {
-    v: 'v6.4', date: 'Jul 2026', title: 'Night-reading toggle style match',
-    notes: [
-      'IMP: Dropped the boxed icon-btn treatment so the night-reading toggle inherits the same bare button chrome as its toolbar neighbors.',
+      'IMP: Phones start with a hidden, auto-hiding sidebar; elsewhere auto-hide is an optional setting. Night reading is now a toolbar toggle.',
     ],
   },
   {
     v: 'v6.5', date: 'Jul 2026', title: 'Bookmarks and annotations',
     notes: [
-      "NEW: Per-page bookmarks (toolbar star toggle, sidebar tab) and annotation tools (Highlight, Draw, Note) via pdf.js's built-in editor modes.",
-      'NEW: Dual save destinations remembered per file — write back to the original file, or an app-managed OPFS "sidecar" copy — with a prompt on first save and a confirm before discarding unsaved edits.',
+      'NEW: Per-page bookmarks, and Highlight, Draw and Note annotation tools.',
+      'NEW: Save annotations back to the original file or to an app copy, asking first time and before discarding edits.',
     ],
   },
   {
     v: 'v6.6', date: 'Jul 2026', title: 'Pause indexing while reading; reopen recovery',
     notes: [
-      'FIX: Background full-text indexing ran unpaused while a document was open, stacking memory on a likely trigger for iPadOS killing the installed PWA; indexing now waits until no document is open.',
-      'NEW: A one-tap "Reopen" banner recovers the last file when the silent auto-restore fails after the OS drops the File System Access permission grant.',
+      'FIX: Background indexing ran while reading and could get the app closed by iPadOS; it now waits until no file is open.',
+      'NEW: A one-tap "Reopen" banner recovers the last file when auto-restore fails.',
     ],
   },
   {
     v: 'v6.7', date: 'Jul 2026', title: 'Persist tree state; toolbar regroup',
     notes: [
-      'NEW: Folder expand state lifted into a persisted set so expanded folders survive reload instead of resetting.',
-      'IMP: Toolbar controls grouped with dividers into Zoom and Annotate dropdowns; settings button moved into the toolbar; the sidebar toggle now also collapses the topbar on desktop.',
+      'NEW: Expanded folders are remembered across reloads.',
+      'IMP: Toolbar grouped into Zoom and Annotate menus; Settings moved into it.',
     ],
   },
   {
     v: 'v6.8', date: 'Jul 2026', title: 'Re-fit page on viewer resize',
     notes: [
-      "FIX: pdf.js only resolves a named scale (e.g. page-fit) on document load, never on container resize; a ResizeObserver now reassigns currentScaleValue to force a recompute when the sidebar/topbar collapses or the window resizes.",
+      "FIX: Fit-page/fit-width didn't re-fit when the sidebar collapsed or the window resized; it does now.",
     ],
   },
   {
     v: 'v6.9', date: 'Jul 2026', title: 'Restyle toolbar icons & empty state',
     notes: [
-      'IMP: Unicode glyphs replaced with Tabler icons across the toolbar/search bar; bookmark/night-reading/annotate gain a background+border active-state treatment.',
-      'IMP: The empty viewer now shows a brand line-art document illustration in a drop-zone; error banner gains a dismiss button.',
+      'IMP: New icons across the toolbar and search, clearer active states, and a line-art drop-zone illustration when no file is open.',
     ],
   },
   {
     v: 'v6.10', date: 'Jul 2026', title: 'Update prompt: toast with auto-update',
     notes: [
-      "IMP: Adopts brand-kit's redesigned UpdatePrompt — a bottom-right toast with a 15s auto-update countdown, replacing the centered blocking modal.",
+      'IMP: Update prompt is now a bottom-right toast with a 15s auto-update countdown.',
     ],
   },
   {
-    v: 'v7.0', date: 'Jul 2026', title: 'Realign brand-kit submodule pointer',
+    v: 'v7.1', date: 'Jul 2026', title: 'Mobile toolbar rework',
     notes: [
-      'FIX: The local submodule commit was content-identical but never pushed; repointed to the canonical pushed SHA so a fresh clone can actually fetch it.',
-    ],
-  },
-  {
-    v: 'v7.1', date: 'Jul 2026', title: 'Mobile UI polish pass',
-    notes: [
-      'NEW: Folder-plus icon on the Add folder button; selected tree files get a coral accent bar instead of the same background as hover.',
-      'IMP: Settings moved into the mobile top bar; mobile toolbar split into a nav row and a tools row instead of relying on flex-wrap.',
-    ],
-  },
-  {
-    v: 'v7.2', date: 'Jul 2026', title: 'Fix mobile buttons showing browser chrome',
-    notes: [
-      'FIX: Zoom and page-nav buttons had no background/border reset, so the 44px touch-target rule exposed the default grey browser button chrome on mobile.',
-    ],
-  },
-  {
-    v: 'v7.3', date: 'Jul 2026', title: 'Collapse view-mode & search on mobile',
-    notes: [
-      'IMP: View-mode select becomes an icon+chevron and search collapses to an expandable icon on narrow screens, freeing enough width for the nav row to fit one line.',
-    ],
-  },
-  {
-    v: 'v7.4', date: 'Jul 2026', title: 'Merge mobile toolbar into one row',
-    notes: [
-      'IMP: Bookmark/annotate/night-reading/search no longer forced onto a second row now that an icon-only annotate button and collapsible search free enough width.',
-      'FIX: .search-wrap had an unconditional flex basis that force-expanded it even while collapsed to a 30px icon, wasting space and causing extra wraps.',
-    ],
-  },
-  {
-    v: 'v7.5', date: 'Jul 2026', title: 'Drop zoom % and collapse page count on mobile',
-    notes: [
-      'IMP: Zoom percent readout removed on mobile; page count becomes a tap-to-expand jump-to-page icon, the same expand-in-place pattern as search — gets the whole toolbar onto one line at typical phone widths.',
-    ],
-  },
-  {
-    v: 'v7.6', date: 'Jul 2026', title: 'Fix mobile settings icon edge spacing',
-    notes: [
-      'FIX: .topbar had no horizontal padding, landing the settings button flush at 0px from the viewport edge; given the same 8px margin the sidebar toggle already has.',
-    ],
-  },
-  {
-    v: 'v7.7', date: 'Jul 2026', title: 'Safari button appearance reset',
-    notes: [
-      'FIX: iOS/iPadOS Safari keeps native button chrome and padding until appearance is explicitly reset, reported as uneven spacing around the bare page-nav chevrons.',
-    ],
-  },
-  {
-    v: 'v7.8', date: 'Jul 2026', title: 'Revert Safari button-appearance fix',
-    notes: [
-      "DEP: Reverted the previous commit's appearance reset.",
-    ],
-  },
-  {
-    v: 'v7.9', date: 'Jul 2026', title: 'Bordered box for page-nav chevrons',
-    notes: [
-      "FIX: The reported spacing issue measured symmetric under every scenario tested and a Safari appearance reset did not fix it either; gives all three page-nav controls identical bordered framing on mobile so nothing can read as asymmetric.",
-    ],
-  },
-  {
-    v: 'v7.10', date: 'Jul 2026', title: 'Unify mobile toolbar icon sizes',
-    notes: [
-      'IMP: Standardized settings/sidebar/bookmark/night-reading/annotate/search/page-jump/chevron icons to 30px on mobile and iPad (previously a 26/30/32px mix); desktop stays 32px.',
-    ],
-  },
-  {
-    v: 'v8.0', date: 'Jul 2026', title: 'Revert topbar icons to 32x32',
-    notes: [
-      'IMP: Sidebar/settings topbar icons reverted to 32px to match each other and desktop\'s .icon-btn size; the rest of the mobile toolbar stays 30px.',
-    ],
-  },
-  {
-    v: 'v8.1', date: 'Jul 2026', title: 'Compensate settings icon optical weight',
-    notes: [
-      "IMP: The gear icon's ink only fills 18x18 of its 24x24 viewBox in thin spiky teeth versus the sidebar icon's denser fill, reading visibly lighter; bumped to 19px so their actual ink footprint reads equally weighted.",
-    ],
-  },
-  {
-    v: 'v8.2', date: 'Jul 2026', title: 'Fix icon-btn padding clamp',
-    notes: [
-      "FIX: .icon-btn never reset the browser's default button padding, so the enlarged settings icon was flex-shrunk into a non-square squeeze that silently undermined the last two size fixes; settings icon dropped back to 18px now that it renders at true size.",
-    ],
-  },
-  {
-    v: 'v8.3', date: 'Jul 2026', title: 'Settings icon to 24px',
-    notes: [
-      'IMP: Mobile settings icon size increased from 18px to 24px after it still read too small.',
-    ],
-  },
-  {
-    v: 'v8.4', date: 'Jul 2026', title: 'Settings icon settled at 20px',
-    notes: [
-      'IMP: Mobile settings icon size adjusted to 20px following live device testing.',
-    ],
-  },
-  {
-    v: 'v8.5', date: 'Jul 2026', title: 'Settings icon to 32px for testing',
-    notes: [
-      'IMP: Mobile settings icon temporarily set to 32px for testing.',
-    ],
-  },
-  {
-    v: 'v8.6', date: 'Jul 2026', title: 'Settings button box to 40x40',
-    notes: [
-      "FIX: .icon-btn's fixed 32x32 box was clamping the gear icon regardless of its size prop; the settings toggle now gets its own larger box so the icon renders at true size, while the sidebar toggle stays at 32px.",
-    ],
-  },
-  {
-    v: 'v8.7', date: 'Jul 2026', title: 'Settings button box to 48x48',
-    notes: [
-      'IMP: Mobile settings button box enlarged from 40x40 to 48x48.',
-    ],
-  },
-  {
-    v: 'v8.8', date: 'Jul 2026', title: 'Settings box to 42x42, wider margin',
-    notes: [
-      'IMP: Mobile settings button box settled at 42x42 with its edge margin doubled to 16px.',
-    ],
-  },
-  {
-    v: 'v8.9', date: 'Jul 2026', title: 'Custom dropdown for mobile page-view',
-    notes: [
-      "IMP: Page-view mode's overlay-hidden native <select> replaced with the same custom dropdown component already used for the zoom and annotate options; desktop keeps the native select.",
-    ],
-  },
-  {
-    v: 'v8.10', date: 'Jul 2026', title: 'Fix view-mode dropdown alignment on Safari',
-    notes: [
-      "FIX: The nested select/dropdown/trigger structure relied on flex defaults that rendered correctly in Chromium but diverged on real Safari; alignment now set explicitly at every nesting level.",
-    ],
-  },
-  {
-    v: 'v9.0', date: 'Jul 2026', title: 'Reorder & auto-hide mobile toolbar controls',
-    notes: [
-      'IMP: Search reordered next to page-nav via flex order (mobile/iPad only); opening search or jump-to-page now hides the other controls via :has() instead of letting them wrap to a second line, keeping the toolbar height constant.',
+      'IMP: Mobile toolbar split into a nav row and a tools row, then condensed to one line: view mode and search collapse to icons, page count becomes tap-to-jump.',
+      'NEW: Folder-plus icon on Add folder; selected files get a coral accent bar.',
     ],
   },
   {
     v: 'v9.1', date: 'Aug 2026', title: 'Rename to eDoc',
     notes: [
-      'IMP: Shortened "EDOCUMENT READER"/"DOCUMENT VIEWER" to the consistent "eDoc" label used elsewhere for this app.',
+      'IMP: App name shortened to the consistent "eDoc".',
     ],
   },
   {
-    v: 'v9.2', date: 'Aug 2026', title: 'Collapse search bar on touch devices',
+    v: 'v9.2', date: 'Aug 2026', title: 'Fix iPad landscape toolbar wrapping',
     notes: [
-      'FIX: On iPad landscape widths, 44px-floored touch controls plus the full-width search input overflowed the toolbar row, pushing settings onto its own line; search now collapses to the same tap-to-expand icon mobile uses, gated on pointer:coarse.',
-    ],
-  },
-  {
-    v: 'v9.3', date: 'Aug 2026', title: 'Compact view-mode select on touch',
-    notes: [
-      'FIX: The narrowest current iPad (944px landscape) still wrapped the settings icon after the search-bar fix; the view-mode select now swaps to the icon+chevron dropdown on pointer:coarse devices too.',
+      'FIX: On iPad landscape the search bar and view-mode select pushed Settings onto its own line; touch devices now use compact versions.',
     ],
   },
   {
     v: 'v9.4', date: 'Aug 2026', title: 'Collapsible outline, per-tab scroll',
     notes: [
-      'NEW: Outline nodes with children get a disclosure toggle, start collapsed, and remember expanded/collapsed state per file in IndexedDB.',
-      "FIX: The sidebar scrolled as one block, dragging the Folders/Recent/Bookmarks/Outline/Pages tab bar off-screen with long content; each tab's content now scrolls in its own bounded region.",
+      'NEW: Outline items with children can be collapsed, start collapsed and are remembered per file.',
+      'FIX: Sidebar tab bar scrolled out of view with long content; each tab now scrolls on its own.',
     ],
   },
   {
     v: 'v9.5', date: 'Aug 2026', title: 'Floating Add-folder button',
     notes: [
-      "IMP: The full-width Add-folder button (which pushed the tree down) replaced with a floating FAB anchored to the panel's corner, visible only on the Folders tab.",
-    ],
-  },
-  {
-    v: 'v9.6', date: 'Aug 2026', title: 'Fix auto-hide inconsistency across tabs',
-    notes: [
-      'FIX: Outline/Bookmarks/Pages navigation unconditionally closed the sidebar, while Folders/Recent only did so per the Auto-hide setting; all four now route through the same check.',
+      'IMP: The full-width Add folder button is now a floating button on the Folders tab.',
     ],
   },
   {
     v: 'v9.7', date: 'Aug 2026', title: 'Global filename + content search',
     notes: [
-      "NEW: A persistent, folder-independent search replaces the main pane with grouped snippet results, overlaid on a permanently-mounted PdfViewer instead of unmounting it (which was crashing pdf.js on the next open).",
-      'DEP: Dropped the sort dropdown and "recently opened" tree sort.',
-    ],
-  },
-  {
-    v: 'v9.8', date: 'Aug 2026', title: 'Simulated progress popup on desktop',
-    notes: [
-      "IMP: Desktop's near-instant metadata-only folder scan now reuses the copy-progress modal with a simulated, file-count-scaled reveal, for visual consistency with iPad/Android's real per-file copy progress.",
-    ],
-  },
-  {
-    v: 'v9.9', date: 'Aug 2026', title: 'Indexing phase in progress popup',
-    notes: [
-      'NEW: The folder progress popup extended with a follow-on "Indexing for search" phase after Adding/Refreshing, with a "Run in background" option that collapses it to a dismissible pill.',
-    ],
-  },
-  {
-    v: 'v9.10', date: 'Aug 2026', title: 'Indexing reliability fixes',
-    notes: [
-      "FIX: extractText now races a 20s timeout so a hung PDF can't freeze every file behind it in the strictly sequential indexing queue.",
-      'FIX: Failed files retry up to 3 times then stop, with a dismissible banner; textIndex now keys by full relative path instead of bare filename, so same-named files in different folders no longer shadow each other.',
+      'NEW: Library-wide search with grouped snippet results shown over the viewer.',
     ],
   },
   {
     v: 'v10.0', date: 'Aug 2026', title: 'Fix resume opening orphaned files',
     notes: [
-      "FIX: Resume-on-launch reopened the last file based only on permission being granted, with no check against currently connected folders, so a file whose folder was removed kept resurfacing every reload; now checked with isSameEntry against the connected folders.",
+      "FIX: Reopening on launch could bring back a file whose folder was removed; it's now checked first.",
     ],
   },
   {
     v: 'v10.1', date: 'Aug 2026', title: 'Remove full-text content search',
     notes: [
-      "DEP: Dropped background full-text indexing, textIndex.js, and its IndexedDB persistence, plus the indexing-progress popup/pill and \"couldn't index\" banner — indexing a 10,000+ file library one file at a time proved too slow a trade-off.",
-      'IMP: Global search simplified to pure filename matching; "Search in document" (Ctrl+F) and the folder add/refresh progress popup are unaffected.',
+      'DEP: Removed full-text indexing and its progress UI; indexing 10,000+ files was too slow.',
+      'IMP: Global search now matches filenames only; in-document search is unaffected.',
     ],
   },
   {
     v: 'v10.2', date: 'Aug 2026', title: 'Tree remove-from-view & drag-to-rearrange',
     notes: [
-      'NEW: A virtual overlay lets individual files and subfolders be hidden from the tree, or dragged to reorder/move between folders, without touching the real filesystem — and it survives Refresh since it is reapplied to every fresh scan.',
+      'NEW: Hide files/folders from the tree or drag them to reorder and move, without touching your real files; survives Refresh.',
     ],
   },
   {
     v: 'v10.3', date: 'Sep 2026', title: 'Floating page pill & mobile toolbar fixes',
     notes: [
-      "FIX: The annotate dropdown grew from its trigger's left edge, which sits near the toolbar's right edge on mobile, spilling the menu past the screen edge and forcing horizontal scroll to reach it; anchored to the trigger's right edge instead.",
-      'IMP: Settings icon moves into the top bar on iPad landscape while the sidebar/tree is open, matching the mobile placement; falls back to the toolbar row once the tree is closed and the top bar collapses, so it is never lost.',
-      'IMP: Prev/next and the page counter moved out of the toolbar into a floating pill anchored to the bottom-center of the viewer, reachable without opening the toolbar.',
-      'IMP: Zoom out/in and the percentage now share one bordered pill matching the bookmark/annotate/night-reading icon style, instead of bare unboxed text and buttons; the percentage is a real editable field — type a number and press Enter to jump straight to that zoom level (also now shown and editable on mobile, where it used to be hidden).',
-      'FIX: Folder rows needed two clicks to expand/collapse — same drag-vs-click swallowing bug fixed on file rows previously, just never applied to folders; toggle now fires on pointerdown like file selection already did.',
+      'FIX: The annotate menu spilled off the right edge on mobile; it now anchors to its right edge.',
+      'IMP: Prev/next and the page counter moved into a floating pill at the bottom of the viewer.',
+      'IMP: Zoom buttons and percentage share one pill; type a number and press Enter to jump to that zoom (also on mobile).',
+      'FIX: Folder rows needed two clicks to expand or collapse; one click now works.',
     ],
   },
   {
     v: 'v10.4', date: 'Sep 2026', title: 'PDF link tap & hit-box fixes',
     notes: [
-      'FIX: On touch devices a tap on a chapter link inside a PDF was treated as a page-flip gesture, so it flipped to the next/previous page instead of following the link; taps landing on a link now skip the flip.',
-      "FIX: Clicking a table-of-contents row navigated to the chapter above it at low zoom — the global border-box reset pulled pdf.js's 9px page border inside the declared page size, shrinking the rendered canvas 18px while the invisible link boxes kept the full size. The two drifted ~3% apart down the page, which on ~9px TOC rows at 55% zoom is a two-row error; zooming in only masked it, since the 18px never scales.",
+      'FIX: Tapping a link inside a PDF on touch devices turned the page instead of following the link.',
+      'FIX: Table-of-contents links went to the chapter above at low zoom because link areas drifted from the page; they now line up.',
     ],
   },
   {
-    v: 'v10.5', date: 'Sep 2026', title: 'Code review pass: memory leak, save-fail, drag-reorder & more',
+    v: 'v10.5', date: 'Sep 2026', title: 'Memory leak & save-failure fixes',
     notes: [
-      "FIX: Switching or closing a PDF never freed the previous document's worker-side heap (fonts, decoded bitmaps, render streams), leaking for as long as the tab stayed open; now destroyed the moment it's replaced or closed.",
-      "FIX: A failed annotation save (revoked file permission, disk full) failed completely silently; now surfaces through the existing error banner instead of an unhandled rejection.",
-      'FIX: Dragging a file or folder row to reorder it first fired a full file-select — and, with unsaved annotations open, a disruptive discard-confirm — before the drag gesture even registered; dragging now starts from a dedicated grip handle instead of the whole row.',
-      'FIX: Global search placeholder still read "Search files and content…" though content search was removed; now "Search filenames…".',
-      'IMP: oxlint no longer lints the vendored pdf.worker.mjs bundle (57k lines of noise).',
-      'IMP: Document search advances to the next match on Enter (Shift+Enter for previous); global search results are keyboard-navigable.',
-      'IMP: Page thumbnails release their render cache after drawing instead of holding it for the life of the session.',
-      'NEW: Automated tests (node --test) covering the tree-overlay hide/move/reorder logic and file-list tree building.',
-      "IMP: Split App.jsx's document-loading/switching logic into its own usePdfDocument hook, and pulled pure helpers (byte formatting, bookmark/recent-list updates) into appHelpers.js — same behavior, smaller file.",
+      "FIX: Switching or closing a PDF never freed its memory; it's now released right away.",
+      'FIX: A failed annotation save failed silently; it now shows an error banner.',
+      'FIX: Dragging a row to reorder it also selected the file (and could trigger a discard prompt); dragging now uses a grip handle.',
+      'IMP: Doc search jumps to the next match on Enter (Shift+Enter for previous); global search results work with the keyboard.',
     ],
   },
   {
     v: 'v10.6', date: 'Sep 2026', title: 'Persist folder expand-state and legacy Recent/resume files',
     notes: [
-      "FIX: Folder expand/collapse state was keyed to a random id regenerated on every app launch, so the tree rendered fully collapsed after every restart; now keyed to the folder's name, which stays stable across reloads and folder re-adds.",
-      "FIX: iPad/Android (OPFS-backed) files were silently excluded from the Recent list and last-opened-file resume, since their handles carry function properties IndexedDB can't clone; their {folder, relative path} address is now saved instead and turned back into a working handle on the next launch.",
-      'IMP: Dropped the "updated X ago" chip from Recent tab rows — redundant now that the list is already sorted newest-first.',
+      'FIX: The tree was fully collapsed after every restart; expanded folders are now remembered by folder name.',
+      "FIX: iPad/Android files were missing from Recent and last-opened resume; they're now saved and restored.",
     ],
   },
   {
     v: 'v10.7', date: 'Sep 2026', title: 'Clear all button for Recent tab',
     notes: [
-      'NEW: "Clear all" button in the Recent tab wipes the list immediately, both in memory and in storage.',
+      'NEW: "Clear all" button in the Recent tab empties the list immediately.',
     ],
   },
   {
-    v: 'v10.8', date: 'Sep 2026', title: 'Second code review pass: hidden-file persistence, security, thumbnails',
+    v: 'v10.8', date: 'Sep 2026', title: 'Tree persistence & link security fixes',
     notes: [
-      "FIX: Hiding, moving, or reordering files/folders in the tree was silently reset on every reload — folders got a fresh random id on every launch, so the saved overlay could never match it again. Now keyed by the folder's own name instead, the same fix already used for expand-state persistence.",
-      "FIX: Global search read the raw, unfiltered file list, so a file hidden from the tree still showed up (and opened) from search; search and the tree now share the same filtered view.",
-      "FIX: A PDF's table of contents could embed a javascript: link that ran unchecked; outline links are now limited to http/https/mailto.",
-      "FIX: Switching documents could leave the Pages panel showing a previous, different document's thumbnails for pages that hadn't redrawn yet.",
-      "FIX: Tapping or drawing near the page edges with an annotation tool active flipped the page instead, since the touch page-turn gesture had no awareness an annotation tool was selected.",
-      "IMP: Search results now show each file's folder path, so same-named files in different folders are distinguishable.",
-      "IMP: The 15s PDF-load safety timer is now cancelled as soon as loading settles, instead of only when a password prompt appears.",
-      "IMP: Settings (and the changelog you're reading right now) now loads on demand instead of being in the app's initial download.",
-      "IMP: Scrolling past a page thumbnail before it finishes rendering now actually cancels that render, instead of letting it finish for a thumbnail nobody's looking at anymore.",
-      "DEP: Removed dead code and tidied a few lint warnings turned up by the review; no user-visible change.",
+      "FIX: Hidden, moved or reordered tree items reset on every reload; they're now remembered by folder name.",
+      'FIX: Search showed files hidden from the tree; search and tree now share the same view.',
+      "FIX: A PDF's table of contents could run a javascript: link; outline links are now limited to http/https/mailto.",
+      "FIX: The Pages panel could show another document's thumbnails after switching files.",
+      'FIX: Drawing near page edges with an annotation tool flipped the page; it no longer does.',
+      "IMP: Search results show each file's folder path.",
+      'IMP: Settings and this changelog now load on demand, making the first load lighter.',
     ],
   },
   {
-    v: 'v10.9', date: 'Oct 2026', title: 'Disable auto-update setting',
+    v: 'v10.9', date: 'Oct 2026', title: 'Add files & app-managed storage',
     notes: [
-      "NEW: The floating + button opens a small menu: Add folder or Add files. Add files lets you pick one or more PDFs, choose where they go in a folder tree that matches the sidebar (the first folder's top level by default), and for any name that's already taken choose Replace or Keep both (saved as 'name (1).pdf'). Only the picked files are copied into the app — the rest of the folder isn't re-copied — with the same per-file progress list as adding a folder, and Cancel keeps whatever was already copied.",
-      "NEW: Add folder now asks where to show the new folder — at the top level (as before) or inside any existing folder or subfolder, in a tree that matches the sidebar. A folder placed inside another is only shown there: it stays its own folder with its own copy, and has its own ×. Removing the folder it sits in puts it back at the top level.",
-      "IMP: The ⋮ menu on folders (Refresh and Remove) and its age chip are gone. Top-level folders — including ones placed inside another folder — have the same × as subfolders and files, with a confirmation prompt that deletes the app's copy of the whole folder. Update a file with Add files (Replace) and remove one with ×.",
-      "NEW: Adding a folder that's already in the app now offers to update it instead of making a second copy: it re-copies the folder, keeps its place and order, and — if any of its files have saved annotations — asks whether to keep or discard them, since an annotated copy is opened instead of a file with the same name.",
-      "NEW: × on a file or folder also deletes the bookmarks, saved page, outline state and annotated copy the app kept for it (unless another file with the same name is still in the app), and the confirmation says what will go. Replacing a file with Add files asks whether to keep or discard its saved annotations.",
-      "IMP: Add files now warns, like Add folder does, when the picked files are bigger than the space left on the device.",
-      "FIX: Bookmarks, saved page, outline state and annotated copies were filed under a file's name only, so two same-named files in different folders shared them — opening one could show the other's annotations. They're now filed by folder and path.",
-      "FIX: Adding or updating a big folder no longer slows down as the folder grows: the progress window draws a short run of rows instead of one per file, so a folder that took many minutes now copies at the speed of the storage.",
-      "IMP: The app now works the same on every device. Folders are always copied into the app's own storage, as they already were on iPad and phone, instead of being linked to your disk on desktop: no Reconnect, no permission prompts, nothing written into your real folders, and annotations are always saved as an app copy (the 'Change save location' option is gone). × deletes the app's copy of a file or folder after a confirmation — your original files are never touched — and there is no 'hidden' any more. Dropping a whole folder on the window no longer adds it — use + → Add folder.",
-      "NEW: Settings → App Update has a 'Disable auto-update' switch. When on, the app stops checking for new versions in the background and never shows the 15s auto-update toast; 'Check for updates' still works manually.",
-      "NEW: Transition animations. Sidebar tabs (Folders, Recent, Bookmarks, Outline, Pages) slide or fade in; dialogs open and close with a soft zoom; the toolbar menus (view, zoom, annotate, reading theme) slide down and back up; the in-file search bar and its match controls animate in and out; and the sidebar and top bar glide open and closed. Settings → Animation lets you turn animations on or off, pick a style (Slide or Fade rise) and a speed (Normal, Slow or Slower). Turning animations off — or enabling your device's Reduce Motion — makes everything switch instantly.",
-      "IMP: The floating page pill now also shows in continuous scroll mode, and is more transparent (less opaque, lighter blur) so it covers less of the page behind it.",
-      "FIX: The selected file's tree guide line sat 1px right of its neighbours' because the selected row's border plus padding was 1px wider than a normal row's padding; the two now match.",
-      "FIX: iPadOS 27 drew a blur over the top of the installed app (a system effect, not an app element) while the app extended under the status bar. Removed the apple-mobile-web-app-capable / status-bar-style tags and added a permanent 11px top-edge strip in the top bar's colour; the status bar now blends into the top bar. Needs the Home Screen icon removed and re-added once to take effect.",
+      'NEW: The floating + button opens Add folder or Add files; Add files lets you pick PDFs, choose where they go, and Replace or Keep both on name clashes.',
+      'NEW: Add folder asks where to show the new folder: top level or inside any folder, with its own copy and its own ×.',
+      "IMP: Removed the folder ⋮ menu and age chip; folders, subfolders and files all have × with a confirmation that deletes the app's copy, plus its bookmarks, saved page and annotations.",
+      'NEW: Adding a folder that already exists offers to update it, keeping its place and asking whether to keep saved annotations.',
+      "FIX: Same-named files in different folders shared bookmarks and annotations; they're now kept per folder and path.",
+      'FIX: Adding or updating a big folder no longer slows down as it grows; the progress window draws fewer rows.',
+      'IMP: Same behaviour on every device: folders are always copied into app storage, with no Reconnect or permission prompts, and annotations always save as an app copy.',
+      'NEW: Settings → App Update has a "Disable auto-update" switch; "Check for updates" still works manually.',
+      'NEW: Transition animations for tabs, dialogs, menus, search bar and panels; Settings → Animation sets on/off, style and speed, and respects Reduce Motion.',
+      'FIX: iPadOS 27 drew a blur over the top of the installed app; the status bar now blends into the top bar. Re-add the Home Screen icon once to apply.',
     ],
   },
   {
-    v: 'v10.10', date: 'Oct 2026', current: true, title: 'Two-page continuous view',
+    v: 'v10.10', date: 'Oct 2026', title: 'Two-page continuous view',
     notes: [
-      'NEW: Two-page continuous page view. Pages sit side by side in pairs, like an open book, and you scroll down through the whole document. Pick it from the page view menu in the toolbar.',
-      'FIX: On phones the Reading theme and Annotate menus could open partly off the left edge of the screen, out of reach. They now open below the toolbar, inside the screen.',
-      'IMP: On phones the top bar now shows only the title, aligned to the left. The sidebar and Settings buttons moved into the toolbar, which follows the desktop order and sits in two even rows.',
-      'IMP: Settings and every dialog now share one look: a double-line border with cut corners that follows the theme.',
-      'NEW: Tabs. Opening a file from the folder tree, Recent, search results or a drop puts it in a tab above the page — or jumps to its tab if it is already open. Click a tab to switch (the file reopens on the page you left it); × (or a middle-click) closes it, and the neighbouring tab takes over. Only the tab you are looking at is loaded, so a lot of tabs costs almost no memory. Searching your library no longer closes the open files, and removing a file or folder closes its tabs.',
-      'NEW: With Reading → Resume last position on, the app reopens every tab you had open, with the same one in front, instead of only the last file. Files you dropped onto the window are not brought back (there is no saved copy to reopen), and tabs for files that have since been removed are skipped.',
-      'NEW: Split view. The ⋯ on the tab of the file you are reading → Split view shows two documents side by side, each with its own page counter. The new pane opens the file you used most recently, or stays empty until you pick one. Click a pane to make it the active one (it gets the coral outline): the toolbar, search, outline, thumbnails, bookmarks and Save then follow it, and a tab or file you pick opens in it. Each pane and its tab share a colour — amber on the left, pink on the right — and the left pane’s tab always sits left of the right pane’s; picking a file the other pane already shows just moves you there. On a touch screen, the first touch on the other pane only makes it the active one — it does not also turn that pane’s page; the next tap does. The × on a pane header, or the tab’s ⋯ → Close split view, closes a pane (its tab stays, and it asks about unsaved annotations first). In a split each pane shows one page at a time, the annotation tool works in the active pane only, and Presentation mode shows only the active pane and puts the split back when it ends.',
-      'NEW: Settings → Reading → Split view switches it on or off. It starts on for mouse-and-keyboard devices and off on touch devices: two documents use more memory, and big scanned PDFs can make iPad Safari close the app. A split closes its second pane by itself when the window gets narrower than the tablet breakpoint (an iPad turned to portrait) or when you switch it off, and the tab’s ⋯ menu says why Split view is greyed out. Settings → Reading → Colour-code panes turns the amber and pink off, and the tabs then show an L or R instead.',
-      'NEW: Switching or closing a tab with unsaved annotations asks Save / Discard / Cancel, instead of the browser\'s plain confirm.',
-      'NEW: Document properties. The ⋯ on a tab (and a row in the phone menu) opens file name, title, author, subject, keywords, page count, page size (with the paper name, e.g. A4), file size, created and modified dates, the program that made it, PDF version, and whether it has a fillable form. Anything the file does not say is left out.',
-      'NEW: Fullscreen (browsers that support it; not iPhone), in the More view options menu next to zoom, and Presentation mode, in the tab’s ⋯ menu. Presentation goes fullscreen, shows one page at a time fitted to the screen on black, and hides every bar. Page with the arrow keys, PageUp/PageDown, Space (Shift+Space back), a mouse click (left quarter goes back), or by tapping the screen edges. Esc, the faint ✕ in the corner, or leaving fullscreen ends it and puts your page view back. Annotation tools are switched off while presenting.',
-      'FIX: On a touch screen, tapping a form field in the outer quarter of the page turned the page instead of selecting the field. Taps on form fields (and buttons) now stay with the field. Typing into form fields and ticking boxes already worked, and Save keeps your answers in the app copy, same as annotations.',
-      'FIX: Opening a file while another was on a later page left the page counter (and the page remembered for the new file) stuck on the old number until you turned a page.',
-      'IMP: The code that holds an open document (page, zoom, outline, unsaved annotations) is now one piece per viewer, with the tab list and tab closing handled above it. It is what lets two documents sit side by side.',
-      'NEW: Send / receive via wifi. + → Send / receive via wifi links two devices on the same wifi, for example a PC and an iPad. One shows a 6-character code and a QR, the other types it or scans it with the camera. Once connected, either device can send PDFs or a whole folder to the other, and the files go straight across the wifi, never through a server. Received folders arrive like Add folder, loose PDFs like Add files (or, if you have no folder yet, into a new folder called Received). Only the short pairing handshake passes through the free PeerJS service.',
-      'NEW: Anything you add or replace (Add folder, Add files, Update folder, or files received over wifi) now shows a small NEW chip in the folder tree. A file loses its chip when you open it, a folder when you open it, and every chip goes when the page is refreshed.',
-      'FIX: Receiving a big folder over wifi could fail on an iPad ("The I/O read operation failed"), because the whole folder was held in memory until it had all arrived. Each file is now saved the moment it arrives, so a folder of any size uses little memory. The sender now only says Sent once the other device has saved the files, and gets the reason if it could not.',
-      'FIX: A lost connection to the pairing service no longer drops a wifi link that is already connected.',
-      'FIX: Sending a folder with thousands of PDFs over wifi disconnected straight away, because the list of files was too big for one message. The list now goes in small pieces. Update both devices before sending a big folder.',
-      'NEW: Manage button above the folder tree (Done to leave). It puts a tick box on every row and a bar at the bottom with Select all, Deselect all, Rename and Delete. Rename changes only the name shown in the app, for one file or folder at a time; its bookmarks and annotations stay with it. Delete removes everything you ticked after one confirmation, and deletes the app copies, bookmarks, saved page and annotations as the × did.',
-      'NEW: Move, in the Manage bar. It opens a full-screen picker that shows one folder level at a time, with a breadcrumb and Move here. A folder you added can also be moved inside another folder, or back out to Top level. Moving only changes where things are shown; the files and their bookmarks and annotations are untouched. If the name is already taken in the destination, a prompt compares the two (size and date added) and lets you keep the one already there, replace it (this deletes it for good), or keep both, with the arriving one shown as "name (1)". Folders can only be kept or kept both.',
-      'NEW: Copy, in the Manage bar. It uses the same full-screen picker as Move, and makes real duplicates: each copied file is saved again under its own name in storage, so changing or deleting the copy never touches the original. Files and folders go into the folder you pick (even the one they are already in); a folder you added becomes a new folder called "name (1)", at Top level or inside another folder. If a name is already taken you can keep the one there, replace it, or keep both (the copy is named "name (1)"). If any file has bookmarks, a saved page or annotations, you are asked once whether to copy them too. Cancelling stops the copy and removes only the item in progress.',
-      'NEW: Rotate, in a new File tools row of the Manage bar (shown while exactly one PDF is ticked). It opens a sheet of page thumbnails, all selected so Left, Right and 180° turn the whole file; tap pages to turn only those. Save as new file puts "name (rotated).pdf" next to the original, and Replace original overwrites it (this can\x27t be undone). A file with saved annotations is turned with its annotations. The PDF library is only downloaded when you use a tool like this.',
-      'NEW: Flatten, next to Rotate in the File tools row. It bakes a file\x27s annotations (highlights, drawings, notes) and filled-in form fields into the pages so they can no longer be edited or removed; links keep working. Like Rotate it saves "name (flattened).pdf" next to the original or replaces the original, and it works on the annotated version when there is one. A file with nothing to flatten says so and is left alone.',
-      'NEW: Star, in the File tools row of the Manage bar (shown while only files are ticked, one or many). Pick red, green, purple, orange or blue, or remove the star. Starred files show a small coloured star in the tree, and the Recent tab is now Recent/Favs: a Starred section at the top lists every starred file from all folders, with a colour filter, above the usual Recent list. A file\x27s star goes when the file is deleted.',
-      'NEW: Protect, in the File tools row (shown while exactly one PDF is ticked). It asks for a password twice, then locks the file with it (AES-256), so it only opens with that password: save "name (protected).pdf" next to the original, or replace the original (this can\x27t be undone). There is no way to get a protected file back if you forget its password. Once open, everything is allowed (printing, copying text, annotating); annotations you add keep the file protected.',
-      'IMP: A file that needs a password now asks for it in the app\x27s own dialog, with the password hidden as you type, the file\x27s name shown, and a message if the password was wrong, instead of the browser\x27s plain prompt.',
-      'IMP: The Settings icon now always sits in the toolbar row, at the same size as the other icons there, instead of in the top bar on narrow windows and iPad. On a phone it is still the last item in the ⋮ panel.',
-      'IMP: The tree is now only for opening files and folders. The × on each row and the drag handle (desktop-only reordering) are gone; Manage replaces them, and works the same on phone, iPad and desktop. Items are ordered by the new sort menu instead.',
-      'NEW: Sort menu beside the storage bar: open it and tap the arrow beside Name, Date added or Size to sort by that, and tap it again to reverse (A to Z / Z to A, Oldest / Newest first, Smallest / Largest first). It applies to every folder and subfolder, folders always above files, and a folder counts as everything inside it. Your choice is remembered. Files added before dates were kept count as added when their folder was connected; their sizes are read once in the background.',
+      'NEW: Two-page continuous view: pages sit side by side like an open book; pick it from the page view menu.',
+      'FIX: On phones, the Reading theme and Annotate menus could open off the left edge; they now open inside the screen.',
+      'IMP: On phones the top bar shows only the title; sidebar and Settings buttons moved into the toolbar.',
+      'IMP: Settings and all dialogs share one look: a double-line border with cut corners that follows the theme.',
+    ],
+  },
+  {
+    v: 'v11.0', date: 'Oct 2026', title: 'Tabs & split view',
+    notes: [
+      'NEW: Tabs: open files in tabs above the page; × or middle-click closes one, and only the visible tab is loaded.',
+      'NEW: Reading → Resume last position reopens all your tabs, with the same one in front.',
+      'NEW: Split view: show two documents side by side, each with its own page counter and colour-coded pane. Presentation mode shows the active pane only.',
+      'NEW: Settings → Reading → Split view on/off (off by default on touch devices) and Colour-code panes; it closes itself on narrow windows.',
+      'NEW: Switching or closing a tab with unsaved annotations asks Save / Discard / Cancel.',
+      "NEW: Document properties from the tab's ⋯: title, author, page count, size, dates and more.",
+      'NEW: Fullscreen (not iPhone) and Presentation mode: one page at a time on black, with keys, clicks or taps to move; Esc ends it.',
+      'FIX: Tapping a form field near the page edge turned the page instead; taps on fields now stay with the field.',
+      'FIX: Opening a file while another was on a later page left the page counter stuck on the old number.',
+    ],
+  },
+  {
+    v: 'v11.1', date: 'Nov 2026', current: true, title: 'Wifi transfer & Manage tools',
+    notes: [
+      'NEW: + → Send / receive via wifi: pair two devices with a 6-character code or QR and send PDFs or whole folders straight across wifi, never through a server.',
+      'NEW: A NEW chip marks added, replaced or received files and folders until you open them or refresh.',
+      'FIX: Big folders over wifi now transfer reliably: files are saved as they arrive, the file list is sent in small pieces, and a dropped pairing connection no longer ends a live link. Update both devices first.',
+      'NEW: Manage button above the tree: tick files or folders, then Select all, Rename or Delete (also removes bookmarks and annotations). Replaces the old × and drag handle, on every device.',
+      'NEW: Move and Copy (Manage bar): pick a destination folder level by level; name clashes let you keep, replace or keep both.',
+      'NEW: Rotate (File tools): turn all or chosen pages, then save as "name (rotated).pdf" or replace the original.',
+      'NEW: Flatten (File tools): bake annotations and filled-in form fields into the pages; save as "name (flattened).pdf" or replace.',
+      'NEW: Star (File tools): colour-star files (red, green, purple, orange, blue); the Recent tab becomes Recent/Favs with a Starred section.',
+      "NEW: Protect (File tools): lock a PDF with a password (AES-256); save as \"name (protected).pdf\" or replace. A forgotten password can't be recovered; protected files open in the app's own password dialog.",
+      'NEW: Sort menu: Name, Date added or Size, ascending or descending; folders stay on top and your choice is remembered.',
     ],
   },
 ]
