@@ -2622,6 +2622,18 @@ body:has(.modal-backdrop, .move-picker) {
   animation: ed-pop var(--ed-dur, 180ms) ease both;
 }
 
+/* On-screen keyboard up (keyboardArea.js sets html[data-kb] and the --kb-* values): the window
+   sits in the middle of the area left visible above it and scrolls inside if it is taller. */
+html[data-kb] .modal-dialog {
+  top: var(--kb-mid);
+  max-height: calc(var(--kb-h) - 24px);
+  transition: top 0.15s ease;
+}
+html[data-kb] .modal-dialog .cf-l4 {
+  max-height: calc(var(--kb-h) - 24px);
+  overflow-y: auto;
+}
+
 .update-dialog-header {
   display: flex;
   align-items: center;
