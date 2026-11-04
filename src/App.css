@@ -11,6 +11,20 @@ html,
   color: var(--cb-ink);
 }
 
+/* Page behind an open window must not scroll or bounce. Every popup shares
+   .modal-backdrop (it stays in the page through its fade-out), plus the
+   full-screen move picker and, on phones, the open sidebar/toolbar drawer. */
+body:has(.modal-backdrop, .move-picker) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+@media (max-width: 880px) {
+  body:has(.sidebar-backdrop.open) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+}
+
 .app {
   display: flex;
   flex-direction: column;
