@@ -33,6 +33,7 @@ export default function ManageBar({
   onCopy,
   onMove,
   onDelete,
+  closing = false,
 }) {
   const [starOpen, setStarOpen] = useState(false);
   const pickStar = (colorId) => {
@@ -40,7 +41,7 @@ export default function ManageBar({
     setStarOpen(false);
   };
   return (
-    <div className="manage-bar">
+    <div className={`manage-bar${closing ? " is-closing" : ""}`}>
       <div className="manage-bar-count">{count} selected</div>
       {(fileTools || canStar) && (
         <>

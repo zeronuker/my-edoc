@@ -202,6 +202,8 @@ function App() {
   const [manageMode, setManageMode] = useState(false); // tree rows show checkboxes and the Manage bar is up
   const [renameRequest, setRenameRequest] = useState(null); // { key, name } while the Rename dialog is open
   const lastRenameRef = useRef(null);
+  const lastMoveRef = useRef(null);
+  const lastRotateRef = useRef(null);
   const [moveRequest, setMoveRequest] = useState(null); // { nodes, done } while the Move picker is open; done() clears the ticks
   const [clashRequest, setClashRequest] = useState(null); // { clash, remaining, resolve } while the "name already there" prompt is open
   const lastClashRef = useRef(null);
@@ -1819,6 +1821,13 @@ function App() {
   if (renameRequest) lastRenameRef.current = renameRequest;
   const renamePresence = usePresence(!!renameRequest);
   const renameShown = renameRequest ?? lastRenameRef.current;
+  // Move/Copy picker and Rotate sheet keep their last request on screen for the exit animation.
+  if (moveRequest) lastMoveRef.current = moveRequest;
+  const movePresence = usePresence(!!moveRequest);
+  const moveShown = moveRequest ?? lastMoveRef.current;
+  if (rotateRequest) lastRotateRef.current = rotateRequest;
+  const rotatePresence = usePresence(!!rotateRequest);
+  const rotateShown = rotateRequest ?? lastRotateRef.current;
   if (clashRequest) lastClashRef.current = clashRequest;
   const clashPresence = usePresence(!!clashRequest);
   const clashShown = clashRequest ?? lastClashRef.current;
@@ -1935,23 +1944,25 @@ function App() {
           onClose={() => setRemoveRequest(null)}
         />
       )}
-      {moveRequest && (
+      {movePresence.present && moveShown && (
         <MovePicker
+          closing={movePresence.closing}
           folders={displayFolders}
-          moving={moveRequest.nodes}
-          copy={!!moveRequest.copy}
+          moving={moveShown.nodes}
+          copy={!!moveShown.copy}
           onClose={() => setMoveRequest(null)}
           onConfirm={(destKey) => {
-            const { nodes, done, copy } = moveRequest;
+            const { nodes, done, copy } = moveShown;
             setMoveRequest(null);
             (copy ? runCopy : runMove)(nodes, destKey).then(done);
           }}
         />
       )}
-      {rotateRequest && (
+      {rotatePresence.present && rotateShown && (
         <RotateSheet
-          file={rotateRequest.file}
-          name={rotateRequest.node.name}
+          closing={rotatePresence.closing}
+          file={rotateShown.file}
+          name={rotateShown.node.name}
           onSave={saveRotated}
           onClose={() => setRotateRequest(null)}
         />

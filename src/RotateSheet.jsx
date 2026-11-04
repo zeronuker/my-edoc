@@ -89,7 +89,7 @@ function PageThumb({ pdf, pageNumber, rotation, checked, onToggle }) {
 // some. `file` is what the sheet shows and turns (the saved annotated version
 // when the file has one). onSave(rotations, replace) gets the degrees to add
 // to each page and whether to replace the original; it resolves once saved.
-export default function RotateSheet({ file, name, onSave, onClose }) {
+export default function RotateSheet({ file, name, onSave, onClose, closing = false }) {
   const [pdf, setPdf] = useState(null);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(new Set());
@@ -136,7 +136,7 @@ export default function RotateSheet({ file, name, onSave, onClose }) {
   }
 
   return (
-    <div className="move-picker" role="dialog" aria-label={`Rotate ${name}`}>
+    <div className={`move-picker${closing ? " is-closing" : ""}`} role="dialog" aria-label={`Rotate ${name}`}>
       <div className="move-picker-head">
         <button className="icon-btn" aria-label="Back" onClick={onClose} disabled={busy}>
           <IconChevronLeft size={18} />

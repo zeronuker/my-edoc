@@ -7,7 +7,7 @@ import { FolderIcon } from "./TreeView.jsx";
 // usable on a phone. `folders` is the top-level display folders and `moving`
 // the ticked nodes. onConfirm gets the chosen folder's node key, or null for
 // the top level (only offered when every moving node is a connected folder).
-export default function MovePicker({ folders, moving, onConfirm, onClose, copy = false }) {
+export default function MovePicker({ folders, moving, onConfirm, onClose, copy = false, closing = false }) {
   const [trail, setTrail] = useState([]); // node keys, outermost first
   const byKey = flattenByKey(folders);
   const here = trail.length ? byKey.get(trail[trail.length - 1]) : null;
@@ -31,7 +31,7 @@ export default function MovePicker({ folders, moving, onConfirm, onClose, copy =
   const title = moving.length === 1 ? `${verb} "${moving[0].name}"` : `${verb} ${moving.length} items`;
 
   return (
-    <div className="move-picker" role="dialog" aria-label={title}>
+    <div className={`move-picker${closing ? " is-closing" : ""}`} role="dialog" aria-label={title}>
       <div className="move-picker-head">
         <button
           className="icon-btn"

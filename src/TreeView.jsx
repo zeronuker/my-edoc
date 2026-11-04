@@ -4,6 +4,7 @@ import { IconStarFilled } from "@tabler/icons-react";
 import { folderLevelColor, fileLevelColor, STAR_COLORS } from "./appHelpers.js";
 import { extrasKey } from "./fileSystem.js";
 import ManageBar from "./ManageBar.jsx";
+import { usePresence } from "./usePresence.js";
 
 // A folder draws this many of its children at a time, with a row to reveal
 // the next batch. Drawing (and fitting the name of) every row of a folder
@@ -256,6 +257,7 @@ export default function TreeView({
   // above) before the saved set has loaded, which would otherwise clobber it.
   const expandedLoadedRef = useRef(false);
   const [checkedKeys, setCheckedKeys] = useState(() => new Set());
+  const managePresence = usePresence(manageMode); // keeps the bar on screen for its fade-out
 
   // Leaving Manage mode forgets what was ticked.
   useEffect(() => {
@@ -352,8 +354,9 @@ export default function TreeView({
             )
         )}
       </div>
-      {manageMode && (
+      {managePresence.present && (
         <ManageBar
+          closing={managePresence.closing}
           count={checkedKeys.size}
           fileTools={ticked.length === 1 && ticked[0].kind === "file"}
           canStar={ticked.length > 0 && ticked.every((n) => n.kind === "file")}
