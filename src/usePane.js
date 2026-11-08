@@ -5,6 +5,7 @@ import { extrasKey } from "./fileSystem.js";
 import { dbGet, dbSet } from "./db.js";
 import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import { openTab } from "./appHelpers.js";
+import { applyTurns } from "./pageTurns.js";
 
 // One viewer's worth of document state: which tab it shows, the loaded PDF,
 // page/zoom/view mode, outline, unsaved-annotations flag, and the pdf.js
@@ -51,6 +52,8 @@ export function usePane({
   // happens to be the active one when the dialog's answer comes back).
   const leave = { handle: selectedHandle, pdf, markSaved: () => setHasUnsavedAnnotations(false) };
 
+  const activeKeyRef = useRef(null);
+  activeKeyRef.current = activeKey;
   const pendingRestoreRef = useRef(null);
   const restoringRef = useRef(false);
   // Bumped on every load; an in-flight call whose token no longer matches has
@@ -94,6 +97,8 @@ export function usePane({
       // to continuous. The effect below only catches *changes* to viewMode.
       viewerApi.pdfViewer.scrollMode = SCROLL_MODE_BY_VIEW[viewMode];
       viewerApi.pdfViewer.spreadMode = SPREAD_MODE_BY_VIEW[viewMode];
+      // Pages the user turned with the toolbar earlier in this tab's life, before fitting.
+      applyTurns(viewerApi.pdfViewer, activeKeyRef.current);
       // Fit-page always wins on open — per-file zoom memory below still
       // gets written, but isn't read back here. Page position is.
       viewerApi.pdfViewer.currentScaleValue = "page-fit";

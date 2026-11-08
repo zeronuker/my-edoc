@@ -48,6 +48,7 @@ import { useWakeLock } from "./useWakeLock.js";
 import { useKeyboardShortcuts } from "./useKeyboardShortcuts.js";
 import { usePresentation } from "./usePresentation.js";
 import { useTransitionAnim, ANIM_SPEED_MS, animDurationMs } from "./useTransitionAnim.js";
+import { turnPages } from "./pageTurns.js";
 import { usePresence } from "./usePresence.js";
 import { flattenByKey, isInside, makeNodeKey, parseNodeKey, planMove } from "./treeOverlay.js";
 import { dbGet, dbSet } from "./db.js";
@@ -2312,6 +2313,7 @@ function App() {
             scale={scale}
             numPages={numPages}
             pdfViewer={viewerApi?.pdfViewer}
+            onRotate={(degrees) => turnPages(viewerApi?.pdfViewer, activeKey, degrees)}
             eventBus={viewerApi?.eventBus}
             readingTheme={settings.readingTheme}
             onChangeReadingTheme={(readingTheme) => updateSettings({ readingTheme })}

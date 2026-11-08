@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { extrasKey } from "./fileSystem.js";
 import { openTab, pickNeighbor, orderForSplit } from "./appHelpers.js";
 import { usePane } from "./usePane.js";
+import { clearTurns } from "./pageTurns.js";
 
 const otherOf = (id) => (id === "L" ? "R" : "L");
 
@@ -39,6 +40,7 @@ export function usePdfDocument({ isNarrow, viewerApis, closeSidebarIfAutoHide, a
   // the pane that remains.
   function dropTabs(removed) {
     const { tabs: current, split: wasSplit, activePane: ap, shown } = latest.current;
+    removed.forEach(clearTurns);
     const shownNow = { ...shown };
     let splitNow = wasSplit;
     let activeNow = ap;

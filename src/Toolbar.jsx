@@ -47,11 +47,8 @@ function fitTo(pdfViewer, value) {
   if (pdfViewer) pdfViewer.currentScaleValue = value;
 }
 
-function rotateBy(pdfViewer, degrees) {
-  if (pdfViewer) pdfViewer.pagesRotation = (pdfViewer.pagesRotation + degrees) % 360;
-}
-
 function DesktopToolbar({
+  onRotate,
   viewMode,
   viewModeLocked,
   setViewMode,
@@ -246,22 +243,22 @@ function DesktopToolbar({
               </button>
               <span className="dropdown-sep" />
               <button
-                aria-label="Rotate left"
+                aria-label="Rotate page left"
                 onClick={() => {
-                  rotateBy(pdfViewer, 270);
+                  onRotate(270);
                   viewMenu.setOpen(false);
                 }}
               >
-                <IconRotate size={16} /> Rotate left
+                <IconRotate size={16} /> Rotate page left
               </button>
               <button
-                aria-label="Rotate right"
+                aria-label="Rotate page right"
                 onClick={() => {
-                  rotateBy(pdfViewer, 90);
+                  onRotate(90);
                   viewMenu.setOpen(false);
                 }}
               >
-                <IconRotateClockwise size={16} /> Rotate right
+                <IconRotateClockwise size={16} /> Rotate page right
               </button>
               {fullscreenSupported && (
                 <>
@@ -464,6 +461,7 @@ function Chips({ options, value, onPick, disabled, cols }) {
 // Phone layout: the same controls as the toolbar, laid out as a right-side
 // drawer (opened from the topbar's ⋮) instead of a row of icon buttons.
 function PhoneDrawer({
+  onRotate,
   open,
   onClose,
   viewMode,
@@ -522,10 +520,10 @@ function PhoneDrawer({
         <div className="td-grid td-cols-4">
           <button className="td-chip" onClick={() => fitTo(pdfViewer, "page-width")}>Fit width</button>
           <button className="td-chip" onClick={() => fitTo(pdfViewer, "page-fit")}>Fit page</button>
-          <button className="td-chip" aria-label="Rotate left" onClick={() => rotateBy(pdfViewer, 270)}>
+          <button className="td-chip" aria-label="Rotate page left" onClick={() => onRotate(270)}>
             <IconRotate size={18} />
           </button>
-          <button className="td-chip" aria-label="Rotate right" onClick={() => rotateBy(pdfViewer, 90)}>
+          <button className="td-chip" aria-label="Rotate page right" onClick={() => onRotate(90)}>
             <IconRotateClockwise size={18} />
           </button>
         </div>
