@@ -3821,11 +3821,11 @@ html[data-kb] .modal-dialog .cf-l4 {
 /* Move/Copy picker and Rotate sheet (full screen), the Manage-mode bar and tick boxes, and the Sort
    menu open and close like everything else; speed follows --ed-dur (0 when animations are off). */
 @media (prefers-reduced-motion: no-preference) {
-  .move-picker { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
+  .move-picker { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) both; }
   .move-picker.is-closing { animation: ed-fade-out var(--ed-dur, 180ms) ease both; pointer-events: none; }
-  .manage-bar { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .manage-bar { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) backwards; }
   .manage-bar.is-closing { animation: ed-fade-out var(--ed-dur, 180ms) ease forwards; pointer-events: none; }
   .tree-select-box { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
-  .sort-menu-list { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
-  .sort-menu-list.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
+  .sort-menu-list { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) both; }
+  .sort-menu-list.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
 }
