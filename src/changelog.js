@@ -291,6 +291,7 @@ export const CHANGELOG = [
       'NEW: Sort menu: Name, Date added or Size, ascending or descending; folders stay on top and your choice is remembered.',
       'IMP: Rotate suits big files: nothing starts selected, type pages like 5, 12-20 to pick them (the grid jumps to the first), and it opens on the page you are reading. Only nearby pages are drawn, so 1000+ page files stay smooth.',
       'IMP: The toolbar Rotate buttons now turn just the page you are on (both pages in a two-page view), on screen only; the turn stays while the tab is open and resets when you close the tab or the app.',
+      'FIX: Deleting your last folder no longer leaves the + button hidden.',
       'IMP: Move, Copy and Rotate now open in the same double-line chamfered window as every other popup (full-screen on phones), and opening a folder in the picker slides the list.',
     ],
   },

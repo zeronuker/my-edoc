@@ -596,6 +596,11 @@ function App() {
   } = usePresentation({ pdfViewer: viewerApi?.pdfViewer, viewMode: chosenViewMode, setViewMode, setAnnotationTool });
   useKeyboardShortcuts(viewerApi, { presenting, onExitPresentation: stopPresentation });
 
+  // With no folders left the Manage/Done button is gone, so leave Manage mode or the + stays hidden.
+  useEffect(() => {
+    if (folders.length === 0) setManageMode(false);
+  }, [folders.length]);
+
   // Same dismiss rules as a folder's ⋮ menu: tap outside or press Escape.
   useEffect(() => {
     if (!fabMenuOpen) return undefined;
