@@ -2375,7 +2375,6 @@ body:has(.modal-backdrop, .move-picker) {
 }
 
 .rotate-find .rotate-range { flex: 1; min-width: 0; margin: 0; }
-.rotate-find .rotate-jump { width: 84px; flex: none; margin: 0; }
 
 /* Only the rows near the screen are drawn (RotateSheet.jsx); padding stands in for the rest.
    The 130px cell height and 8px gap are ROW_H / GAP there. */

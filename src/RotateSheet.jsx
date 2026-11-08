@@ -94,7 +94,7 @@ function PageThumb({ pdf, pageNumber, rotation, checked, onToggle }) {
 }
 
 // Window for turning a file's pages. Nothing starts selected (a file can have
-// thousands of pages): type a range like "5, 12-20", tap pages, or press All.
+// thousands of pages): type a range like "5, 12-20" (the grid jumps to its first page), tap pages, or press All.
 // Only the rows near the screen are drawn. `initialPage` (the page being read)
 // starts selected and scrolled to. `file` is what the sheet shows and turns
 // (the saved annotated version when the file has one). onSave(rotations, replace) gets the degrees to add
@@ -107,7 +107,6 @@ export default function RotateSheet({ file, name, initialPage = null, onSave, on
   const [busy, setBusy] = useState(false);
   const [range, setRange] = useState("");
   const [bad, setBad] = useState([]);
-  const [jump, setJump] = useState("");
   const [box, setBox] = useState({ w: 0, h: 0 }); // the grid scroller's inner size
   const [scrollTop, setScrollTop] = useState(0);
   const gridRef = useRef(null);
@@ -173,10 +172,7 @@ export default function RotateSheet({ file, name, initialPage = null, onSave, on
     setRange(text);
     setBad(unreadable);
     setSelected(new Set(pages));
-  };
-  const goTo = () => {
-    const n = Number(jump);
-    if (n >= 1 && n <= numPages) scrollToPage(Math.floor(n));
+    if (pages.length) scrollToPage(pages[0]);
   };
   const changed = turns.some((t) => t !== 0);
   const noneSelected = selected.size === 0;
@@ -228,22 +224,6 @@ export default function RotateSheet({ file, name, initialPage = null, onSave, on
           onChange={(e) => onRange(e.target.value)}
           disabled={!pdf || busy}
         />
-        <input
-          className="rename-input rotate-jump"
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={numPages || undefined}
-          aria-label="Go to page"
-          placeholder="Go to"
-          value={jump}
-          onChange={(e) => setJump(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && goTo()}
-          disabled={!pdf}
-        />
-        <button className="cb-btn" onClick={goTo} disabled={!pdf}>
-          Go
-        </button>
       </div>
       <div className="move-picker-crumbs">
         {pdf ? `${selected.size} of ${numPages} pages selected` : error ?? "Loading pages…"}
