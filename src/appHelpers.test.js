@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  parsePageRange,
   STAR_COLORS,
   applyStar,
   starredEntries,
@@ -215,4 +216,18 @@ test("starredEntries keeps starred files in order, and can filter by colour", ()
   const stars = { "Lib:a.pdf": "red", "Lib:c.pdf": "blue" };
   assert.deepEqual(starredEntries(files, stars).map((e) => [e.name, e.color]), [["a.pdf", "red"], ["c.pdf", "blue"]]);
   assert.deepEqual(starredEntries(files, stars, "blue").map((e) => e.name), ["c.pdf"]);
+});
+
+test("parsePageRange reads singles, ranges, spaces and commas", () => {
+  assert.deepEqual(parsePageRange("5, 12-14 300", 500), { pages: [5, 12, 13, 14, 300], bad: [] });
+});
+
+test("parsePageRange clips to the page count and flags what is outside or unreadable", () => {
+  assert.deepEqual(parsePageRange("8-20", 10), { pages: [8, 9, 10], bad: [] });
+  assert.deepEqual(parsePageRange("20-18, 0, abc, 3", 10), { pages: [3], bad: ["20-18", "0", "abc"] });
+  assert.deepEqual(parsePageRange("", 10), { pages: [], bad: [] });
+});
+
+test("parsePageRange treats a reversed range like a forward one and drops duplicates", () => {
+  assert.deepEqual(parsePageRange("7-5, 6", 10), { pages: [5, 6, 7], bad: [] });
 });

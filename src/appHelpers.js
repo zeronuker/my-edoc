@@ -232,3 +232,25 @@ export function fileLevelColor(depth) {
   const parent = LEVEL_COLORS[(depth - 1) % LEVEL_COLORS.length];
   return `color-mix(in srgb, ${parent} 50%, white)`;
 }
+
+// "5, 12-20 300" -> { pages: [5, 12..20, 300] (sorted, unique, within 1..max), bad: ["x"] }.
+// A range is clipped to max; a reversed range (20-12) counts the same; anything
+// unreadable or wholly outside 1..max lands in `bad`.
+export function parsePageRange(text, max) {
+  const pages = new Set();
+  const bad = [];
+  for (const token of text.split(/[,\s]+/).filter(Boolean)) {
+    const m = /^(\d+)(?:-(\d+))?$/.exec(token);
+    if (!m) {
+      bad.push(token);
+      continue;
+    }
+    const a = Number(m[1]);
+    const b = m[2] === undefined ? a : Number(m[2]);
+    const lo = Math.max(1, Math.min(a, b));
+    const hi = Math.min(max, Math.max(a, b));
+    if (lo > hi) bad.push(token);
+    else for (let n = lo; n <= hi; n++) pages.add(n);
+  }
+  return { pages: [...pages].sort((x, y) => x - y), bad };
+}

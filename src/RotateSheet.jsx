@@ -3,8 +3,16 @@ import { RenderingCancelledException } from "pdfjs-dist";
 import { IconChecks, IconChevronLeft, IconRotate, IconRotateClockwise, IconSquareOff, IconX } from "@tabler/icons-react";
 import ChamferFrame from "@brand/ChamferFrame";
 import { loadDocument } from "./edoc.js";
+import { parsePageRange } from "./appHelpers.js";
 
 const THUMB = 96; // px: longest side of a page thumbnail
+// Grid geometry for drawing only the rows near the screen. Must match .rotate-thumb's height
+// and the grid gap in App.css; a cell is 108px wide at least.
+const ROW_H = 130;
+const GAP = 8;
+const CELL_MIN = 108;
+const PAD_X = 24; // the scroller's left + right padding
+const BUFFER_ROWS = 2;
 
 // One page at a time: rendering several big scanned pages at once is what
 // runs a small device out of memory.
@@ -85,17 +93,34 @@ function PageThumb({ pdf, pageNumber, rotation, checked, onToggle }) {
   );
 }
 
-// Full-screen sheet for turning a file's pages. Every page starts selected,
-// so Rotate with no further taps turns the whole file; tap pages to pick just
-// some. `file` is what the sheet shows and turns (the saved annotated version
-// when the file has one). onSave(rotations, replace) gets the degrees to add
+// Window for turning a file's pages. Nothing starts selected (a file can have
+// thousands of pages): type a range like "5, 12-20", tap pages, or press All.
+// Only the rows near the screen are drawn. `initialPage` (the page being read)
+// starts selected and scrolled to. `file` is what the sheet shows and turns
+// (the saved annotated version when the file has one). onSave(rotations, replace) gets the degrees to add
 // to each page and whether to replace the original; it resolves once saved.
-export default function RotateSheet({ file, name, onSave, onClose, closing = false }) {
+export default function RotateSheet({ file, name, initialPage = null, onSave, onClose, closing = false }) {
   const [pdf, setPdf] = useState(null);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [turns, setTurns] = useState([]); // degrees added so far, per page
   const [busy, setBusy] = useState(false);
+  const [range, setRange] = useState("");
+  const [bad, setBad] = useState([]);
+  const [jump, setJump] = useState("");
+  const [box, setBox] = useState({ w: 0, h: 0 }); // the grid scroller's inner size
+  const [scrollTop, setScrollTop] = useState(0);
+  const gridRef = useRef(null);
+  const placed = useRef(false);
+
+  useEffect(() => {
+    const el = gridRef.current;
+    const measure = () => setBox({ w: el.clientWidth - PAD_X, h: el.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let doc = null;
@@ -106,14 +131,17 @@ export default function RotateSheet({ file, name, onSave, onClose, closing = fal
         if (gone) return loaded.destroy();
         setPdf(loaded);
         setTurns(new Array(loaded.numPages).fill(0));
-        setSelected(new Set(Array.from({ length: loaded.numPages }, (_, i) => i + 1)));
+        if (initialPage >= 1 && initialPage <= loaded.numPages) {
+          setSelected(new Set([initialPage]));
+          setRange(String(initialPage));
+        }
       })
       .catch(() => !gone && setError("This file can't be opened here. It may be password protected or damaged."));
     return () => {
       gone = true;
       doc?.destroy();
     };
-  }, [file]);
+  }, [file, initialPage]);
 
   const turn = (delta) => setTurns((prev) => prev.map((t, i) => (selected.has(i + 1) ? (t + delta) % 360 : t)));
   const toggle = (n) =>
@@ -124,6 +152,32 @@ export default function RotateSheet({ file, name, onSave, onClose, closing = fal
       return next;
     });
   const numPages = pdf?.numPages ?? 0;
+  const cols = box.w > 0 ? Math.max(1, Math.floor((box.w + GAP) / (CELL_MIN + GAP))) : 3;
+  const rowCount = Math.ceil(numPages / cols);
+  const firstRow = Math.max(0, Math.floor(scrollTop / (ROW_H + GAP)) - BUFFER_ROWS);
+  const lastRow = Math.min(rowCount, Math.ceil((scrollTop + box.h) / (ROW_H + GAP)) + BUFFER_ROWS);
+  const visible = [];
+  for (let n = firstRow * cols + 1; n <= Math.min(numPages, lastRow * cols); n++) visible.push(n);
+
+  const scrollToPage = (n) => {
+    if (gridRef.current) gridRef.current.scrollTop = Math.floor((n - 1) / cols) * (ROW_H + GAP);
+  };
+  // Once the page count and the width are known, show the page being read.
+  useEffect(() => {
+    if (placed.current || !pdf || box.w <= 0) return;
+    placed.current = true;
+    if (initialPage >= 1 && initialPage <= numPages) scrollToPage(initialPage);
+  });
+  const onRange = (text) => {
+    const { pages, bad: unreadable } = parsePageRange(text, numPages);
+    setRange(text);
+    setBad(unreadable);
+    setSelected(new Set(pages));
+  };
+  const goTo = () => {
+    const n = Number(jump);
+    if (n >= 1 && n <= numPages) scrollToPage(Math.floor(n));
+  };
   const changed = turns.some((t) => t !== 0);
   const noneSelected = selected.size === 0;
 
@@ -165,15 +219,52 @@ export default function RotateSheet({ file, name, onSave, onClose, closing = fal
           <IconSquareOff size={14} /> None
         </button>
       </div>
+      <div className="rotate-find">
+        <input
+          className="rename-input rotate-range"
+          aria-label="Pages to select"
+          placeholder="Pages: 5, 12-20, 300"
+          value={range}
+          onChange={(e) => onRange(e.target.value)}
+          disabled={!pdf || busy}
+        />
+        <input
+          className="rename-input rotate-jump"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={numPages || undefined}
+          aria-label="Go to page"
+          placeholder="Go to"
+          value={jump}
+          onChange={(e) => setJump(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && goTo()}
+          disabled={!pdf}
+        />
+        <button className="cb-btn" onClick={goTo} disabled={!pdf}>
+          Go
+        </button>
+      </div>
       <div className="move-picker-crumbs">
         {pdf ? `${selected.size} of ${numPages} pages selected` : error ?? "Loading pages…"}
+        {bad.length > 0 && ` · can't use: ${bad.join(", ")}`}
       </div>
 
-      <div className="rotate-grid">
-        {pdf &&
-          Array.from({ length: numPages }, (_, i) => i + 1).map((n) => (
-            <PageThumb key={n} pdf={pdf} pageNumber={n} rotation={turns[n - 1] ?? 0} checked={selected.has(n)} onToggle={toggle} />
-          ))}
+      <div className="rotate-grid" ref={gridRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
+        {pdf && (
+          <div
+            className="rotate-rows"
+            style={{
+              gridTemplateColumns: `repeat(${cols}, 1fr)`,
+              paddingTop: firstRow * (ROW_H + GAP),
+              paddingBottom: Math.max(0, rowCount - lastRow) * (ROW_H + GAP),
+            }}
+          >
+            {visible.map((n) => (
+              <PageThumb key={n} pdf={pdf} pageNumber={n} rotation={turns[n - 1] ?? 0} checked={selected.has(n)} onToggle={toggle} />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="move-picker-foot rotate-foot">

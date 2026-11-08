@@ -1598,7 +1598,9 @@ function App() {
   async function startRotate(node, done) {
     try {
       const file = (await readAnnotatedCopy(extrasKey(node.handle))) ?? (await node.handle.getFile());
-      setRotateRequest({ node, file, done });
+      // Opened on the page being read when this is the open document.
+      const page = selectedHandle && extrasKey(selectedHandle) === extrasKey(node.handle) ? currentPage : null;
+      setRotateRequest({ node, file, done, page });
     } catch (err) {
       setError(`Couldn't open "${node.name}": ${err.message}`);
     }
@@ -1963,6 +1965,7 @@ function App() {
           closing={rotatePresence.closing}
           file={rotateShown.file}
           name={rotateShown.node.name}
+          initialPage={rotateShown.page}
           onSave={saveRotated}
           onClose={() => setRotateRequest(null)}
         />

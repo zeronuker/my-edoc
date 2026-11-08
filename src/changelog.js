@@ -289,6 +289,7 @@ export const CHANGELOG = [
       'NEW: Star (File tools): colour-star files (red, green, purple, orange, blue); the Recent tab becomes Recent/Favs with a Starred section.',
       "NEW: Protect (File tools): lock a PDF with a password (AES-256); save as \"name (protected).pdf\" or replace. A forgotten password can't be recovered; protected files open in the app's own password dialog.",
       'NEW: Sort menu: Name, Date added or Size, ascending or descending; folders stay on top and your choice is remembered.',
+      'IMP: Rotate suits big files: nothing starts selected, type pages like 5, 12-20 to pick them, Go to a page, and it opens on the page you are reading. Only nearby pages are drawn, so 1000+ page files stay smooth.',
       'IMP: Move, Copy and Rotate now open in the same double-line chamfered window as every other popup (full-screen on phones).',
     ],
   },
