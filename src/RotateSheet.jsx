@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { RenderingCancelledException } from "pdfjs-dist";
 import { IconChecks, IconChevronLeft, IconRotate, IconRotateClockwise, IconSquareOff, IconX } from "@tabler/icons-react";
+import ChamferFrame from "@brand/ChamferFrame";
 import { loadDocument } from "./edoc.js";
 
 const THUMB = 96; // px: longest side of a page thumbnail
@@ -136,7 +137,9 @@ export default function RotateSheet({ file, name, onSave, onClose, closing = fal
   }
 
   return (
-    <div className={`move-picker${closing ? " is-closing" : ""}`} role="dialog" aria-label={`Rotate ${name}`}>
+    <>
+      <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={busy ? undefined : onClose} />
+      <ChamferFrame className={`modal-dialog move-picker${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={`Rotate ${name}`}>
       <div className="move-picker-head">
         <button className="icon-btn" aria-label="Back" onClick={onClose} disabled={busy}>
           <IconChevronLeft size={18} />
@@ -187,6 +190,7 @@ export default function RotateSheet({ file, name, onSave, onClose, closing = fal
           {busy ? "Saving…" : "Save as new file"}
         </button>
       </div>
-    </div>
+      </ChamferFrame>
+    </>
   );
 }

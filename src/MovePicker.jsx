@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconCopy, IconFolderShare, IconX } from "@tabler/icons-react";
+import ChamferFrame from "@brand/ChamferFrame";
 import { flattenByKey, isInside } from "./treeOverlay.js";
 import { FolderIcon } from "./TreeView.jsx";
 
-// Full-screen "move to" sheet: one folder level at a time, so it stays
+// Framed "move to" window (full-screen on phones): one folder level at a time, so it stays
 // usable on a phone. `folders` is the top-level display folders and `moving`
 // the ticked nodes. onConfirm gets the chosen folder's node key, or null for
 // the top level (only offered when every moving node is a connected folder).
@@ -31,7 +32,9 @@ export default function MovePicker({ folders, moving, onConfirm, onClose, copy =
   const title = moving.length === 1 ? `${verb} "${moving[0].name}"` : `${verb} ${moving.length} items`;
 
   return (
-    <div className={`move-picker${closing ? " is-closing" : ""}`} role="dialog" aria-label={title}>
+    <>
+      <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
+      <ChamferFrame className={`modal-dialog move-picker${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true" aria-label={title}>
       <div className="move-picker-head">
         <button
           className="icon-btn"
@@ -76,6 +79,7 @@ export default function MovePicker({ folders, moving, onConfirm, onClose, copy =
           {copy ? <IconCopy size={14} /> : <IconFolderShare size={14} />} {verb} here
         </button>
       </div>
-    </div>
+      </ChamferFrame>
+    </>
   );
 }
