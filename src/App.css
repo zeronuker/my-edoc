@@ -2355,26 +2355,33 @@ body:has(.modal-backdrop, .move-picker) {
 
 /* Rotate: a page grid under the tool buttons. Layout (head, foot, hint)
    comes from the Move picker, which this shares. */
-.rotate-tools {
+/* Pick pages (field, All, None, count), then turn them (Left, Right, 180). One wrapping row
+   with a forced break; on phones the field stretches and the count moves to the turn row. */
+.rotate-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px 0;
+  gap: 8px;
+  padding: 10px 12px 0;
 }
 
-.rotate-tools-gap {
-  flex: 1;
-}
+.rotate-bar .rotate-range { width: 200px; flex: none; margin: 0; }
+.rotate-count { order: 1; margin-left: auto; font-size: 12px; color: var(--cb-ink-dim); }
+.rotate-break { order: 2; flex-basis: 100%; height: 0; }
+.rotate-bar .cb-btn { flex: none; }
+.rotate-bar .rotate-range, .rotate-bar > .cb-btn:nth-of-type(-n+2) { order: 0; }
+.rotate-bar > .cb-btn:nth-of-type(n+3) { order: 3; }
 
-.rotate-find {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px 0;
+@media (max-width: 520px) {
+  .rotate-bar .rotate-range { flex: 1; width: auto; min-width: 0; }
+  .rotate-count { order: 4; }
+  .rotate-long { display: none; }
+  .rotate-bar { gap: 6px; }
+  .rotate-bar .cb-btn, .rotate-foot .cb-btn { padding-left: 10px; padding-right: 10px; }
+  .rotate-count { font-size: 11px; }
+  .rotate-foot { gap: 6px; padding-left: 12px; padding-right: 12px; }
+  .rotate-foot .cb-btn svg { display: none; }
 }
-
-.rotate-find .rotate-range { flex: 1; min-width: 0; margin: 0; }
 
 /* Only the rows near the screen are drawn (RotateSheet.jsx); padding stands in for the rest.
    The 130px cell height and 8px gap are ROW_H / GAP there. */
@@ -2446,6 +2453,7 @@ body:has(.modal-backdrop, .move-picker) {
 
 .rotate-foot {
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 /* A file's star: small, at the end of its tree row. */

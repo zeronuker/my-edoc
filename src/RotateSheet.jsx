@@ -197,7 +197,26 @@ export default function RotateSheet({ file, name, initialPage = null, onSave, on
         <div className="move-picker-title">Rotate "{name}"</div>
       </div>
 
-      <div className="rotate-tools">
+      <div className="rotate-bar">
+        <input
+          className="rename-input rotate-range"
+          aria-label="Pages to select"
+          placeholder="Pages: 5, 12-20, 300"
+          value={range}
+          onChange={(e) => onRange(e.target.value)}
+          disabled={!pdf || busy}
+        />
+        <button className="cb-btn" onClick={() => setSelected(new Set(Array.from({ length: numPages }, (_, i) => i + 1)))} disabled={busy}>
+          <IconChecks size={14} /> All
+        </button>
+        <button className="cb-btn" onClick={() => setSelected(new Set())} disabled={busy}>
+          <IconSquareOff size={14} /> None
+        </button>
+        <span className="rotate-count">
+          {pdf ? <>{selected.size} of {numPages}<span className="rotate-long"> selected</span></> : error ?? "Loading pages…"}
+          {bad.length > 0 && ` · can't use: ${bad.join(", ")}`}
+        </span>
+        <span className="rotate-break" />
         <button className="cb-btn" onClick={() => turn(270)} disabled={noneSelected || busy}>
           <IconRotate size={14} /> Left
         </button>
@@ -207,27 +226,6 @@ export default function RotateSheet({ file, name, initialPage = null, onSave, on
         <button className="cb-btn" onClick={() => turn(180)} disabled={noneSelected || busy}>
           180°
         </button>
-        <span className="rotate-tools-gap" />
-        <button className="cb-btn" onClick={() => setSelected(new Set(Array.from({ length: numPages }, (_, i) => i + 1)))} disabled={busy}>
-          <IconChecks size={14} /> All
-        </button>
-        <button className="cb-btn" onClick={() => setSelected(new Set())} disabled={busy}>
-          <IconSquareOff size={14} /> None
-        </button>
-      </div>
-      <div className="rotate-find">
-        <input
-          className="rename-input rotate-range"
-          aria-label="Pages to select"
-          placeholder="Pages: 5, 12-20, 300"
-          value={range}
-          onChange={(e) => onRange(e.target.value)}
-          disabled={!pdf || busy}
-        />
-      </div>
-      <div className="move-picker-crumbs">
-        {pdf ? `${selected.size} of ${numPages} pages selected` : error ?? "Loading pages…"}
-        {bad.length > 0 && ` · can't use: ${bad.join(", ")}`}
       </div>
 
       <div className="rotate-grid" ref={gridRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
@@ -248,17 +246,14 @@ export default function RotateSheet({ file, name, initialPage = null, onSave, on
       </div>
 
       <div className="move-picker-foot rotate-foot">
-        <span className="move-picker-hint">
-          {changed ? "Replace overwrites the original and can't be undone." : "Rotate pages, then save."}
-        </span>
         <button className="cb-btn" onClick={onClose} disabled={busy}>
           <IconX size={14} /> Cancel
         </button>
         <button className="cb-btn" onClick={() => save(true)} disabled={!changed || busy}>
-          Replace original
+          Replace<span className="rotate-long"> original</span>
         </button>
         <button className="cb-btn update-dialog-now" onClick={() => save(false)} disabled={!changed || busy}>
-          {busy ? "Saving…" : "Save as new file"}
+          {busy ? "Saving…" : (<>Save <span className="rotate-long">as </span>new<span className="rotate-long"> file</span></>)}
         </button>
       </div>
       </ChamferFrame>
