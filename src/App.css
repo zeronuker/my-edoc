@@ -2969,11 +2969,11 @@ html[data-kb] .modal-dialog .cf-l4 {
 @keyframes ed-tab-out { from { opacity: 1; max-width: var(--w, 220px); } to { opacity: 0; max-width: 0; } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .doc-tab { animation: ed-row-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .doc-tab { animation: ed-row-in var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
   .doc-tab.is-leaving {
     overflow: hidden;
     pointer-events: none;
-    animation: ed-tab-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards;
+    animation: ed-tab-out var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards;
   }
 }
 
@@ -3505,7 +3505,7 @@ html[data-kb] .modal-dialog .cf-l4 {
     --cf-pad: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   }
   @media (prefers-reduced-motion: no-preference) {
-    .modal-dialog.settings-dialog { animation: ed-sheet-up var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) backwards; }
+    .modal-dialog.settings-dialog { animation: ed-sheet-up var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) backwards; }
     .modal-dialog.settings-dialog.is-closing { animation: ed-sheet-down var(--ed-dur, 260ms) cubic-bezier(.4,0,.2,1) forwards; }
   }
   .settings-layout { flex-direction: column; }
@@ -3580,16 +3580,16 @@ html[data-kb] .modal-dialog .cf-l4 {
 @keyframes ed-search-out  { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(-6px); } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .search-wrap.open .search-bar { animation: ed-search-open var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .search-wrap.open .search-bar { animation: ed-search-open var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
   .search-bar > button,
-  .search-bar > .match-count { animation: ed-search-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
-  .dropdown-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
-  .dropdown-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
-  .search-wrap.open.closing .search-bar { animation: ed-search-shut var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; }
+  .search-bar > .match-count { animation: ed-search-in var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
+  .dropdown-menu { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) both; }
+  .dropdown-menu.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
+  .search-wrap.open.closing .search-bar { animation: ed-search-shut var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards; }
   .search-bar > button.is-closing,
-  .search-bar > .match-count.is-closing { animation: ed-search-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
-  .ed-anim-slide { animation: ed-slide var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
-  .ed-anim-rise  { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1) both; }
+  .search-bar > .match-count.is-closing { animation: ed-search-out var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
+  .ed-anim-slide { animation: ed-slide var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) both; }
+  .ed-anim-rise  { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) both; }
 }
 @media (prefers-reduced-motion: reduce) {
   .modal-dialog, .modal-backdrop, .modal-dialog.is-closing, .modal-backdrop.is-closing { animation: none; }
@@ -3639,16 +3639,16 @@ html[data-kb] .modal-dialog .cf-l4 {
 
 @media (prefers-reduced-motion: no-preference) {
   .add-folder-fab svg,
-  .add-dest-chevron svg { transition: transform var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1); }
+  .add-dest-chevron svg { transition: transform var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1); }
   .add-dest-check { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
-  .add-fab-menu { animation: ed-pop-up var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) both; }
-  .add-fab-menu.is-closing { animation: ed-pop-up-out var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) forwards; pointer-events: none; }
+  .add-fab-menu { animation: ed-pop-up var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) both; }
+  .add-fab-menu.is-closing { animation: ed-pop-up-out var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
   .add-fab-menu .tree-kebab-item {
     animation: ed-fade var(--ed-dur, 180ms) ease backwards;
     animation-delay: calc(var(--i, 0) * var(--ed-dur, 180ms) * 0.25);
   }
   .add-files-row {
-    animation: ed-row-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards;
+    animation: ed-row-in var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards;
     animation-delay: calc(var(--i, 0) * var(--ed-dur, 180ms) * 0.15);
   }
   .add-files-choice,
@@ -3676,7 +3676,7 @@ html[data-kb] .modal-dialog .cf-l4 {
 @keyframes ed-pill-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%); } }
 
 @media (prefers-reduced-motion: no-preference) {
-  .page-pill { animation: ed-pill-in var(--ed-dur, 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .page-pill { animation: ed-pill-in var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
   .error-banner,
   .empty-illustration,
   .reopen-banner { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
@@ -3712,7 +3712,7 @@ html[data-kb] .modal-dialog .cf-l4 {
 
 @media (prefers-reduced-motion: no-preference) {
   .tree-children,
-  .outline-children { animation: ed-expand min(var(--ed-dur, 180ms), 180ms) cubic-bezier(.22,.8,.3,1) backwards; }
+  .outline-children { animation: ed-expand min(var(--ed-dur, 180ms), 180ms) cubic-bezier(.4,0,.6,1) backwards; }
 }
 
 /* Small confirmations. Bookmark pop is click-triggered (.pop is set from
@@ -3727,7 +3727,7 @@ html[data-kb] .modal-dialog .cf-l4 {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .bookmark-toggle.active.pop svg { animation: ed-icon-pop var(--ed-dur, 260ms) cubic-bezier(.22,.8,.3,1); }
+  .bookmark-toggle.active.pop svg { animation: ed-icon-pop var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1); }
   .copy-file-check path {
     stroke-dasharray: 18;
     animation: ed-check-draw var(--ed-dur, 180ms) ease-out backwards;

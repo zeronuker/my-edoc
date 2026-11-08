@@ -3,7 +3,7 @@ import { useState, useRef, useLayoutEffect } from "react";
 const ANIM_STYLES = ["slide", "rise"];
 
 // Speed presets (ms) behind the --ed-dur CSS variable.
-export const ANIM_SPEED_MS = { normal: 260, slow: 420, slower: 650 };
+export const ANIM_SPEED_MS = { normal: 260, slow: 600, slower: 1100 };
 
 // Transition for a keyed panel (sidebar tab bodies). Put the returned
 // className/style on the panel; the class is dropped after the animation so
