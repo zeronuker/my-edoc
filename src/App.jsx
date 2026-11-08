@@ -1952,6 +1952,7 @@ function App() {
           folders={displayFolders}
           moving={moveShown.nodes}
           copy={!!moveShown.copy}
+          animStyle={settings.animStyle}
           onClose={() => setMoveRequest(null)}
           onConfirm={(destKey) => {
             const { nodes, done, copy } = moveShown;

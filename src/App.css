@@ -2194,6 +2194,13 @@ body:has(.modal-backdrop, .move-picker) {
 
 .move-picker .cf-l4 { overflow: hidden; }
 
+.move-picker-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .move-picker-head {
   display: flex;
   align-items: center;

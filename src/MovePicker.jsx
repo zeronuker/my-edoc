@@ -3,13 +3,19 @@ import { IconChevronLeft, IconChevronRight, IconCopy, IconFolderShare, IconX } f
 import ChamferFrame from "@brand/ChamferFrame";
 import { flattenByKey, isInside } from "./treeOverlay.js";
 import { FolderIcon } from "./TreeView.jsx";
+import { useTransitionAnim } from "./useTransitionAnim.js";
+
+// Folder depths, in order, for the slide direction (deeper = further right).
+const DEPTHS = Array.from({ length: 100 }, (_, i) => i);
 
 // Framed "move to" window (full-screen on phones): one folder level at a time, so it stays
 // usable on a phone. `folders` is the top-level display folders and `moving`
 // the ticked nodes. onConfirm gets the chosen folder's node key, or null for
 // the top level (only offered when every moving node is a connected folder).
-export default function MovePicker({ folders, moving, onConfirm, onClose, copy = false, closing = false }) {
+export default function MovePicker({ folders, moving, onConfirm, onClose, copy = false, closing = false, animStyle }) {
   const [trail, setTrail] = useState([]); // node keys, outermost first
+  // Opening a folder slides the crumbs and list in from the right, going up from the left.
+  const levelAnim = useTransitionAnim(trail.length, DEPTHS, animStyle);
   const byKey = flattenByKey(folders);
   const here = trail.length ? byKey.get(trail[trail.length - 1]) : null;
   const hereKey = here ? here.key : null;
@@ -46,6 +52,7 @@ export default function MovePicker({ folders, moving, onConfirm, onClose, copy =
         <div className="move-picker-title">{title}</div>
       </div>
 
+      <div className={`move-picker-body ${levelAnim.className}`} style={levelAnim.style}>
       <div className="move-picker-crumbs">
         {crumbs.map((c, i) => (
           <button
@@ -68,6 +75,7 @@ export default function MovePicker({ folders, moving, onConfirm, onClose, copy =
             <IconChevronRight size={16} />
           </button>
         ))}
+      </div>
       </div>
 
       <div className="move-picker-foot">
