@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  resultMessage,
   parsePageRange,
   STAR_COLORS,
   applyStar,
@@ -230,4 +231,22 @@ test("parsePageRange clips to the page count and flags what is outside or unread
 
 test("parsePageRange treats a reversed range like a forward one and drops duplicates", () => {
   assert.deepEqual(parsePageRange("7-5, 6", 10), { pages: [5, 6, 7], bad: [] });
+});
+
+test("resultMessage: green line for what went in, amber only when files were skipped", () => {
+  assert.deepEqual(resultMessage("added", 2362, 0), { title: "FOLDER ADDED", added: "2362 files added.", warning: null });
+  const some = resultMessage("added", 2346, 16);
+  assert.equal(some.added, "2346 files added.");
+  assert.equal(some.warning, "16 couldn't be read and were skipped (path may be too long).");
+  assert.equal(resultMessage("sent", 5, 1).warning, "1 couldn't be read and wasn't sent (path may be too long).");
+  assert.equal(resultMessage("received", 9, 2).warning, "The other device couldn't read 2 files and didn't send them.");
+  assert.equal(resultMessage("received", 9, 1).warning, "The other device couldn't read 1 file and didn't send it.");
+});
+
+test("resultMessage: nothing readable means nothing added, with no green line", () => {
+  const none = resultMessage("added", 0, 16);
+  assert.equal(none.title, "NOTHING ADDED");
+  assert.equal(none.added, null);
+  assert.equal(none.warning, "None of the 16 PDFs could be read (path may be too long).");
+  assert.equal(resultMessage("sent", 0, 3).title, "NOTHING SENT");
 });

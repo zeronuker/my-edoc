@@ -157,3 +157,26 @@ test("a list of thousands of files goes in small messages and arrives whole", as
   a.emit("data", b.sent[0]); // the receiver's "ok"
   await sending;
 });
+
+test("files the sender couldn't read are announced and handed to onReceived", async () => {
+  const conn = fakeConn();
+  let received = null;
+  openLink(conn, { onReceived: (r) => (received = r) });
+  conn.emit("data", JSON.stringify({ t: "manifest", kind: "folder", count: 1 }));
+  conn.emit("data", JSON.stringify({ t: "skipped", names: ["F/long1.pdf", "F/long2.pdf"] }));
+  conn.emit("data", JSON.stringify({ t: "skipped", names: ["F/long3.pdf"] }));
+  conn.emit("data", JSON.stringify({ t: "files", files: [{ path: "F/a.pdf", size: 1 }] }));
+  conn.emit("data", bytes(1));
+  await tick();
+  assert.deepEqual(received.skipped, ["F/long1.pdf", "F/long2.pdf", "F/long3.pdf"]);
+});
+
+test("a sender with nothing skipped gives an empty skipped list", async () => {
+  const conn = fakeConn();
+  let received = null;
+  openLink(conn, { onReceived: (r) => (received = r) });
+  announce(conn, [{ path: "F/a.pdf", size: 1 }]);
+  conn.emit("data", bytes(1));
+  await tick();
+  assert.deepEqual(received.skipped, []);
+});

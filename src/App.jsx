@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   pickFolderLegacy,
+  scanReadable,
   buildTreeFromFileList,
   wrapDroppedFile,
   writeLegacyFiles,
@@ -54,6 +55,7 @@ import { flattenByKey, isInside, makeNodeKey, parseNodeKey, planMove } from "./t
 import { dbGet, dbSet } from "./db.js";
 import {
   formatBytes,
+  resultMessage,
   freeSpaceWarning,
   omitKeys,
   applyStar,
@@ -95,6 +97,7 @@ import Pane from "./Pane.jsx";
 import Toolbar from "./Toolbar.jsx";
 import TabBar from "./TabBar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
+import UploadResultModal from "./UploadResultModal.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import WifiModal from "./WifiModal.jsx";
 import { withPath } from "./transfer.js";
@@ -196,6 +199,7 @@ function App() {
   const [annotationTool, setAnnotationTool] = useState(null);
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneCount } while copying files into OPFS
+  const [uploadReport, setUploadReport] = useState(null); // { title, subtitle, added, warning, names } once files were added, sent or received
   const [globalSearch, setGlobalSearch] = useState("");
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
   const [removeRequest, setRemoveRequest] = useState(null); // { name, kind, count, annotatedCount, otherCount, items: [{ isRoot, folderKey, relPath, cleanNames, ... }] } while the Delete confirmation is open
@@ -941,13 +945,32 @@ function App() {
     await addFolderFromList(fileList);
   }
 
+  // The window after files were added, sent or received (see resultMessage).
+  function showResult(kind, subtitle, added, skipped) {
+    setUploadReport({ subtitle, names: skipped, ...resultMessage(kind, added, skipped.length) });
+  }
+
   // `savedAs`: the storage id the files were already saved under as they
   // arrived over wifi. Without it they're copied into storage here instead.
-  async function addFolderFromList(fileList, savedAs) {
+  // `fromWifi`: the paths the sender couldn't read (empty if none) for a folder
+  // that came over wifi, null for one picked here. A picked folder is scanned
+  // first: unreadable PDFs are left out of the tree and listed once it's added.
+  async function addFolderFromList(fileList, savedAs, fromWifi = null) {
     const folderId = savedAs ?? crypto.randomUUID();
     let kept = false;
     try {
-      kept = await addFolderToStorage(fileList, folderId, !!savedAs);
+      const scan = fromWifi ? { readable: fileList, unreadable: [] } : await scanReadable(fileList);
+      const pdfs = scan.readable.filter((f) => f.name.toLowerCase().endsWith(".pdf")).length;
+      if (pdfs === 0 && scan.unreadable.length > 0) {
+        showResult("added", scan.unreadable[0].split("/")[0], 0, scan.unreadable);
+        return;
+      }
+      kept = await addFolderToStorage(scan.readable, folderId, !!savedAs);
+      if (kept) {
+        const name = scan.readable[0].webkitRelativePath.split("/")[0];
+        if (!fromWifi) showResult("added", name, pdfs, scan.unreadable);
+        else if (fromWifi.length > 0) showResult("received", name, pdfs, fromWifi);
+      }
     } finally {
       // Cancelled or failed after the files were saved: don't leave them behind.
       if (savedAs && !kept) await deleteLegacyFolderFiles(folderId);
@@ -1044,15 +1067,20 @@ function App() {
   // Files that came over wifi (WifiModal) go through the same flows as
   // picked ones: a folder like Add folder, loose PDFs like Add files. With no
   // folder yet to put loose PDFs in, they start one called "Received".
-  function handleReceived({ kind, files, store }) {
+  function handleReceived({ kind, files, store, skipped = [] }) {
     if (kind === "folder") {
-      addFolderFromList(files, store?.folderId).catch((err) => setError(`Couldn't add the folder: ${err.message}`));
-    } else if (addFilesTargets.length === 0) {
-      addFolderFromList(files.map((f) => withPath(f, `Received/${f.name}`))).catch((err) =>
-        setError(`Couldn't add the files: ${err.message}`)
+      addFolderFromList(files, store?.folderId, skipped).catch((err) =>
+        setError(`Couldn't add the folder: ${err.message}`)
       );
+    } else if (addFilesTargets.length === 0) {
+      addFolderFromList(
+        files.map((f) => withPath(f, `Received/${f.name}`)),
+        undefined,
+        skipped
+      ).catch((err) => setError(`Couldn't add the files: ${err.message}`));
     } else {
       startAddFiles(files);
+      if (skipped.length > 0) showResult("received", "WIFI", files.length, skipped);
     }
   }
 
@@ -1884,6 +1912,7 @@ function App() {
           onCancel={() => copyControllerRef.current?.abort()}
         />
       )}
+      {uploadReport && <UploadResultModal {...uploadReport} onClose={() => setUploadReport(null)} />}
       {addFilesPresence.present && addFilesShown && addFilesTargets.length > 0 && (
         <AddFilesModal
           closing={addFilesPresence.closing}
@@ -1900,8 +1929,9 @@ function App() {
       {wifiPresence.present && (
         <WifiModal
           closing={wifiPresence.closing}
-          hidden={!!(addFiles || placement || copyProgress || choice)}
+          hidden={!!(addFiles || placement || copyProgress || choice || uploadReport)}
           appError={error}
+          onSent={(added, skipped) => showResult("sent", "SEND / RECEIVE VIA WIFI", added, skipped)}
           onReceived={handleReceived}
           beginReceive={beginReceive}
           onClose={() => setWifiOpen(false)}

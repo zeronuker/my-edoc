@@ -85,6 +85,28 @@ export function pickPdfFiles() {
   });
 }
 
+// A picked file can turn out to be unreadable once it's used (on Windows, a full
+// path of 260+ characters is one cause). Reads the first byte of every PDF up
+// front: `readable` is everything fine (non-PDFs pass through for the tree to
+// ignore), `unreadable` the paths of the PDFs that failed.
+export async function scanReadable(fileList) {
+  const readable = [];
+  const unreadable = [];
+  for (const file of fileList) {
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      readable.push(file);
+      continue;
+    }
+    try {
+      await file.slice(0, 1).arrayBuffer();
+      readable.push(file);
+    } catch {
+      unreadable.push(file.webkitRelativePath || file.name);
+    }
+  }
+  return { readable, unreadable };
+}
+
 export function buildTreeFromFileList(fileList, folderId = null) {
   const files = [...fileList].filter((f) => f.name.toLowerCase().endsWith(".pdf"));
   if (files.length === 0) return null;

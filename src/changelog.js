@@ -292,6 +292,7 @@ export const CHANGELOG = [
       'IMP: Rotate suits big files: nothing starts selected, type pages like 5, 12-20 to pick them (the grid jumps to the first), and it opens on the page you are reading. Only nearby pages are drawn, so 1000+ page files stay smooth.',
       'IMP: The toolbar Rotate buttons now turn just the page you are on (both pages in a two-page view), on screen only; the turn stays while the tab is open and resets when you close the tab or the app.',
       'FIX: Deleting your last folder no longer leaves the + button hidden.',
+      "FIX: A folder with a PDF the browser can't read (often a path over 260 characters on Windows) no longer fails whole. It is added without those files, and a window lists them. Folders sent over wifi do the same on both devices, and a clean add now ends with a short confirmation.",
       'IMP: Move, Copy and Rotate now open in the same double-line chamfered window as every other popup (full-screen on phones), and opening a folder in the picker slides the list.',
     ],
   },

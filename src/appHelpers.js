@@ -254,3 +254,35 @@ export function parsePageRange(text, max) {
   }
   return { pages: [...pages].sort((x, y) => x - y), bad };
 }
+
+// The wording of the window shown after files were added, sent or received.
+// kind: "added" (picked here), "sent" or "received" (over wifi); `skipped` is
+// how many PDFs couldn't be read. Returns { title, added, warning } where
+// `added` (green) or `warning` (amber) is null when it doesn't apply.
+export function resultMessage(kind, added, skipped) {
+  const count = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const hint = "(path may be too long)";
+  if (added === 0) {
+    const verb = kind === "sent" ? "NOTHING SENT" : "NOTHING ADDED";
+    return {
+      title: verb,
+      added: null,
+      warning: skipped === 1 ? `The PDF couldn't be read ${hint}.` : `None of the ${skipped} PDFs could be read ${hint}.`,
+    };
+  }
+  const title = { added: "FOLDER ADDED", sent: "SENT", received: "RECEIVED" }[kind];
+  const line = {
+    added: `${count(added, "file")} added.`,
+    sent: `${count(added, "PDF")} sent.`,
+    received: `${count(added, "PDF")} received.`,
+  }[kind];
+  let warning = null;
+  if (skipped > 0) {
+    const not = kind === "sent" ? `${skipped === 1 ? "wasn't" : "weren't"} sent` : `${skipped === 1 ? "was" : "were"} skipped`;
+    warning =
+      kind === "received"
+        ? `The other device couldn't read ${count(skipped, "file")} and didn't send ${skipped === 1 ? "it" : "them"}.`
+        : `${skipped} couldn't be read and ${not} ${hint}.`;
+  }
+  return { title, added: line, warning };
+}

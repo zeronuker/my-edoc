@@ -3,7 +3,7 @@ import qrcode from "qrcode-generator";
 import jsQR from "jsqr";
 import ChamferFrame from "@brand/ChamferFrame";
 import { makeCode, cleanCode, hostSession, joinSession, openLink } from "./transfer.js";
-import { pickFolderLegacy, pickPdfFiles } from "./fileSystem.js";
+import { pickFolderLegacy, pickPdfFiles, scanReadable } from "./fileSystem.js";
 
 const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;
 const CONNECT_TIMEOUT_MS = 15000;
@@ -61,7 +61,7 @@ function QrScanner({ onCode, onFail }) {
 // Received files go to onReceived({ kind, files }), which runs the normal
 // Add folder / Add files flows; `hidden` tucks this dialog away while those
 // dialogs are up, without dropping the connection.
-export default function WifiModal({ hidden, appError, onReceived, beginReceive, onClose, closing }) {
+export default function WifiModal({ hidden, appError, onSent, onReceived, beginReceive, onClose, closing }) {
   const [stage, setStage] = useState("menu"); // menu | show | enter | connected
   const [code, setCode] = useState("");
   const [typed, setTyped] = useState("");
@@ -153,16 +153,26 @@ export default function WifiModal({ hidden, appError, onReceived, beginReceive, 
     } catch {
       return; // cancelled
     }
-    const pdfs = picked.filter((f) => f.name.toLowerCase().endsWith(".pdf") && f.size > 0);
-    if (pdfs.length === 0) return setError("No PDF files found there.");
     setError("");
     setBusy(true);
     try {
+      // PDFs the browser can't read are left out and listed once the rest is sent.
+      const { readable, unreadable } = await scanReadable(picked);
+      const pdfs = readable.filter((f) => f.name.toLowerCase().endsWith(".pdf") && f.size > 0);
+      if (pdfs.length === 0) {
+        if (unreadable.length > 0) onSent(0, unreadable);
+        else setError("No PDF files found there.");
+        return;
+      }
       const entries = pdfs.map((file) => ({ file, path: folder ? file.webkitRelativePath : file.name }));
-      await link.current.send(entries, folder ? "folder" : "files", (done, total) =>
-        setStatus(`Sending… ${mb(done)} of ${mb(total)}`)
+      await link.current.send(
+        entries,
+        folder ? "folder" : "files",
+        (done, total) => setStatus(`Sending… ${mb(done)} of ${mb(total)}`),
+        unreadable
       );
       setStatus(`Sent ${pdfs.length} PDF${pdfs.length === 1 ? "" : "s"}.`);
+      if (unreadable.length > 0) onSent(pdfs.length, unreadable);
     } catch (err) {
       setError(`Couldn't send: ${err.message}`);
     } finally {

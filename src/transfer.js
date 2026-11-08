@@ -131,6 +131,7 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
   let got = 0;
   let files = [];
   let store = null;
+  let skipped = []; // paths the sender couldn't read and left out, announced before the files
   let saving = Promise.resolve();
   let saveError = null;
   let ack = null;
@@ -147,7 +148,10 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
         const msg = JSON.parse(data);
         if (msg.t === "ok") ack?.();
         else if (msg.t === "fail") nack?.(new Error(msg.message));
-        else if (msg.t === "manifest") list = { kind: msg.kind, count: msg.count, files: [] };
+        else if (msg.t === "manifest") {
+          list = { kind: msg.kind, count: msg.count, files: [] };
+          skipped = [];
+        } else if (msg.t === "skipped") skipped.push(...msg.names);
         else if (msg.t === "files") {
           if (!list) throw new Error("File list arrived without its header");
           list.files.push(...msg.files);
@@ -183,7 +187,7 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
       onReceiveProgress?.(got, total);
       if (assembler.done) {
         assembler = null;
-        const finished = { kind, store, files };
+        const finished = { kind, store, files, skipped };
         saving
           .then(async () => {
             if (saveError) {
@@ -191,7 +195,7 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
               return fail(saveError);
             }
             conn.send(JSON.stringify({ t: "ok" }));
-            onReceived({ kind: finished.kind, files: finished.files, store: finished.store });
+            onReceived({ kind: finished.kind, files: finished.files, store: finished.store, skipped: finished.skipped });
           })
           .catch((err) => onError?.(err));
       }
@@ -203,7 +207,8 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
   // entries: [{ file, path }], path being the relative path (folder name
   // first for a folder). Resolves when the other side confirms it has saved
   // them, or rejects if it couldn't.
-  async function send(entries, sendKind, onProgress) {
+  // `skipped`: paths the sender couldn't read; the other side is told so it can show them.
+  async function send(entries, sendKind, onProgress, skipped = []) {
     const total = entries.reduce((sum, e) => sum + e.file.size, 0);
     const acked = new Promise((resolve, reject) => {
       ack = resolve;
@@ -213,6 +218,18 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
     // The list goes in small pieces: a data channel refuses a message much
     // over 256 KB, and the list of a few thousand files is bigger than that.
     conn.send(JSON.stringify({ t: "manifest", kind: sendKind, count: entries.length }));
+    let names = [];
+    let nameBytes = 0;
+    for (const name of skipped) {
+      names.push(name);
+      nameBytes += new TextEncoder().encode(name).length;
+      if (nameBytes >= LIST_PIECE) {
+        conn.send(JSON.stringify({ t: "skipped", names }));
+        names = [];
+        nameBytes = 0;
+      }
+    }
+    if (names.length > 0) conn.send(JSON.stringify({ t: "skipped", names }));
     let piece = [];
     let pieceBytes = 0;
     for (const { file, path } of entries) {

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  scanReadable,
   buildTreeFromFileList,
   flattenTreeFileHandlesWithPath,
   wrapDroppedFile,
@@ -230,4 +231,18 @@ test("planCopyRoot makes paths relative to the new root, and finishPlan gives wo
   assert.equal(tree.handle.name, "Lib (1)");
   assert.equal(tree.children[0].handle.fileKey, "Lib (1):a.pdf");
   assert.equal(tree.children[0].handle.folderId, "folder-2");
+});
+
+test("scanReadable separates unreadable PDFs and lets everything else through", async () => {
+  const file = (name, path, ok = true) => ({
+    name,
+    webkitRelativePath: path,
+    slice: () => ({ arrayBuffer: async () => (ok ? new ArrayBuffer(1) : Promise.reject(new Error("NotFound"))) }),
+  });
+  const good = file("a.pdf", "F/a.pdf");
+  const note = file("n.docx", "F/n.docx", false); // not a PDF: never read, passed on
+  const bad = file("b.PDF", "F/deep/b.PDF", false);
+  const { readable, unreadable } = await scanReadable([good, note, bad]);
+  assert.deepEqual(readable, [good, note]);
+  assert.deepEqual(unreadable, ["F/deep/b.PDF"]);
 });
