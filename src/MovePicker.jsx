@@ -52,7 +52,7 @@ export default function MovePicker({ folders, moving, onConfirm, onClose, copy =
         <div className="move-picker-title">{title}</div>
       </div>
 
-      <div className={`move-picker-body ${levelAnim.className}`} style={levelAnim.style}>
+      <div key={trail.length} className={`move-picker-body ${levelAnim.className}`} style={levelAnim.style}>
       <div className="move-picker-crumbs">
         {crumbs.map((c, i) => (
           <button
