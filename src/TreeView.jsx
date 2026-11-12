@@ -4,6 +4,7 @@ import { IconStarFilled } from "@tabler/icons-react";
 import { folderLevelColor, fileLevelColor, STAR_COLORS } from "./appHelpers.js";
 import { extrasKey } from "./fileSystem.js";
 import ManageBar from "./ManageBar.jsx";
+import Checkbox from "./Checkbox.jsx";
 import { usePresence } from "./usePresence.js";
 
 // A folder draws this many of its children at a time, with a row to reveal
@@ -122,8 +123,7 @@ function TreeLabel({ name }) {
 // own — it must not also open the file or toggle the folder.
 function SelectBox({ checked, onToggle, name }) {
   return (
-    <input
-      type="checkbox"
+    <Checkbox
       className="tree-select-box"
       checked={checked}
       aria-label={`Select "${name}"`}

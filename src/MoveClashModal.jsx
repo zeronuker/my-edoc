@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ChamferFrame from "@brand/ChamferFrame";
 import { formatBytes } from "./appHelpers.js";
+import Checkbox from "./Checkbox.jsx";
 
 function Facts({ label, node }) {
   const added = node.addedAt ? new Date(node.addedAt).toLocaleDateString() : "—";
@@ -45,7 +46,7 @@ export default function MoveClashModal({ request, onChoose, closing }) {
           {canReplace && <p>Replace deletes the file already there, with its bookmarks and annotations.</p>}
           {remaining > 1 && (
             <label className="clash-all">
-              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+              <Checkbox checked={all} onChange={setAll} />
               Do this for all {remaining} conflicts
             </label>
           )}

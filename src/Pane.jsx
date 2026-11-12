@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { IconX, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import PdfViewer from "./PdfViewer.jsx";
 import EmptyState from "./EmptyState.jsx";
+import { NO_AUTO } from "./appHelpers.js";
 
 // Prev/next + page counter, floating over the bottom of its pane.
 function PagePill({ pdfViewer, currentPage, numPages }) {
@@ -12,13 +13,13 @@ function PagePill({ pdfViewer, currentPage, numPages }) {
       </button>
       <span className="page-pill-count">
         <input
-          type="number"
-          min={1}
-          max={numPages}
+          type="text"
+          inputMode="numeric"
+          {...NO_AUTO}
           value={currentPage}
           aria-label="Current page"
           onChange={(e) => {
-            const n = Number(e.target.value);
+            const n = Number(e.target.value.replace(/\D/g, ""));
             if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
           }}
           onKeyDown={(e) => {

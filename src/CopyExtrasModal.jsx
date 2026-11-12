@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ChamferFrame from "@brand/ChamferFrame";
+import Checkbox from "./Checkbox.jsx";
 
 // Same modal shell as ConfirmRemoveModal. Asked once, before a copy starts,
 // when some of the files being copied have bookmarks, a saved page or saved
@@ -26,13 +27,13 @@ export default function CopyExtrasModal({ request, onChoose, closing }) {
           <p>Some of these files have their own notes. Copy them along, or start the copies clean.</p>
           {otherCount > 0 && (
             <label className="clash-all">
-              <input type="checkbox" checked={bookmarks} onChange={(e) => setBookmarks(e.target.checked)} />
+              <Checkbox checked={bookmarks} onChange={setBookmarks} />
               Bookmarks and saved page ({files(otherCount)})
             </label>
           )}
           {annotatedCount > 0 && (
             <label className="clash-all">
-              <input type="checkbox" checked={annotations} onChange={(e) => setAnnotations(e.target.checked)} />
+              <Checkbox checked={annotations} onChange={setAnnotations} />
               Annotations ({files(annotatedCount)})
             </label>
           )}

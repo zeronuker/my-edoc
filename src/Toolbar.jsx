@@ -23,6 +23,8 @@ import {
 import SettingsIcon from "@brand/SettingsIcon";
 import SearchBar from "./SearchBar.jsx";
 import { MIN_SCALE, MAX_SCALE } from "./PdfViewer.jsx";
+import Slider from "./Slider.jsx";
+import { NO_AUTO } from "./appHelpers.js";
 
 const ANNOTATE_TOOLS = [
   { tool: "highlight", label: "Highlight" },
@@ -135,29 +137,17 @@ function DesktopToolbar({
 
       <div className="toolbar-group toolbar-group-nav">
         <span className="view-mode-select">
-          <select
-            className="view-mode-native"
-            value={viewMode}
-            onChange={(e) => setViewMode(e.target.value)}
-            disabled={viewModeLocked}
-            title={viewModeLocked ? "Each pane shows one page in split view" : undefined}
-            aria-label="Page view mode"
-          >
-            <option value="single">Single page</option>
-            <option value="continuous">Continuous</option>
-            <option value="two-up">Two-page</option>
-            <option value="two-up-continuous">Two-page continuous</option>
-          </select>
-
           <span className="view-mode-dropdown dropdown" ref={viewModeMenu.ref}>
             <button
               className="view-mode-trigger"
               disabled={viewModeLocked}
+              title={viewModeLocked ? "Each pane shows one page in split view" : undefined}
               aria-expanded={viewModeMenu.open}
               aria-label="Page view mode"
               onClick={() => viewModeMenu.setOpen((v) => !v)}
             >
               <IconFileText size={14} />
+              <span className="view-mode-label">{VIEW_MODES.find((m) => m.value === viewMode)?.label}</span>
               <IconChevronDown size={10} />
             </button>
             {viewModeMenu.open && (
@@ -189,12 +179,14 @@ function DesktopToolbar({
             <span className="zoom-seg-div" aria-hidden="true" />
             <span className="zoom-pct">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                {...NO_AUTO}
                 className="zoom-input"
                 value={zoomDraft ?? Math.round(scale * 100)}
                 aria-label="Zoom percentage"
                 onFocus={(e) => e.target.select()}
-                onChange={(e) => setZoomDraft(e.target.value)}
+                onChange={(e) => setZoomDraft(e.target.value.replace(/\D/g, ""))}
                 onBlur={() => {
                   if (zoomDraft !== null) {
                     const pct = Number(zoomDraft);
@@ -369,25 +361,23 @@ function DesktopToolbar({
                   <span>Brightness</span>
                   <span className="reading-theme-slider-value">{readingBrightness}%</span>
                 </label>
-                <input
-                  type="range"
+                <Slider
                   min={50}
                   max={150}
                   value={readingBrightness}
                   aria-label="Reading brightness"
-                  onChange={(e) => onChangeReadingBrightness(Number(e.target.value))}
+                  onChange={onChangeReadingBrightness}
                 />
                 <label>
                   <span>Contrast</span>
                   <span className="reading-theme-slider-value">{readingContrast}%</span>
                 </label>
-                <input
-                  type="range"
+                <Slider
                   min={50}
                   max={150}
                   value={readingContrast}
                   aria-label="Reading contrast"
-                  onChange={(e) => onChangeReadingContrast(Number(e.target.value))}
+                  onChange={onChangeReadingContrast}
                 />
               </div>
             </div>
@@ -546,30 +536,28 @@ function PhoneDrawer({
       <section>
         <p className="td-label">Reading theme</p>
         <Chips options={READING_THEMES} value={readingTheme} onPick={onChangeReadingTheme} cols={3} />
-        <label className="td-slider">
+        <div className="td-slider">
           <span>Brightness</span>
           <span>{readingBrightness}%</span>
-          <input
-            type="range"
+          <Slider
             min={50}
             max={150}
             value={readingBrightness}
             aria-label="Reading brightness"
-            onChange={(e) => onChangeReadingBrightness(Number(e.target.value))}
+            onChange={onChangeReadingBrightness}
           />
-        </label>
-        <label className="td-slider">
+        </div>
+        <div className="td-slider">
           <span>Contrast</span>
           <span>{readingContrast}%</span>
-          <input
-            type="range"
+          <Slider
             min={50}
             max={150}
             value={readingContrast}
             aria-label="Reading contrast"
-            onChange={(e) => onChangeReadingContrast(Number(e.target.value))}
+            onChange={onChangeReadingContrast}
           />
-        </label>
+        </div>
       </section>
 
       <button

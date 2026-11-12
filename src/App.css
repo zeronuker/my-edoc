@@ -564,12 +564,6 @@ body:has(.modal-backdrop, .move-picker) {
   -moz-appearance: textfield;
 }
 
-.zoom-input::-webkit-outer-spin-button,
-.zoom-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
 .zoom-input:focus {
   outline: none;
   color: var(--cb-mint);
@@ -596,10 +590,10 @@ body:has(.modal-backdrop, .move-picker) {
   color: var(--cb-mint);
 }
 
-/* Desktop: plain native select, full text label — .view-mode-native shown,
-   .view-mode-dropdown (the custom popup menu, same pattern as the zoom
-   options / annotate dropdowns) hidden. Mobile (below) flips which one
-   shows, since the label eats ~70px the nav row doesn't have there. */
+/* The page view mode menu: the custom popup (same pattern as the zoom options
+   / annotate dropdowns). Desktop shows the current mode's name on the trigger;
+   mobile (below) shows just the icon and chevron, since the label eats ~70px
+   the nav row doesn't have there. */
 .view-mode-select {
   position: relative;
   display: inline-flex;
@@ -607,8 +601,35 @@ body:has(.modal-backdrop, .move-picker) {
 }
 
 .view-mode-dropdown {
-  display: none;
+  display: inline-flex;
   align-items: center;
+}
+
+.view-mode-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  color: var(--cb-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.view-mode-trigger:hover:not(:disabled),
+.view-mode-trigger[aria-expanded="true"] {
+  background: var(--cb-surface-3);
+  border-color: var(--cb-mint);
+  color: var(--cb-mint);
+}
+
+.view-mode-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* Desktop: no leading icon, full "Annotate"/tool-name label — unchanged.
@@ -752,14 +773,13 @@ body:has(.modal-backdrop, .move-picker) {
     display: none;
   }
 
-  /* Custom dropdown menu (same pattern as zoom options / annotate) instead
-     of the native picker — swap which half of .view-mode-select shows. */
+  /* Icon-only trigger: no room for the mode's name here. */
   .view-mode-select {
     width: 40px;
     height: 30px;
   }
 
-  .view-mode-native {
+  .view-mode-label {
     display: none;
   }
 
@@ -773,6 +793,7 @@ body:has(.modal-backdrop, .move-picker) {
     width: 100%;
     height: 100%;
     margin: 0;
+    padding: 0;
     align-self: center;
     justify-content: center;
     border: 1px solid var(--cb-line-2);
@@ -913,7 +934,7 @@ body:has(.modal-backdrop, .move-picker) {
     height: 44px;
   }
 
-  .view-mode-native {
+  .view-mode-label {
     display: none;
   }
 
@@ -927,6 +948,7 @@ body:has(.modal-backdrop, .move-picker) {
     width: 100%;
     height: 100%;
     margin: 0;
+    padding: 0;
     align-self: center;
     justify-content: center;
     border: 1px solid var(--cb-line-2);
@@ -1021,9 +1043,8 @@ body:has(.modal-backdrop, .move-picker) {
   font-variant-numeric: tabular-nums;
 }
 
-.reading-theme-sliders input[type="range"] {
+.reading-theme-sliders .ed-slider {
   width: 100%;
-  accent-color: var(--cb-mint);
 }
 
 @media (max-width: 880px) {
@@ -1423,10 +1444,9 @@ body:has(.modal-backdrop, .move-picker) {
   margin-top: 8px;
 }
 
-.td-slider input {
+.td-slider .ed-slider {
   grid-column: 1 / -1;
   width: 100%;
-  accent-color: var(--cb-mint);
 }
 
 .td-row {
@@ -1493,12 +1513,6 @@ body:has(.modal-backdrop, .move-picker) {
   text-align: right;
   padding: 0;
   -moz-appearance: textfield;
-}
-
-.page-pill-count input::-webkit-outer-spin-button,
-.page-pill-count input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
 }
 
 .page-pill-count input:focus {
@@ -2536,7 +2550,6 @@ body:has(.modal-backdrop, .move-picker) {
   width: 18px;
   height: 18px;
   margin: 0 2px 0 0;
-  accent-color: var(--cb-mint);
 }
 
 .manage-bar {
@@ -3885,6 +3898,70 @@ html[data-kb] .modal-dialog .cf-l4 {
   .password-wrong { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
   .storage-bar-fill { transition: width var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1); }
   .rotate-thumb-tick { animation: ed-tick-pop var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
+}
+
+/* Checkbox.jsx and Slider.jsx: the app's own controls, in place of the
+   browser's. The tick draws in with the same stroke trick as the copy ticks. */
+.ed-check {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-ink-dim);
+  border-radius: var(--cb-radius-sm);
+  color: #0b1020;
+  cursor: pointer;
+  transition: background-color var(--ed-hover) ease, border-color var(--ed-hover) ease;
+}
+
+.ed-check[aria-checked="true"] {
+  background: var(--cb-mint);
+  border-color: var(--cb-mint);
+}
+
+.ed-check svg path { stroke-dasharray: 14; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ed-check svg path { animation: ed-check-draw var(--ed-dur, 180ms) ease-out backwards; }
+}
+
+.ed-slider {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.ed-slider-track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cb-surface-3);
+}
+
+.ed-slider-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--cb-mint);
+}
+
+.ed-slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cb-mint);
+  border: 2px solid var(--cb-surface-1);
+  box-shadow: 0 0 0 1px var(--cb-mint);
+  transform: translate(-50%, -50%);
 }
 
 /* Manage mode. The bar grows open under the tree (the tree gives up its height a
