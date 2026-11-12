@@ -3,7 +3,7 @@ import ToolModal from "./ToolModal.jsx";
 
 // Asks for the password to lock a file with, twice, then hands it to the
 // shared save dialog. onSave(replace, password) resolves once saved.
-export default function ProtectModal({ name, busy, onSave, onClose }) {
+export default function ProtectModal({ name, busy, onSave, onClose, closing }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const mismatch = confirm !== "" && confirm !== password;
@@ -16,6 +16,7 @@ export default function ProtectModal({ name, busy, onSave, onClose }) {
       canSave={password !== "" && password === confirm}
       onSave={(replace) => onSave(replace, password)}
       onClose={onClose}
+      closing={closing}
     >
       <p>The file will only open with this password.</p>
       <input

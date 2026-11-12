@@ -4,14 +4,14 @@ import ChamferFrame from "@brand/ChamferFrame";
 // Same modal shell as RenameModal. Asked when a file opens that needs a
 // password. The password is typed masked; wrong is true when the one just
 // tried did not work.
-export default function PasswordModal({ request, onSubmit, onCancel }) {
+export default function PasswordModal({ request, onSubmit, onCancel, closing }) {
   const [value, setValue] = useState("");
   const submit = () => value && onSubmit(value);
 
   return (
     <>
-      <div className="modal-backdrop" />
-      <ChamferFrame className="modal-dialog mode-picker-dialog">
+      <div className={`modal-backdrop${closing ? " is-closing" : ""}`} />
+      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <div>
             <div className="update-dialog-title">PASSWORD NEEDED</div>

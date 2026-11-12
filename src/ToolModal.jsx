@@ -4,11 +4,11 @@ import ChamferFrame from "@brand/ChamferFrame";
 // file (Flatten, and Protect after it): the tool's own options go in as
 // children, and every tool ends the same way — save a new file next to the
 // original, or replace the original. onSave(replace) resolves once saved.
-export default function ToolModal({ title, subtitle, children, canSave = true, busy, onSave, onClose }) {
+export default function ToolModal({ title, subtitle, children, canSave = true, busy, onSave, onClose, closing }) {
   return (
     <>
-      <div className="modal-backdrop" onClick={busy ? undefined : onClose} />
-      <ChamferFrame className="modal-dialog mode-picker-dialog">
+      <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={busy ? undefined : onClose} />
+      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
         <div className="update-dialog-header">
           <div>
             <div className="update-dialog-title">{title}</div>

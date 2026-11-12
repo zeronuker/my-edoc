@@ -7,7 +7,7 @@ const AUTO_CLOSE_MS = 15000;
 // is the green line, `warning` the amber one, `names` the files that were
 // skipped. With nothing skipped it closes itself after a while; with skipped
 // files it stays until OK so the list can't be missed.
-export default function UploadResultModal({ title, subtitle, added, warning, names, onClose }) {
+export default function UploadResultModal({ title, subtitle, added, warning, names, onClose, closing }) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   const auto = names.length === 0;
@@ -19,8 +19,12 @@ export default function UploadResultModal({ title, subtitle, added, warning, nam
 
   return (
     <>
-      <div className="modal-backdrop" />
-      <ChamferFrame className="modal-dialog copy-progress-dialog" role="alertdialog" aria-label={title}>
+      <div className={`modal-backdrop${closing ? " is-closing" : ""}`} />
+      <ChamferFrame
+        className={`modal-dialog copy-progress-dialog${closing ? " is-closing" : ""}`}
+        role="alertdialog"
+        aria-label={title}
+      >
         <div className="update-dialog-header">
           <span className={`copy-progress-icon done${warning ? " warn" : ""}`} />
           <div>

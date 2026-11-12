@@ -231,6 +231,10 @@ function App() {
   const [docInfo, setDocInfo] = useState(null); // [{ label, value }] while the Document properties dialog is open
   const lastDocInfoRef = useRef(null);
   const lastErrorRef = useRef(null);
+  const lastProtectRef = useRef(null);
+  const lastPasswordRef = useRef(null);
+  const lastFlattenRef = useRef(null);
+  const lastUploadRef = useRef(null);
   const lastRemoveRef = useRef(null); // keeps the confirmation's content on screen through its exit animation
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const [wifiOpen, setWifiOpen] = useState(false); // Send / receive via wifi dialog
@@ -1879,6 +1883,19 @@ function App() {
   if (error) lastErrorRef.current = error;
   const errorPresence = usePresence(!!error);
   const errorShown = error ?? lastErrorRef.current;
+  // The PDF tool dialogs and the result window also stay up through their exit.
+  if (protectRequest) lastProtectRef.current = protectRequest;
+  const protectPresence = usePresence(!!protectRequest);
+  const protectShown = protectRequest ?? lastProtectRef.current;
+  if (passwordRequest) lastPasswordRef.current = passwordRequest;
+  const passwordPresence = usePresence(!!passwordRequest);
+  const passwordShown = passwordRequest ?? lastPasswordRef.current;
+  if (flattenRequest) lastFlattenRef.current = flattenRequest;
+  const flattenPresence = usePresence(!!flattenRequest);
+  const flattenShown = flattenRequest ?? lastFlattenRef.current;
+  if (uploadReport) lastUploadRef.current = uploadReport;
+  const uploadPresence = usePresence(!!uploadReport);
+  const uploadShown = uploadReport ?? lastUploadRef.current;
   const backBannerPresence = usePresence(!!(globalSearch.trim() && pdf));
   const presentExitPresence = usePresence(presenting);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
@@ -1912,7 +1929,9 @@ function App() {
           onCancel={() => copyControllerRef.current?.abort()}
         />
       )}
-      {uploadReport && <UploadResultModal {...uploadReport} onClose={() => setUploadReport(null)} />}
+      {uploadPresence.present && uploadShown && (
+        <UploadResultModal {...uploadShown} closing={uploadPresence.closing} onClose={() => setUploadReport(null)} />
+      )}
       {addFilesPresence.present && addFilesShown && addFilesTargets.length > 0 && (
         <AddFilesModal
           closing={addFilesPresence.closing}
@@ -2007,32 +2026,35 @@ function App() {
           onClose={() => setRotateRequest(null)}
         />
       )}
-      {protectRequest && (
+      {protectPresence.present && protectShown && (
         <ProtectModal
-          name={protectRequest.node.name}
+          closing={protectPresence.closing}
+          name={protectShown.node.name}
           busy={toolBusy}
           onSave={saveProtected}
           onClose={() => setProtectRequest(null)}
         />
       )}
-      {passwordRequest && (
+      {passwordPresence.present && passwordShown && (
         <PasswordModal
-          key={passwordRequest.wrong ? "again" : "first"}
-          request={passwordRequest}
+          key={passwordShown.wrong ? "again" : "first"}
+          closing={passwordPresence.closing}
+          request={passwordShown}
           onSubmit={(password) => {
-            passwordRequest.resolve(password);
+            passwordShown.resolve(password);
             setPasswordRequest(null);
           }}
           onCancel={() => {
-            passwordRequest.resolve(null);
+            passwordShown.resolve(null);
             setPasswordRequest(null);
           }}
         />
       )}
-      {flattenRequest && (
+      {flattenPresence.present && flattenShown && (
         <ToolModal
+          closing={flattenPresence.closing}
           title="FLATTEN"
-          subtitle={flattenRequest.node.name}
+          subtitle={flattenShown.node.name}
           busy={toolBusy}
           onSave={saveFlattened}
           onClose={() => setFlattenRequest(null)}
