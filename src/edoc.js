@@ -19,8 +19,8 @@ async function getWorkerSrc() {
 
 // The app registers a function that asks the user for a password in its own
 // dialog (see App.jsx): it gets { name, wrong } and resolves to the password,
-// or null if they cancel. Until one is registered, the browser's own prompt
-// is used.
+// or null if they cancel. Until one is registered, a password-protected file
+// just fails to open.
 let passwordAsker = null;
 export function setPasswordAsker(fn) {
   passwordAsker = fn;
@@ -49,9 +49,7 @@ export async function loadDocument(fileOrArrayBuffer, { onPasswordPrompt, skipPa
     }
     onPasswordPrompt?.();
     const wrong = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
-    const password = passwordAsker
-      ? await passwordAsker({ name, wrong })
-      : window.prompt(wrong ? "Incorrect password. Try again:" : "This PDF is password protected. Enter password:");
+    const password = passwordAsker ? await passwordAsker({ name, wrong }) : null;
     if (password == null) {
       loadingTask.destroy();
       return;

@@ -3900,6 +3900,13 @@ html[data-kb] .modal-dialog .cf-l4 {
   .rotate-thumb-tick { animation: ed-tick-pop var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
 }
 
+/* LinkConfirmModal.jsx: the address, in full, however long. */
+.link-confirm-url {
+  overflow-wrap: anywhere;
+  font-family: var(--cb-font-mono);
+  font-size: 12px;
+}
+
 /* Tooltip.jsx: the one hover / keyboard-focus tip, drawn from `data-tip`. Above
    the dialogs (9999) so it also works inside them. */
 .ed-tip {

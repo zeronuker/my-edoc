@@ -112,6 +112,7 @@ import CopyExtrasModal from "./CopyExtrasModal.jsx";
 import RotateSheet from "./RotateSheet.jsx";
 import ToolModal from "./ToolModal.jsx";
 import Tooltip from "./Tooltip.jsx";
+import LinkConfirmModal from "./LinkConfirmModal.jsx";
 import ProtectModal from "./ProtectModal.jsx";
 import PasswordModal from "./PasswordModal.jsx";
 import { setPasswordAsker } from "./edoc.js";
@@ -233,6 +234,8 @@ function App() {
   const [docInfo, setDocInfo] = useState(null); // [{ label, value }] while the Document properties dialog is open
   const lastDocInfoRef = useRef(null);
   const lastErrorRef = useRef(null);
+  const [linkRequest, setLinkRequest] = useState(null); // { url } while the "open this link?" dialog is up
+  const lastLinkRef = useRef(null);
   const lastProtectRef = useRef(null);
   const lastPasswordRef = useRef(null);
   const lastFlattenRef = useRef(null);
@@ -1898,6 +1901,9 @@ function App() {
   if (uploadReport) lastUploadRef.current = uploadReport;
   const uploadPresence = usePresence(!!uploadReport);
   const uploadShown = uploadReport ?? lastUploadRef.current;
+  if (linkRequest) lastLinkRef.current = linkRequest;
+  const linkPresence = usePresence(!!linkRequest);
+  const linkShown = linkRequest ?? lastLinkRef.current;
   const backBannerPresence = usePresence(!!(globalSearch.trim() && pdf));
   const presentExitPresence = usePresence(presenting);
   const foldersBytesUsed = folders.reduce((sum, f) => sum + (f.sizeBytes || 0), 0);
@@ -2068,6 +2074,17 @@ function App() {
           </p>
           <p>Replace original overwrites the file and can't be undone.</p>
         </ToolModal>
+      )}
+      {linkPresence.present && linkShown && (
+        <LinkConfirmModal
+          closing={linkPresence.closing}
+          request={linkShown}
+          onConfirm={() => {
+            window.open(linkShown.url, "_blank", "noopener,noreferrer");
+            setLinkRequest(null);
+          }}
+          onClose={() => setLinkRequest(null)}
+        />
       )}
       {extrasPresence.present && extrasShown && (
         <CopyExtrasModal
@@ -2251,6 +2268,7 @@ function App() {
                 items={outline}
                 linkService={viewerApi?.linkService}
                 onNavigate={closeSidebarIfAutoHide}
+                onOpenLink={(url) => setLinkRequest({ url })}
                 expandedKeys={currentOutlineExpanded}
                 onToggle={toggleOutlineNode}
               />

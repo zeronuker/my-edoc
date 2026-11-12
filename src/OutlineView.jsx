@@ -4,7 +4,7 @@
 // triangle; which nodes are expanded is owned by the caller (App.jsx),
 // keyed by a stable path string ("0-2-1") so it survives re-fetching the
 // same outline on reopen.
-function OutlineNode({ item, path, linkService, onNavigate, expandedKeys, onToggle }) {
+function OutlineNode({ item, path, linkService, onNavigate, onOpenLink, expandedKeys, onToggle }) {
   const hasChildren = item.items?.length > 0;
   const isExpanded = hasChildren && expandedKeys.has(path);
 
@@ -23,9 +23,7 @@ function OutlineNode({ item, path, linkService, onNavigate, expandedKeys, onTogg
       } catch {
         return;
       }
-      if (["http:", "https:", "mailto:"].includes(parsed.protocol)) {
-        window.open(item.url, "_blank", "noopener,noreferrer");
-      }
+      if (["http:", "https:", "mailto:"].includes(parsed.protocol)) onOpenLink(item.url);
     }
   }
 
@@ -58,6 +56,7 @@ function OutlineNode({ item, path, linkService, onNavigate, expandedKeys, onTogg
               path={`${path}-${i}`}
               linkService={linkService}
               onNavigate={onNavigate}
+              onOpenLink={onOpenLink}
               expandedKeys={expandedKeys}
               onToggle={onToggle}
             />
@@ -68,7 +67,7 @@ function OutlineNode({ item, path, linkService, onNavigate, expandedKeys, onTogg
   );
 }
 
-export default function OutlineView({ items, linkService, onNavigate, expandedKeys, onToggle }) {
+export default function OutlineView({ items, linkService, onNavigate, onOpenLink, expandedKeys, onToggle }) {
   if (!items?.length) return null;
   return (
     <div className="outline-view">
@@ -79,6 +78,7 @@ export default function OutlineView({ items, linkService, onNavigate, expandedKe
           path={`${i}`}
           linkService={linkService}
           onNavigate={onNavigate}
+          onOpenLink={onOpenLink}
           expandedKeys={expandedKeys}
           onToggle={onToggle}
         />
