@@ -101,9 +101,18 @@ function TreeLabel({ name }) {
     }
 
     fit();
-    const observer = new ResizeObserver(fit);
+    // Trailing, so a width that is animating (Manage tick boxes sliding in)
+    // is measured once it settles, not on every frame of the slide.
+    let timer;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(fit, 100);
+    });
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
   }, [name]);
 
   return <span className="tree-label" ref={ref} />;
@@ -324,7 +333,7 @@ export default function TreeView({
   const ticked = manageMode ? checkedNodes() : [];
 
   return (
-    <div className="tree-view">
+    <div className={`tree-view${managePresence.closing ? " manage-closing" : ""}`}>
       <div className="tree-rows">
         {displayFolders.map(
           (folder, folderIndex) =>
@@ -346,7 +355,7 @@ export default function TreeView({
                 onToggleOpen={toggleOpen}
                 newKeys={newKeys}
                 onSeen={onSeen}
-                manageMode={manageMode}
+                manageMode={managePresence.present}
                 checkedKeys={checkedKeys}
                 onToggleCheck={toggleCheck}
                 stars={stars}

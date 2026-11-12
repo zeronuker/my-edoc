@@ -3845,12 +3845,31 @@ html[data-kb] .modal-dialog .cf-l4 {
 .add-files-warning.wifi-error { margin: 12px 0 8px; }
 .wifi-close { margin-top: 8px; }
 
+/* Manage mode. The bar grows open under the tree (the tree gives up its height a
+   frame at a time rather than in one jump), the tick boxes slide the rows over
+   instead of shoving them, and the + button fades rather than vanishing.
+   .collapse is the shared grow / shrink wrapper (ManageBar.jsx). */
+.collapse { display: grid; grid-template-rows: 1fr; flex-shrink: 0; }
+.collapse-inner { min-height: 0; overflow: hidden; }
+.add-fab.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+@keyframes ed-collapse-in  { from { grid-template-rows: 0fr; } to { grid-template-rows: 1fr; } }
+@keyframes ed-collapse-out { from { grid-template-rows: 1fr; } to { grid-template-rows: 0fr; } }
+/* The row's flex gap is 4px, so a zero-width box pulls itself back by that much. */
+@keyframes ed-tick-in  { from { width: 0; margin-left: -4px; margin-right: 0; opacity: 0; } }
+@keyframes ed-tick-out { to   { width: 0; margin-left: -4px; margin-right: 0; opacity: 0; } }
+
 /* Move/Copy picker and Rotate sheet, the Manage-mode bar and tick boxes, and the Sort
    menu open and close like everything else; speed follows --ed-dur (0 when animations are off). */
 @media (prefers-reduced-motion: no-preference) {
-  .manage-bar { animation: ed-rise var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) backwards; }
+  .manage-bar { animation: ed-fade var(--ed-dur, 260ms) ease backwards; }
   .manage-bar.is-closing { animation: ed-fade-out var(--ed-dur, 180ms) ease forwards; pointer-events: none; }
-  .tree-select-box { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+  .collapse { animation: ed-collapse-in var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) backwards; }
+  .collapse.is-closing { animation: ed-collapse-out var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
+  .tree-select-box { animation: ed-tick-in var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
+  .tree-view.manage-closing .tree-select-box { animation: ed-tick-out var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
+  .add-fab { transition: opacity var(--ed-dur, 180ms) ease, visibility 0s; }
+  .add-fab.is-hidden { transition: opacity var(--ed-dur, 180ms) ease, visibility 0s linear var(--ed-dur, 180ms); }
+  .manage-row-label { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
   .sort-menu-list { animation: ed-drop var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) both; }
   .sort-menu-list.is-closing { animation: ed-drop-out var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) forwards; pointer-events: none; }
 }

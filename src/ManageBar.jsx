@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   IconChecks,
   IconCopy,
@@ -14,6 +14,22 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { STAR_COLORS } from "./appHelpers.js";
+import { usePresence } from "./usePresence.js";
+
+// Grows open and shrinks shut instead of popping in. The last children are
+// kept while it closes, since whatever decided to close it has usually
+// already emptied them.
+function Collapse({ open, children }) {
+  const { present, closing } = usePresence(open);
+  const last = useRef(children);
+  if (open) last.current = children;
+  if (!present) return null;
+  return (
+    <div className={`collapse${closing ? " is-closing" : ""}`}>
+      <div className="collapse-inner">{open ? children : last.current}</div>
+    </div>
+  );
+}
 
 // Pinned to the bottom of the Folders panel while Manage mode is on. Rename
 // works on exactly one item; Delete on any number. The file tools row only
@@ -41,9 +57,11 @@ export default function ManageBar({
     setStarOpen(false);
   };
   return (
+    <div className={`collapse${closing ? " is-closing" : ""}`}>
+    <div className="collapse-inner">
     <div className={`manage-bar${closing ? " is-closing" : ""}`}>
       <div className="manage-bar-count">{count} selected</div>
-      {(fileTools || canStar) && (
+      <Collapse open={fileTools || canStar}>
         <>
           <div className="manage-bar-label">FILE TOOLS</div>
           <div className="manage-bar-row tool-row">
@@ -68,7 +86,7 @@ export default function ManageBar({
               </button>
             )}
           </div>
-          {canStar && starOpen && (
+          <Collapse open={canStar && starOpen}>
             <div className="star-palette">
               {STAR_COLORS.map((c) => (
                 <button key={c.id} className="star-swatch" title={`${c.label} star`} aria-label={`${c.label} star`} onClick={() => pickStar(c.id)}>
@@ -79,9 +97,9 @@ export default function ManageBar({
                 <IconStarOff size={22} />
               </button>
             </div>
-          )}
+          </Collapse>
         </>
-      )}
+      </Collapse>
       <div className="manage-bar-actions">
         <div className="manage-bar-row">
           <button className="cb-btn" onClick={onSelectAll}>
@@ -104,6 +122,8 @@ export default function ManageBar({
           <IconTrash size={14} /> Delete
         </button>
       </div>
+    </div>
+    </div>
     </div>
   );
 }

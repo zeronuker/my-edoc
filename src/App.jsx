@@ -2190,7 +2190,9 @@ function App() {
               }}
             >
               <IconChecklist size={14} />
-              {manageMode && activeTab === "folders" ? "Done" : "Manage"}
+              <span key={manageMode && activeTab === "folders"} className="manage-row-label">
+                {manageMode && activeTab === "folders" ? "Done" : "Manage"}
+              </span>
             </button>
           )}
           {activeTab === "recent" && (
@@ -2285,7 +2287,7 @@ function App() {
             />
             {/* Anchored to .folders-panel, not .tree-rows — stays put in the
                 corner as the tree scrolls underneath it. */}
-            <div className="add-fab" ref={fabRef} hidden={manageMode}>
+            <div className={`add-fab${manageMode ? " is-hidden" : ""}`} ref={fabRef}>
               {fabMenu.present && (
                 <div className={`add-fab-menu${fabMenu.closing ? " is-closing" : ""}`}>
                   <button
