@@ -3900,6 +3900,52 @@ html[data-kb] .modal-dialog .cf-l4 {
   .rotate-thumb-tick { animation: ed-tick-pop var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
 }
 
+/* PDF form fields, text selection and the annotation toolbar. pdf.js builds
+   these itself, with its own colours; `.app` outranks its selectors, so these
+   win whatever order the stylesheets load in. Fields stay real inputs, so
+   a dropdown field's open list is still the browser's. The page is always
+   white paper, so the field tint is fixed rather than theme-dependent. */
+.app .annotationLayer {
+  --input-unfocused-border-color: transparent;
+  --input-hover-border-color: var(--cb-mint);
+  --input-focus-border-color: var(--cb-mint);
+  --input-focus-outline: none;
+}
+
+.app .annotationLayer .textWidgetAnnotation :is(input, textarea),
+.app .annotationLayer .choiceWidgetAnnotation select,
+.app .annotationLayer .buttonWidgetAnnotation:is(.checkBox, .radioButton) input {
+  background-image: none;
+  /* A tint drawn as a shadow, since pdf.js sets the field's own background inline. */
+  box-shadow: inset 0 0 0 999px rgba(63, 224, 197, 0.14);
+  color: #0b1020;
+  font-family: var(--cb-font-body);
+}
+
+.app .annotationLayer .textWidgetAnnotation :is(input, textarea):focus,
+.app .annotationLayer .choiceWidgetAnnotation select:focus {
+  box-shadow: inset 0 0 0 999px rgba(63, 224, 197, 0.06);
+}
+
+.app .annotationLayer .buttonWidgetAnnotation.checkBox input:checked::before,
+.app .annotationLayer .buttonWidgetAnnotation.checkBox input:checked::after,
+.app .annotationLayer .buttonWidgetAnnotation.radioButton input:checked::before {
+  background-color: #0b1020;
+}
+
+.app .textLayer ::selection {
+  background: color-mix(in srgb, var(--cb-mint) 40%, transparent);
+}
+
+.app :is(.annotationEditorLayer :is(.freeTextEditor, .inkEditor, .stampEditor, .highlightEditor), .textLayer) .editToolbar {
+  --editor-toolbar-bg-color: var(--cb-surface-2);
+  --editor-toolbar-fg-color: var(--cb-ink);
+  --editor-toolbar-border-color: var(--cb-line-2);
+  --editor-toolbar-hover-bg-color: var(--cb-surface-3);
+  --editor-toolbar-focus-outline-color: var(--cb-mint);
+  --editor-toolbar-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
 /* LinkConfirmModal.jsx: the address, in full, however long. */
 .link-confirm-url {
   overflow-wrap: anywhere;

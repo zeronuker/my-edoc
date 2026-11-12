@@ -214,6 +214,9 @@ export default function PdfViewer({
         data-reading-theme={readingTheme}
         ref={containerRef}
         onPointerUp={presenting ? (e) => advanceOnClick(e, pdfViewerRef.current) : undefined}
+        // No browser right-click menu over the page. A touch long-press fires
+        // this too, and must keep the phone's own text selection.
+        onContextMenu={(e) => e.nativeEvent.pointerType !== "touch" && e.preventDefault()}
       >
         <div className="pdfViewer" ref={viewerRef} />
       </div>
