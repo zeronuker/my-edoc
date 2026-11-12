@@ -3845,6 +3845,16 @@ html[data-kb] .modal-dialog .cf-l4 {
 .add-files-warning.wifi-error { margin: 12px 0 8px; }
 .wifi-close { margin-top: 8px; }
 
+/* Small fades: the Protect "passwords don't match" line when it first appears,
+   the storage bar fill sliding to its new width, and the Rotate sheet tick
+   popping in. Entry only for the tick and message: they unmount on clear. */
+@keyframes ed-tick-pop { from { opacity: 0; transform: scale(0.4); } }
+@media (prefers-reduced-motion: no-preference) {
+  .password-wrong { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+  .storage-bar-fill { transition: width var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1); }
+  .rotate-thumb-tick { animation: ed-tick-pop var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
+}
+
 /* Manage mode. The bar grows open under the tree (the tree gives up its height a
    frame at a time rather than in one jump), the tick boxes slide the rows over
    instead of shoving them, and the + button fades rather than vanishing.
