@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ChamferFrame from "@brand/ChamferFrame";
+import { NO_AUTO } from "./appHelpers.js";
 
 // Same modal shell as ConfirmRemoveModal. `request` is { name } — the name
 // shown now. Only the name drawn in the app changes; the file itself isn't
@@ -25,6 +26,7 @@ export default function RenameModal({ request, onConfirm, onClose, closing }) {
         <div className="update-dialog-body">
           <input
             className="rename-input"
+            {...NO_AUTO}
             type="text"
             autoFocus
             value={value}

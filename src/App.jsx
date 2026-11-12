@@ -68,6 +68,7 @@ import {
   pageSizeLabel,
   docInfoRows,
   tabsToRecords,
+  NO_AUTO,
 } from "./appHelpers.js";
 import { AnnotationEditorType } from "pdfjs-dist";
 import {
@@ -2139,6 +2140,7 @@ function App() {
               <input
                 type="text"
                 className="global-search-input"
+                {...NO_AUTO}
                 placeholder="Search filenames…"
                 value={globalSearch}
                 onChange={(e) => handleGlobalSearchChange(e.target.value)}

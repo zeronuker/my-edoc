@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { animDurationMs } from "./useTransitionAnim.js";
+import { NO_AUTO } from "./appHelpers.js";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 
 // In-file keyword search via pdf.js's own PDFFindController — highlighting
@@ -81,6 +82,7 @@ export default function SearchBar({ eventBus }) {
     <span className="search-bar">
       <input
         id="doc-search-input"
+        {...NO_AUTO}
         type="text"
         placeholder="Search in document…"
         value={query}

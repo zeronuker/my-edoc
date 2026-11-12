@@ -3,7 +3,7 @@ import { RenderingCancelledException } from "pdfjs-dist";
 import { IconChecks, IconChevronLeft, IconRotate, IconRotateClockwise, IconSquareOff, IconX } from "@tabler/icons-react";
 import ChamferFrame from "@brand/ChamferFrame";
 import { loadDocument } from "./edoc.js";
-import { parsePageRange } from "./appHelpers.js";
+import { NO_AUTO, parsePageRange } from "./appHelpers.js";
 
 const THUMB = 96; // px: longest side of a page thumbnail
 // Grid geometry for drawing only the rows near the screen. Must match .rotate-thumb's height
@@ -200,6 +200,7 @@ export default function RotateSheet({ file, name, initialPage = null, onSave, on
       <div className="rotate-bar">
         <input
           className="rename-input rotate-range"
+          {...NO_AUTO}
           aria-label="Pages to select"
           placeholder="Pages: 5, 12-20, 300"
           value={range}

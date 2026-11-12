@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ToolModal from "./ToolModal.jsx";
+import { NO_AUTO } from "./appHelpers.js";
 
 // Asks for the password to lock a file with, twice, then hands it to the
 // shared save dialog. onSave(replace, password) resolves once saved.
@@ -24,6 +25,7 @@ export default function ProtectModal({ name, busy, onSave, onClose, closing }) {
         type="password"
         autoFocus
         autoComplete="new-password"
+        {...NO_AUTO}
         aria-label="Password"
         placeholder="Password"
         value={password}
@@ -33,6 +35,7 @@ export default function ProtectModal({ name, busy, onSave, onClose, closing }) {
         className="rename-input protect-confirm"
         type="password"
         autoComplete="new-password"
+        {...NO_AUTO}
         aria-label="Confirm password"
         placeholder="Type it again"
         value={confirm}

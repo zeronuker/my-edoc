@@ -1,6 +1,10 @@
 import { buildLegacyManifest, extrasKey } from "./fileSystem.js";
 
 // The star colours a file can be given, in the order they are offered.
+// Spread onto text inputs that hold names, codes or numbers, so the browser's
+// spellcheck underline, autocorrect and auto-capitalise stay off.
+export const NO_AUTO = { spellCheck: false, autoCorrect: "off", autoCapitalize: "off" };
+
 export const STAR_COLORS = [
   { id: "red", label: "Red", color: "#E5484D" },
   { id: "green", label: "Green", color: "#30C48D" },

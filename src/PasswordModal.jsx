@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ChamferFrame from "@brand/ChamferFrame";
+import { NO_AUTO } from "./appHelpers.js";
 
 // Same modal shell as RenameModal. Asked when a file opens that needs a
 // password. The password is typed masked; wrong is true when the one just
@@ -25,6 +26,7 @@ export default function PasswordModal({ request, onSubmit, onCancel, closing }) 
             type="password"
             autoFocus
             autoComplete="off"
+            {...NO_AUTO}
             aria-label="Password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
