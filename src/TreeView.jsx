@@ -164,7 +164,7 @@ function Node({
       <div
         className={`tree-file${isSelected ? " selected" : ""}`}
         onClick={() => onSelectFile(node.handle)}
-        title={node.name}
+        data-tip={node.name}
         style={{ "--level-color": fileLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
@@ -187,7 +187,7 @@ function Node({
           onToggleOpen(path);
           onSeen(node.key);
         }}
-        title={node.name}
+        data-tip={node.name}
         style={{ "--level-color": folderLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}

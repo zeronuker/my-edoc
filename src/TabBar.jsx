@@ -74,7 +74,7 @@ function TabMenu({
             </button>
             <button
               disabled={!!splitDisabledReason && !split}
-              title={!split ? (splitDisabledReason ?? undefined) : undefined}
+              data-tip={!split ? (splitDisabledReason ?? undefined) : undefined}
               onClick={run(onToggleSplit)}
             >
               <IconColumns2 size={16} /> {split ? "Close split view" : "Split view"}
@@ -170,7 +170,7 @@ export default function TabBar({
             }}
             className={`doc-tab${active ? " active" : ""}`}
             data-pane={marked || undefined}
-            title={marked ? `${handle.name} — shown in the ${pane === "L" ? "left" : "right"} pane` : handle.name}
+            data-tip={marked ? `${handle.name} — shown in the ${pane === "L" ? "left" : "right"} pane` : handle.name}
             onAuxClick={(e) => e.button === 1 && onClose(key)}
           >
             <button className="doc-tab-name" aria-current={active} onClick={() => onSelect(handle)}>

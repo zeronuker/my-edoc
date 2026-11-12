@@ -141,7 +141,7 @@ function DesktopToolbar({
             <button
               className="view-mode-trigger"
               disabled={viewModeLocked}
-              title={viewModeLocked ? "Each pane shows one page in split view" : undefined}
+              data-tip={viewModeLocked ? "Each pane shows one page in split view" : undefined}
               aria-expanded={viewModeMenu.open}
               aria-label="Page view mode"
               onClick={() => viewModeMenu.setOpen((v) => !v)}
@@ -278,7 +278,7 @@ function DesktopToolbar({
           className={`bookmark-toggle${isBookmarked ? " active" : ""}${bookmarkPop ? " pop" : ""}`}
           aria-label={isBookmarked ? "Remove bookmark for this page" : "Bookmark this page"}
           aria-pressed={isBookmarked}
-          title="Bookmark this page"
+          data-tip="Bookmark this page"
           disabled={!numPages}
           onClick={() => {
             if (!isBookmarked) setBookmarkPop(true);
@@ -336,7 +336,7 @@ function DesktopToolbar({
             }`}
             aria-expanded={readingThemeMenu.open}
             aria-label="Reading theme"
-            title="Reading theme"
+            data-tip="Reading theme"
             onClick={() => readingThemeMenu.setOpen((v) => !v)}
           >
             <IconMoon size={16} />

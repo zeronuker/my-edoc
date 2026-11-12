@@ -26,7 +26,7 @@ export default function SortMenu({ sort, onChange }) {
         className="sort-trigger"
         aria-haspopup="true"
         aria-expanded={menu.open}
-        title={current.dirs[sort.dir]}
+        data-tip={current.dirs[sort.dir]}
         onClick={() => menu.setOpen((v) => !v)}
       >
         Sort: {current.label}
@@ -42,7 +42,7 @@ export default function SortMenu({ sort, onChange }) {
                 <span>{o.label}</span>
                 <button
                   className="sort-option-arrow"
-                  title={active ? o.dirs[sort.dir] : `Sort by ${o.label.toLowerCase()}`}
+                  data-tip={active ? o.dirs[sort.dir] : `Sort by ${o.label.toLowerCase()}`}
                   aria-label={active ? `${o.label}: ${o.dirs[sort.dir]}. Click to reverse` : `Sort by ${o.label.toLowerCase()}`}
                   onClick={() => pick(o.by)}
                 >

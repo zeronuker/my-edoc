@@ -14,7 +14,7 @@ export default function BookmarksView({ bookmarks, currentPage, onNavigate, onRe
           <span className="tree-label">Page {b.page}</span>
           <button
             className="tree-icon-btn"
-            title="Remove bookmark"
+            data-tip="Remove bookmark"
             aria-label={`Remove bookmark for page ${b.page}`}
             onClick={(e) => {
               e.stopPropagation();

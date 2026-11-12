@@ -89,11 +89,11 @@ export default function ManageBar({
           <Collapse open={canStar && starOpen}>
             <div className="star-palette">
               {STAR_COLORS.map((c) => (
-                <button key={c.id} className="star-swatch" title={`${c.label} star`} aria-label={`${c.label} star`} onClick={() => pickStar(c.id)}>
+                <button key={c.id} className="star-swatch" data-tip={`${c.label} star`} aria-label={`${c.label} star`} onClick={() => pickStar(c.id)}>
                   <IconStarFilled size={22} style={{ color: c.color }} />
                 </button>
               ))}
-              <button className="star-swatch" title="Remove star" aria-label="Remove star" onClick={() => pickStar(null)}>
+              <button className="star-swatch" data-tip="Remove star" aria-label="Remove star" onClick={() => pickStar(null)}>
                 <IconStarOff size={22} />
               </button>
             </div>

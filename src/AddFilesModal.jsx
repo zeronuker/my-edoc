@@ -83,7 +83,7 @@ export default function AddFilesModal({ folders, files, busy, onConfirm, onClose
         <div className="add-files-list">
           {plan.map((p, i) => (
             <div className="add-files-row" key={i} style={{ "--i": Math.min(i, 8) }}>
-              <span className="add-files-name" title={p.name}>
+              <span className="add-files-name" data-tip={p.name}>
                 {p.name}
               </span>
               {clashes[i] && (

@@ -111,6 +111,7 @@ import MoveClashModal from "./MoveClashModal.jsx";
 import CopyExtrasModal from "./CopyExtrasModal.jsx";
 import RotateSheet from "./RotateSheet.jsx";
 import ToolModal from "./ToolModal.jsx";
+import Tooltip from "./Tooltip.jsx";
 import ProtectModal from "./ProtectModal.jsx";
 import PasswordModal from "./PasswordModal.jsx";
 import { setPasswordAsker } from "./edoc.js";
@@ -1907,6 +1908,7 @@ function App() {
       ref={appRef}
       className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}${split && settings.paneColours ? " pane-colours" : ""}`}
       onDragOver={handleDragOver} onDrop={handleDrop}>
+      <Tooltip />
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt ready={!showSplash} update={update} />
       {settingsOpen && (
@@ -2328,7 +2330,7 @@ function App() {
                     className="tree-kebab-item"
                     style={{ "--i": 1 }}
                     disabled={addFilesTargets.length === 0}
-                    title={addFilesTargets.length === 0 ? "Add a folder first" : undefined}
+                    data-tip={addFilesTargets.length === 0 ? "Add a folder first" : undefined}
                     onClick={() => {
                       setFabMenuOpen(false);
                       handleAddFiles().catch((err) => setError(`Couldn't add the files: ${err.message}`));
@@ -2354,7 +2356,7 @@ function App() {
                 aria-label="Add folder or files"
                 aria-haspopup="menu"
                 aria-expanded={fabMenuOpen}
-                title="Add folder or files"
+                data-tip="Add folder or files"
               >
                 <IconPlus size={20} />
               </button>

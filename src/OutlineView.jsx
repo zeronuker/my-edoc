@@ -45,7 +45,7 @@ function OutlineNode({ item, path, linkService, onNavigate, expandedKeys, onTogg
         ) : (
           <span className="outline-chevron" aria-hidden="true" />
         )}
-        <div className="outline-label" onClick={handleClick} title={item.title}>
+        <div className="outline-label" onClick={handleClick} data-tip={item.title}>
           {item.title}
         </div>
       </div>

@@ -35,7 +35,7 @@ export default function RecentView({ recentFiles, starred, onSelectFile, selecte
                   className={`starred-chip${filter === c.id ? " active" : ""}`}
                   aria-pressed={filter === c.id}
                   aria-label={`${c.label} stars`}
-                  title={`${c.label} stars`}
+                  data-tip={`${c.label} stars`}
                   onClick={() => setOnly(c.id)}
                 >
                   <IconStarFilled size={14} style={{ color: c.color }} />
@@ -48,7 +48,7 @@ export default function RecentView({ recentFiles, starred, onSelectFile, selecte
               key={s.handle.fileKey ?? s.path + s.name}
               className={`tree-file${s.handle === selectedHandle ? " selected" : ""}`}
               onClick={() => onSelectFile(s.handle)}
-              title={s.path ? `${s.path}/${s.name}` : s.name}
+              data-tip={s.path ? `${s.path}/${s.name}` : s.name}
             >
               <span className="tree-chevron" />
               <FileIcon />
@@ -71,7 +71,7 @@ export default function RecentView({ recentFiles, starred, onSelectFile, selecte
               key={entry.name + entry.openedAt}
               className={`tree-file${entry.fileHandle === selectedHandle ? " selected" : ""}`}
               onClick={() => onSelectFile(entry.fileHandle)}
-              title={entry.name}
+              data-tip={entry.name}
             >
               <span className="tree-chevron" />
               <FileIcon />
