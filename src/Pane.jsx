@@ -105,6 +105,15 @@ export default function Pane({
             <span className="spinner" />
             Loading {selectedHandle?.name}…
           </span>
+          <div className="viewer-skeleton" aria-hidden="true">
+            {[0, 1].map((i) => (
+              <div key={i} className="viewer-skeleton-page">
+                {[0, 1, 2, 3, 4].map((j) => (
+                  <i key={j} />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       ) : !pdf && !searchActive ? (
         <div className="viewer-empty">

@@ -151,6 +151,9 @@ function Node({
   stars,
 }) {
   const [shown, setShown] = useState(CHILD_PAGE);
+  const isOpen = node.kind !== "file" && expandedPaths.has(path);
+  // Kept mounted for the collapse animation (App.css .collapse)
+  const { present: childrenPresent, closing: childrenClosing } = usePresence(isOpen);
   const starId = node.kind === "file" ? stars[extrasKey(node.handle)] : null;
   const star = starId ? STAR_COLORS.find((c) => c.id === starId)?.color : null;
   const newChip = newKeys.has(node.key) && <span className="tree-new-chip">NEW</span>;
@@ -177,8 +180,6 @@ function Node({
     );
   }
 
-  const isOpen = expandedPaths.has(path);
-
   return (
     <div className="tree-folder">
       <div
@@ -196,7 +197,9 @@ function Node({
         <TreeLabel name={node.name} />
         {newChip}
       </div>
-      {isOpen && (
+      {childrenPresent && (
+        <div className={`collapse${childrenClosing ? " is-closing" : ""}`}>
+        <div className="collapse-inner">
         <div className="tree-children">
           {node.children.slice(0, shown).map((child, childIndex) => (
             <Node
@@ -238,6 +241,8 @@ function Node({
               </span>
             </div>
           )}
+        </div>
+        </div>
         </div>
       )}
     </div>

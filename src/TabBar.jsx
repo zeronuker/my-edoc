@@ -109,6 +109,10 @@ export default function TabBar({
   onStartPresentation,
 }) {
   const activeRef = useRef(null);
+  const barRef = useRef(null);
+  // Highlight under the active tab; it glides to the next one (look in oxygen.css).
+  const [ind, setInd] = useState(null);
+  const [armed, setArmed] = useState(false); // first placement is instant, later moves glide
   const prevTabs = useRef(tabs);
   const widths = useRef({});
   // Tabs that just left, kept as inert copies for one collapse animation. The
@@ -136,6 +140,24 @@ export default function TabBar({
     setTimeout(() => setLeaving((l) => l.filter((x) => !goneKeys.has(x.key))), ms);
   }, [tabs]);
 
+  // Re-measured on any tab resize too: a closing tab collapses over time and
+  // shifts the active one with it.
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    const measure = () => {
+      const el = bar.querySelector(".doc-tab.active");
+      const next = el ? { left: el.offsetLeft, width: el.offsetWidth } : null;
+      setInd((p) => (p && next && p.left === next.left && p.width === next.width ? p : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(bar);
+    bar.querySelectorAll(".doc-tab").forEach((t) => ro.observe(t));
+    return () => ro.disconnect();
+  }, [activeKey, tabs, leaving]);
+
+  useEffect(() => setArmed(true), []);
+
   const items = tabs.map((t) => ({ tab: t }));
   [...leaving]
     .filter((g) => !tabs.some((t) => t.key === g.key))
@@ -143,7 +165,14 @@ export default function TabBar({
     .forEach((g) => items.splice(Math.min(g.i, items.length), 0, { ghost: g }));
 
   return (
-    <div className="tab-bar">
+    <div className="tab-bar" ref={barRef}>
+      {ind && (
+        <i
+          className={`tab-ind${armed ? " tab-ind-go" : ""}`}
+          aria-hidden="true"
+          style={{ width: ind.width, transform: `translateX(${ind.left}px)` }}
+        />
+      )}
       {items.map(({ tab, ghost }) => {
         if (ghost) {
           return (

@@ -1,0 +1,274 @@
+/* =================================================================
+   OxygenOS "feel" layer for eDoc — motion + depth only. The ClaudeBorne
+   look (fonts, colours, corners) is unchanged. Loaded after App.css (see
+   main.jsx), so it overrides by order. Every duration is a multiple of
+   --ed-dur, so Settings → Animation (off / speed) still governs it all, and
+   everything sits inside prefers-reduced-motion: no-preference.
+   Works the same on desktop, iPad and phone; hover-only effects are limited
+   to devices that hover, press feedback applies everywhere.
+   To revert: delete this file and its import in main.jsx.
+   ================================================================= */
+
+:root {
+  --oxy-ease:   cubic-bezier(.22, 1, .36, 1);     /* smooth deceleration */
+  --oxy-spring: cubic-bezier(.34, 1.56, .64, 1);  /* slight overshoot */
+  --oxy-d: var(--ed-dur, 180ms);
+  --oxy-hi:  inset 0 1px 0 rgba(255, 255, 255, .08);
+  --oxy-sh1: 0 1px 2px rgba(0, 0, 0, .25), 0 6px 18px rgba(0, 0, 0, .22);
+  --oxy-sh2: 0 2px 4px rgba(0, 0, 0, .25), 0 16px 40px rgba(0, 0, 0, .38);
+}
+:root[data-theme="light"] {
+  --oxy-hi:  inset 0 1px 0 rgba(255, 255, 255, .7);
+  --oxy-sh1: 0 1px 2px rgba(20, 30, 60, .08), 0 6px 18px rgba(20, 30, 60, .10);
+  --oxy-sh2: 0 2px 4px rgba(20, 30, 60, .10), 0 16px 40px rgba(20, 30, 60, .18);
+}
+
+/* ── Glass bars (top bar, toolbar, tab strip) and floating chrome ── */
+.topbar,
+.toolbar,
+.tab-bar {
+  background: color-mix(in srgb, var(--cb-surface-1) 84%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+.toolbar { box-shadow: 0 8px 22px rgba(0, 0, 0, .16); }
+:root[data-theme="light"] .toolbar { box-shadow: 0 8px 22px rgba(20, 30, 60, .10); }
+/* These float over the document, so the blur is real */
+.page-pill,
+.sidebar-pill,
+.error-banner,
+.back-to-results-banner {
+  background: color-mix(in srgb, var(--cb-surface-2) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: var(--oxy-hi), var(--oxy-sh2);
+}
+
+/* ── Buttons: spring press everywhere, lift only where there is hover ── */
+.icon-btn,
+.bookmark-toggle,
+.reading-theme-trigger,
+.annotate-tool,
+.view-mode-trigger,
+.zoom-more,
+.zoom-pill button,
+.page-pill button,
+.sidebar-tab,
+.cb-btn,
+.add-folder-fab {
+  transition:
+    background-color var(--ed-hover) ease,
+    color var(--ed-hover) ease,
+    border-color var(--ed-hover) ease,
+    filter var(--ed-hover) ease,
+    transform calc(var(--ed-hover) * 3.5) var(--oxy-spring),
+    box-shadow calc(var(--ed-hover) * 2.5) var(--oxy-ease);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .zoom-pill button:active:not(:disabled),
+  .sidebar-tab:active,
+  .cb-btn:active:not(:disabled),
+  .bookmark-toggle:active,
+  .reading-theme-trigger:active,
+  .annotate-tool:active,
+  .view-mode-trigger:active,
+  .zoom-more:active { transform: scale(.94); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .icon-btn:hover,
+  .bookmark-toggle:hover,
+  .reading-theme-trigger:hover,
+  .annotate-tool:hover,
+  .view-mode-trigger:hover,
+  .zoom-more:hover,
+  .cb-btn:hover:not(:disabled),
+  .add-folder-fab:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--oxy-hi), var(--oxy-sh1); }
+  .icon-btn:active,
+  .cb-btn:active:not(:disabled),
+  .add-folder-fab:active:not(:disabled) { transform: scale(.94); }
+}
+
+/* ── 1. Document tabs: the underline glides to the active tab (see TabBar.jsx) ── */
+.tab-ind {
+  position: absolute; left: 0; bottom: 0; height: 2px; z-index: 1; pointer-events: none;
+  background: #D85A30;
+  box-shadow: 0 -6px 18px color-mix(in srgb, #D85A30 50%, transparent);
+}
+.app:not(.pane-colours) .doc-tab.active { box-shadow: none; } /* the glider draws this line instead */
+.app.pane-colours .tab-ind { display: none; }               /* split view keeps its per-pane colours */
+.doc-tab { transition: background-color var(--ed-hover) ease, color var(--ed-hover) ease; }
+@media (prefers-reduced-motion: no-preference) {
+  .tab-ind-go {
+    transition: transform calc(var(--oxy-d) * 2.5) var(--oxy-spring), width calc(var(--oxy-d) * 2) var(--oxy-ease);
+  }
+}
+
+/* ── 3. Spring dialogs and a blurrier backdrop ── */
+@keyframes ed-pop     { from { opacity: 0; transform: translate(-50%, -44%) scale(.9); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes ed-pop-out { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(-50%, -47%) scale(.94); } }
+.modal-backdrop { backdrop-filter: blur(6px) saturate(140%); -webkit-backdrop-filter: blur(6px) saturate(140%); }
+.modal-dialog { box-shadow: var(--oxy-hi), var(--oxy-sh2); }
+@media (prefers-reduced-motion: no-preference) {
+  .modal-dialog { animation-duration: calc(var(--oxy-d) * 2); animation-timing-function: var(--oxy-spring); }
+  /* close stays 1x so the unmount timers (usePresence) still match */
+  .modal-dialog.is-closing { animation-duration: var(--oxy-d); animation-timing-function: var(--oxy-ease); }
+  .modal-dialog.move-picker,
+  .modal-dialog.move-picker.is-closing { animation-timing-function: var(--oxy-ease); } /* full-screen sheet: no overshoot */
+}
+
+/* ── 5. Add button: the menu springs up and its items pop in one after another ── */
+@keyframes oxy-fab-menu { from { opacity: 0; transform: translateY(14px) scale(.86); } to { opacity: 1; transform: none; } }
+@keyframes oxy-fab-item { from { opacity: 0; transform: translateY(18px) scale(.7); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .add-fab-menu { animation: oxy-fab-menu calc(var(--oxy-d) * 2.2) var(--oxy-spring) both; }
+  .add-fab-menu.is-closing { animation: ed-pop-up-out var(--oxy-d) var(--oxy-ease) forwards; }
+  .add-fab-menu .tree-kebab-item {
+    transform-origin: left bottom;
+    animation: oxy-fab-item calc(var(--oxy-d) * 2.2) var(--oxy-spring) backwards;
+    animation-delay: calc(var(--i, 0) * var(--oxy-d) * .3);
+  }
+  .add-folder-fab svg,
+  .add-dest-chevron svg { transition: transform calc(var(--oxy-d) * 2.2) var(--oxy-spring); }
+}
+
+/* ── 6. Folder tree: springy open, accent edge on hover, tap ripple ── */
+@keyframes oxy-expand { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .tree-children { animation: oxy-expand calc(var(--oxy-d) * 1.8) var(--oxy-spring) backwards; }
+  .collapse { animation-timing-function: var(--oxy-ease); }
+  .collapse.is-closing { animation-timing-function: var(--oxy-ease); }
+}
+@media (hover: hover) {
+  .tree-file:hover:not(.selected),
+  .tree-folder-label:hover { box-shadow: inset 2px 0 0 var(--cb-mint); }
+}
+.tree-file, .tree-folder-label { transition: background-color var(--ed-hover) ease, box-shadow calc(var(--ed-hover) * 2.5) var(--oxy-ease); }
+
+.cb-btn,
+.sidebar-tab,
+.tree-file,
+.tree-folder-label,
+.doc-tab-name,
+.add-folder-fab { position: relative; overflow: hidden; }
+@keyframes oxy-ripple { to { transform: scale(1); opacity: 0; } }
+.oxy-ripple {
+  position: absolute; border-radius: 50%; pointer-events: none; transform: scale(0);
+  background: color-mix(in srgb, var(--cb-mint) 28%, transparent);
+  animation: oxy-ripple calc(var(--oxy-d) * 3.5) var(--oxy-ease) forwards;
+}
+
+/* ── 7. Selection: the bar springs up, ticks pop ── */
+@keyframes oxy-bar-up { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes oxy-tick   { 0% { transform: scale(0) rotate(-20deg); } 100% { transform: none; } }
+.ed-check { transition: background-color var(--ed-hover) ease, border-color var(--ed-hover) ease, transform calc(var(--ed-hover) * 3.5) var(--oxy-spring), box-shadow calc(var(--ed-hover) * 2.5) var(--oxy-ease); }
+.ed-check[aria-checked="true"] { box-shadow: 0 0 10px color-mix(in srgb, var(--cb-mint) 40%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .manage-bar { animation: oxy-bar-up calc(var(--oxy-d) * 2.2) var(--oxy-spring) backwards; }
+  .manage-bar.is-closing { animation: ed-fade-out var(--oxy-d) ease forwards; }
+  .ed-check:active { transform: scale(.88); }
+  .ed-check[aria-checked="true"] svg { animation: oxy-tick calc(var(--oxy-d) * 2) var(--oxy-spring) backwards; }
+}
+
+/* ── 8. Progress: shimmer sweep while running, glow when full; storage bar grows in ── */
+@keyframes oxy-sweep { to { transform: translateX(100%); } }
+@keyframes oxy-grow  { from { transform: scaleX(0); } }
+@keyframes oxy-pop   { from { transform: scale(0); } to { transform: none; } }
+.copy-progress-bar-fill { position: relative; background: var(--cb-grad); }
+.copy-progress-bar-fill::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+  transform: translateX(-100%); animation: oxy-sweep 1.2s linear infinite;
+}
+.copy-progress-bar-fill[style*="width: 100%"] { box-shadow: 0 0 12px color-mix(in srgb, var(--cb-mint) 70%, transparent); }
+.copy-progress-bar-fill[style*="width: 100%"]::after { animation: none; display: none; }
+.storage-bar-fill {
+  transform-origin: left; transition: width calc(var(--oxy-d) * 4) var(--oxy-ease);
+  animation: oxy-grow calc(var(--oxy-d) * 5) var(--oxy-ease) backwards;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .copy-progress-icon.done { animation: oxy-pop calc(var(--oxy-d) * 2.5) var(--oxy-spring) backwards; }
+}
+
+/* ── 9. Loading: shimmering placeholder pages ── */
+@keyframes oxy-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.viewer-empty:has(.viewer-skeleton) { flex-direction: column; gap: 22px; }
+.viewer-skeleton { display: flex; gap: 14px; }
+.viewer-skeleton-page { width: clamp(84px, 16vw, 150px); aspect-ratio: 3 / 4; padding: 12%; background: var(--cb-surface-3); border-radius: 2px; }
+.viewer-skeleton-page i,
+.pdfViewer .page.loadingIcon {
+  background-image: linear-gradient(90deg, var(--cb-surface-3) 25%, color-mix(in srgb, var(--cb-ink) 12%, var(--cb-surface-3)) 40%, var(--cb-surface-3) 55%);
+  background-size: 300% 100%;
+  animation: oxy-shimmer 1.4s linear infinite;
+}
+.viewer-skeleton-page i { display: block; height: 7%; margin-bottom: 9%; border-radius: 2px; }
+.viewer-skeleton-page i:last-child { width: 60%; }
+
+/* ── 10. Empty state: the icon floats; dragging a file over lights up the drop zone ── */
+@keyframes oxy-bob { 50% { translate: 0 -8px; } }
+.empty-illustration-icon { transition: scale calc(var(--oxy-d) * 2.5) var(--oxy-spring), filter calc(var(--oxy-d) * 2) var(--oxy-ease); }
+@media (prefers-reduced-motion: no-preference) {
+  .empty-illustration-icon { animation: oxy-bob 3.4s ease-in-out infinite; }
+}
+.viewer-empty { transition: box-shadow calc(var(--oxy-d) * 2) var(--oxy-ease); }
+.app.is-dragover .empty-illustration-icon { scale: 1.12; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--cb-mint) 55%, transparent)); }
+.app.is-dragover .viewer-empty {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cb-mint) 60%, transparent), inset 0 0 60px color-mix(in srgb, var(--cb-mint) 14%, transparent);
+}
+
+/* Animations switched off in Settings: stop the endless loops too (App.jsx sets data-anim) */
+html[data-anim="off"] .empty-illustration-icon,
+html[data-anim="off"] .viewer-skeleton-page i,
+html[data-anim="off"] .pdfViewer .page.loadingIcon,
+html[data-anim="off"] .copy-progress-bar-fill::after { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .empty-illustration-icon, .viewer-skeleton-page i, .pdfViewer .page.loadingIcon, .copy-progress-bar-fill::after { animation: none; }
+}
+
+/* ── 11. Narrow-screen sidebar drawer: springs in over a blurred backdrop ── */
+@media (max-width: 880px) {
+  .sidebar-backdrop.open { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .sidebar { box-shadow: 12px 0 36px rgba(0, 0, 0, .35); }
+  @media (prefers-reduced-motion: no-preference) {
+    .sidebar.open { transition: transform calc(var(--oxy-d) * 2.5) var(--oxy-spring); }
+    .sidebar:not(.open) { transition: transform calc(var(--oxy-d) * 1.5) var(--oxy-ease); }
+  }
+}
+
+/* ── 12. Live-alert pill: a dot grows into a pill, holds, shrinks back (LiveAlert.jsx) ── */
+.live-alert {
+  position: fixed; z-index: 10001; left: 50%; transform: translateX(-50%);
+  top: calc(env(safe-area-inset-top) + 10px);
+  display: flex; align-items: center; gap: 10px; overflow: hidden; white-space: nowrap;
+  width: 34px; height: 34px; padding: 0 9px; border-radius: 17px;
+  background: #000; color: #fff; border: 1px solid var(--cb-line-2);
+  font-family: var(--cb-font-mono); font-size: 12px;
+  transition: width calc(var(--oxy-d) * 3.2) var(--oxy-spring), box-shadow calc(var(--oxy-d) * 2) var(--oxy-ease);
+}
+.live-alert-dot { flex: none; width: 16px; height: 16px; border-radius: 50%; background: var(--cb-mint); }
+.live-alert-text { opacity: 0; transition: opacity calc(var(--oxy-d) * 1.4) var(--oxy-ease) calc(var(--oxy-d) * .6); }
+.live-alert.open {
+  width: min(380px, calc(100vw - 32px));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cb-mint) 40%, transparent), 0 10px 30px color-mix(in srgb, var(--cb-mint) 25%, transparent);
+}
+.live-alert.open .live-alert-text { opacity: 1; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Settings window (shared brand kit .cbs): same spring open and blurrier backdrop ──
+   The phone full-screen sheet (cbs-up) keeps its own motion. */
+@keyframes cbs-pop { from { opacity: 0; transform: translate(-50%, -44%) scale(.9); } }
+.cbs-scrim { backdrop-filter: blur(6px) saturate(140%); -webkit-backdrop-filter: blur(6px) saturate(140%); }
+@media (min-width: 641px) and (min-height: 501px) and (prefers-reduced-motion: no-preference) {
+  .cbs { animation-duration: calc(var(--cbs-dur, 260ms) * 2); animation-timing-function: var(--oxy-spring); }
+  .cbs.is-closing { animation-duration: calc(var(--cbs-dur, 260ms) * .75); animation-timing-function: ease-in; }
+}
+
+/* ── Phone tools panel: same spring slide and glass as the sidebar drawer ── */
+.toolbar-drawer {
+  background: color-mix(in srgb, var(--cb-surface-1) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: -12px 0 36px rgba(0, 0, 0, .35);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toolbar-drawer.open { transition: transform calc(var(--oxy-d) * 2.5) var(--oxy-spring), visibility 0s; }
+  .toolbar-drawer:not(.open) { transition: transform calc(var(--oxy-d) * 1.5) var(--oxy-ease), visibility 0s linear calc(var(--oxy-d) * 1.5); }
+}

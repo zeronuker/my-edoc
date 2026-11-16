@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 import { STAR_COLORS } from "./appHelpers.js";
 import { usePresence } from "./usePresence.js";
+import { useRolling } from "./useRolling.js";
 
 // Grows open and shrinks shut instead of popping in. The last children are
 // kept while it closes, since whatever decided to close it has usually
@@ -52,6 +53,7 @@ export default function ManageBar({
   closing = false,
 }) {
   const [starOpen, setStarOpen] = useState(false);
+  const shownCount = useRolling(count);
   const pickStar = (colorId) => {
     onStar(colorId);
     setStarOpen(false);
@@ -60,7 +62,7 @@ export default function ManageBar({
     <div className={`collapse${closing ? " is-closing" : ""}`}>
     <div className="collapse-inner">
     <div className={`manage-bar${closing ? " is-closing" : ""}`}>
-      <div className="manage-bar-count">{count} selected</div>
+      <div className="manage-bar-count">{shownCount} selected</div>
       <Collapse open={fileTools || canStar}>
         <>
           <div className="manage-bar-label">FILE TOOLS</div>

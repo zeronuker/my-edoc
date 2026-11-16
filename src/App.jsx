@@ -99,6 +99,7 @@ import Toolbar from "./Toolbar.jsx";
 import TabBar from "./TabBar.jsx";
 import CopyProgressModal from "./CopyProgressModal.jsx";
 import UploadResultModal from "./UploadResultModal.jsx";
+import LiveAlert from "./LiveAlert.jsx";
 import AddFilesModal from "./AddFilesModal.jsx";
 import WifiModal from "./WifiModal.jsx";
 import { withPath } from "./transfer.js";
@@ -203,6 +204,9 @@ function App() {
   const [storageEstimate, setStorageEstimate] = useState(null); // { quota } in bytes — usage comes from folders' own sizeBytes instead, see refreshStorageEstimate
   const [copyProgress, setCopyProgress] = useState(null); // { title, folderName, files, doneCount } while copying files into OPFS
   const [uploadReport, setUploadReport] = useState(null); // { title, subtitle, added, warning, names } once files were added, sent or received
+  const [liveAlert, setLiveAlert] = useState(null); // { id, text }: a clean success is shown as a pill instead of the result window
+  const [dragActive, setDragActive] = useState(false); // a file is being dragged over the window
+  const dragDepth = useRef(0);
   const [globalSearch, setGlobalSearch] = useState("");
   const [addFiles, setAddFiles] = useState(null); // { files: File[] } while the Add files dialog is open
   const [removeRequest, setRemoveRequest] = useState(null); // { name, kind, count, annotatedCount, otherCount, items: [{ isRoot, folderKey, relPath, cleanNames, ... }] } while the Delete confirmation is open
@@ -508,6 +512,7 @@ function App() {
   useEffect(() => {
     const ms = settings.animEnabled === false ? 0 : ANIM_SPEED_MS[settings.animSpeed] || ANIM_SPEED_MS.normal;
     document.documentElement.style.setProperty("--ed-dur", `${ms}ms`);
+    document.documentElement.dataset.anim = ms ? "on" : "off"; // lets oxygen.css stop endless loops
   }, [settings.animEnabled, settings.animSpeed]);
 
   // While reading, this only kicks in if the user opted into "Keep screen
@@ -956,7 +961,12 @@ function App() {
 
   // The window after files were added, sent or received (see resultMessage).
   function showResult(kind, subtitle, added, skipped) {
-    setUploadReport({ subtitle, names: skipped, ...resultMessage(kind, added, skipped.length) });
+    const result = resultMessage(kind, added, skipped.length);
+    if (result.added && !result.warning && skipped.length === 0) {
+      setLiveAlert({ id: Date.now(), text: `${result.added.replace(/\.$/, "")} · ${subtitle}` });
+      return;
+    }
+    setUploadReport({ subtitle, names: skipped, ...result });
   }
 
   // `savedAs`: the storage id the files were already saved under as they
@@ -1784,6 +1794,18 @@ function App() {
     e.preventDefault();
   }
 
+  // Drag depth counts enter/leave pairs of the window's child elements, so the
+  // highlight doesn't flicker as the pointer crosses them.
+  function handleDragEnter(e) {
+    if (![...e.dataTransfer.types].includes("Files")) return;
+    dragDepth.current += 1;
+    setDragActive(true);
+  }
+  function handleDragLeave() {
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragActive(false);
+  }
+
   // Shared with selectFile below — same rule for every "jump to a spot in
   // the document" action (opening a file, or navigating from Outline/
   // Bookmarks/Pages): forced on phone, opt-in elsewhere via Settings >
@@ -1797,6 +1819,8 @@ function App() {
   // say so instead of silently ignoring it.
   function handleDrop(e) {
     e.preventDefault();
+    dragDepth.current = 0;
+    setDragActive(false);
     let sawFolder = false;
     for (const item of [...e.dataTransfer.items].filter((i) => i.kind === "file")) {
       if (item.webkitGetAsEntry?.()?.isDirectory) {
@@ -1912,11 +1936,12 @@ function App() {
   return (
     <div
       ref={appRef}
-      className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}${split && settings.paneColours ? " pane-colours" : ""}`}
-      onDragOver={handleDragOver} onDrop={handleDrop}>
+      className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}${split && settings.paneColours ? " pane-colours" : ""}${dragActive ? " is-dragover" : ""}`}
+      onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
       <Tooltip />
       {showSplash && <SplashScreen onFinish={onSplashFinish} />}
       <UpdatePrompt ready={!showSplash} update={update} />
+      {liveAlert && <LiveAlert key={liveAlert.id} text={liveAlert.text} onDone={() => setLiveAlert(null)} />}
       {settingsOpen && (
         <Suspense fallback={null}>
           <Settings

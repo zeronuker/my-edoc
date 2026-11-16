@@ -1,9 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import './oxygen.css' // after App so it loads after App.css
 import { installKeyboardArea } from './keyboardArea'
+import { installRipple } from './ripple.js'
 
 installKeyboardArea()
+installRipple()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

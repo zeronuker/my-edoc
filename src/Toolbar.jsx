@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { animDurationMs } from "./useTransitionAnim.js";
+import { useRolling } from "./useRolling.js";
 import { useDropdown } from "./useDropdown.js";
 import {
   IconLayoutSidebar,
@@ -112,6 +113,7 @@ function DesktopToolbar({
   // MIN_SCALE and re-rendered mid-typing. Committed to the pdfViewer (and
   // cleared, falling back to the live scale) on blur/Enter.
   const [zoomDraft, setZoomDraft] = useState(null);
+  const zoomPct = useRolling(Math.round(scale * 100));
   // Set only by a click that adds a bookmark, so the icon pops for that and
   // not whenever scrolling lands on an already-bookmarked page (isBookmarked
   // is derived from the current page). Cleared as soon as the current page
@@ -183,7 +185,7 @@ function DesktopToolbar({
                 inputMode="numeric"
                 {...NO_AUTO}
                 className="zoom-input"
-                value={zoomDraft ?? Math.round(scale * 100)}
+                value={zoomDraft ?? zoomPct}
                 aria-label="Zoom percentage"
                 onFocus={(e) => e.target.select()}
                 onChange={(e) => setZoomDraft(e.target.value.replace(/\D/g, ""))}
@@ -480,6 +482,7 @@ function PhoneDrawer({
   onOpenSettings,
   settingsUpdateAvailable,
 }) {
+  const zoomPct = useRolling(Math.round(scale * 100));
   return (
     <div className={`toolbar-drawer${open ? " open" : ""}`}>
       <div className="td-head">
@@ -502,7 +505,7 @@ function PhoneDrawer({
           <button aria-label="Zoom out" onClick={() => pdfViewer?.decreaseScale()}>
             <IconZoomOut size={18} />
           </button>
-          <span>{Math.round(scale * 100)}%</span>
+          <span>{zoomPct}%</span>
           <button aria-label="Zoom in" onClick={() => pdfViewer?.increaseScale()}>
             <IconZoomIn size={18} />
           </button>
