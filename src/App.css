@@ -2755,14 +2755,6 @@ html[data-kb] .modal-dialog .cf-l4 {
   flex: 2;
 }
 
-.settings-dialog {
-  width: min(560px, calc(100vw - 16px));
-  height: min(620px, calc(100dvh - 16px));
-  --cf-pad: 0;
-}
-
-.settings-dialog .cf-l4 { overflow: hidden; }
-
 .mode-picker-dialog {
   width: min(380px, calc(100vw - 48px));
 }
@@ -3379,193 +3371,12 @@ html[data-kb] .modal-dialog .cf-l4 {
   white-space: nowrap;
 }
 
-/* Settings panel — layout mirrors superapp's SettingsPanel: header, tab rail
-   (wide) / tab strip (narrow), titled sections, segmented toggles. */
-.settings-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--cb-line-2);
-  flex-shrink: 0;
-}
-
-.settings-header-title {
-  font-family: var(--cb-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.22em;
-  color: var(--cb-mint);
-}
-
-.settings-close {
-  background: transparent;
-  border: 1px solid var(--cb-line-2);
-  border-radius: var(--cb-radius-sm);
-  color: var(--cb-ink-dim);
-  padding: 3px 10px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.settings-layout {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-
-.settings-tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 150px;
-  flex-shrink: 0;
-  padding: 10px 8px;
-  border-right: 1px solid var(--cb-line-2);
-  overflow-y: auto;
-}
-
-.settings-tab {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  border-radius: var(--cb-radius-sm);
-  background: transparent;
-  color: var(--cb-ink-dim);
-  font-family: var(--cb-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-align: left;
-  cursor: pointer;
-}
-
-.settings-tab-icon { font-size: 14px; }
-
-.settings-tab.is-active {
-  background: color-mix(in srgb, var(--cb-mint) 14%, transparent);
-  color: var(--cb-mint);
-}
-
-.settings-content {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 20px;
-}
-
-.settings-section { margin-bottom: 24px; }
-
-.settings-section-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  font-family: var(--cb-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  color: var(--cb-mint);
-}
-
-.settings-section-line {
-  flex: 1;
-  height: 1px;
-  background: var(--cb-line-2);
-}
-
-.settings-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.settings-row-label {
-  font-family: var(--cb-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: var(--cb-ink-dim);
-}
-
-.settings-seg {
-  display: flex;
-  flex-shrink: 0;
-  border: 1px solid var(--cb-line-2);
-  border-radius: var(--cb-radius-sm);
-  overflow: hidden;
-}
-
-.settings-seg button {
-  background: transparent;
-  border: none;
-  border-right: 1px solid var(--cb-line-2);
-  color: var(--cb-ink-dim);
-  font-family: var(--cb-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  padding: 5px 10px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.settings-seg button:last-child { border-right: none; }
-
-.settings-seg button.is-active {
-  background: color-mix(in srgb, var(--cb-mint) 14%, transparent);
-  color: var(--cb-mint);
-}
-
-.settings-meta {
-  font-family: var(--cb-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: var(--cb-ink-dim);
-  margin-bottom: 8px;
-}
-
-.settings-wide-btn {
-  width: 100%;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-
-.settings-update-status {
-  font-family: var(--cb-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  color: var(--cb-ink-dim);
-  text-align: center;
-  margin-bottom: 12px;
-}
-
-.settings-update-status--available {
-  color: var(--cb-mint);
-}
-
-.settings-note {
-  font-family: var(--cb-font-mono);
-  font-size: 10px;
-  line-height: 1.5;
-  color: var(--cb-ink-dim);
-}
-
-.settings-foot {
-  text-align: center;
-  font-family: var(--cb-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  color: var(--cb-ink-dim);
-}
-
-/* Narrow: full-screen sheet (like superapp) with the tab rail as a top strip. */
+/* Narrow: the move picker becomes a full-screen sheet. (Settings is the brand SettingsWindow.) */
 @keyframes ed-sheet-up   { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes ed-sheet-down { from { transform: none; } to { transform: translateY(100%); } }
 @media (max-width: 767px) {
-  .modal-backdrop:has(+ .settings-dialog, + .move-picker) { display: none; }
-  .modal-dialog.settings-dialog, .modal-dialog.move-picker {
+  .modal-backdrop:has(+ .move-picker) { display: none; }
+  .modal-dialog.move-picker {
     top: 0;
     left: 0;
     transform: none;
@@ -3577,33 +3388,9 @@ html[data-kb] .modal-dialog .cf-l4 {
     --cf-pad: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
   }
   @media (prefers-reduced-motion: no-preference) {
-    .modal-dialog.settings-dialog, .modal-dialog.move-picker { animation: ed-sheet-up var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) backwards; }
-    .modal-dialog.settings-dialog.is-closing, .modal-dialog.move-picker.is-closing { animation: ed-sheet-down var(--ed-dur, 260ms) cubic-bezier(.4,0,.2,1) forwards; }
+    .modal-dialog.move-picker { animation: ed-sheet-up var(--ed-dur, 260ms) cubic-bezier(.4,0,.6,1) backwards; }
+    .modal-dialog.move-picker.is-closing { animation: ed-sheet-down var(--ed-dur, 260ms) cubic-bezier(.4,0,.2,1) forwards; }
   }
-  .settings-layout { flex-direction: column; }
-  .settings-tabs {
-    flex-direction: row;
-    width: auto;
-    padding: 0;
-    gap: 0;
-    border-right: none;
-    border-bottom: 1px solid var(--cb-line-2);
-    overflow: visible;
-  }
-  .settings-tab {
-    flex: 1;
-    flex-direction: column;
-    gap: 4px;
-    justify-content: center;
-    border-radius: 0;
-    border-bottom: 2px solid transparent;
-    padding: 10px 4px;
-    min-height: 52px;
-    font-size: 9px;
-  }
-  .settings-tab.is-active { border-bottom-color: var(--cb-mint); }
-  .settings-tab-icon { font-size: 15px; }
-  .settings-content { padding: 20px; }
 }
 
 
@@ -3754,8 +3541,7 @@ html[data-kb] .modal-dialog .cf-l4 {
   .reopen-banner { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
   .error-banner.is-closing,
   .back-to-results-banner.is-closing { animation: ed-fade-out var(--ed-dur, 180ms) ease forwards; pointer-events: none; }
-  .back-to-results-banner,
-  .settings-update-status { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
+  .back-to-results-banner { animation: ed-fade var(--ed-dur, 180ms) ease backwards; }
   /* Resting opacity is 0.3 (1 on hover), so these only name one end. */
   .presentation-exit { animation: ed-fade-from var(--ed-dur, 180ms) ease backwards; }
   .presentation-exit.is-closing { animation: ed-fade-to var(--ed-dur, 180ms) ease forwards; pointer-events: none; }

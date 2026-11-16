@@ -277,7 +277,7 @@ export const CHANGELOG = [
     ],
   },
   {
-    v: 'v4.1', date: 'Nov 2026', current: true, title: 'Wifi transfer & Manage tools',
+    v: 'v4.1', date: 'Nov 2026', title: 'Wifi transfer & Manage tools',
     notes: [
       'NEW: + → Send / receive via wifi: pair two devices with a 6-character code or QR and send PDFs or whole folders straight across wifi, never through a server.',
       'NEW: A NEW chip marks added, replaced or received files and folders until you open them or refresh.',
@@ -294,6 +294,14 @@ export const CHANGELOG = [
       'FIX: Deleting your last folder no longer leaves the + button hidden.',
       "FIX: A folder with a PDF the browser can't read (often a path over 260 characters on Windows) no longer fails whole. It is added without those files, and a window lists them. Folders sent over wifi do the same on both devices, and a clean add now ends with a short confirmation.",
       'IMP: Move, Copy and Rotate now open in the same double-line chamfered window as every other popup (full-screen on phones), and opening a folder in the picker slides the list.',
+    ],
+  },
+  {
+    v: 'v4.2', date: 'Nov 2026', current: true, title: 'New Settings window',
+    notes: [
+      'IMP: Settings has the new ClaudeBorne layout shared by every app: tabs down the left, the chosen tab on the right; full screen on a phone with a slim icon column.',
+      'IMP: Two tabs instead of three: General (theme, animation, opening, split view, screen) and About.',
+      'IMP: On/off settings are switches, and Style and Speed fold away when animations are off. Changing tab follows your Animation style and speed.',
     ],
   },
 ]

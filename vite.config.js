@@ -19,6 +19,7 @@ export default defineConfig({
       '@brand/useUpdate': resolve(__dirname, 'brand-kit/component/useUpdate.js'),
       '@brand/Changelog': resolve(__dirname, 'brand-kit/component/Changelog.jsx'),
       '@brand/SettingsIcon': resolve(__dirname, 'brand-kit/component/SettingsIcon.jsx'),
+      '@brand/SettingsWindow': resolve(__dirname, 'brand-kit/component/SettingsWindow.jsx'),
     },
   },
   plugins: [
