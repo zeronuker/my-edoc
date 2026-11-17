@@ -2545,12 +2545,18 @@ body:has(.modal-backdrop, .move-picker) {
   color: var(--cb-danger, #e5484d);
 }
 
-/* The tick box's slot is always there (empty outside Manage mode), so turning
-   Manage mode on only fades the box in and no name re-wraps. */
-.tree-select-slot {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
+/* Manage mode's tick box sits at the right end of the row, in a strip that is always kept
+   free, so turning Manage mode on only fades the box in: nothing moves or re-wraps. */
+.tree-rows .tree-file,
+.tree-rows .tree-folder-label {
+  position: relative;
+  padding-right: 26px;
+}
+
+.tree-select-box {
+  position: absolute;
+  top: 3px;
+  right: 4px;
 }
 
 .manage-bar {
