@@ -302,6 +302,11 @@ export const CHANGELOG = [
       'IMP: Settings has the new ClaudeBorne layout shared by every app: tabs down the left, the chosen tab on the right; full screen on a phone with a slim icon column.',
       'IMP: Two tabs instead of three: General (theme, animation, opening, split view, screen) and About.',
       'IMP: On/off settings are switches, and Style and Speed fold away when animations are off. Changing tab follows your Animation style and speed.',
+      'NEW: Accent colour in Settings: ClaudeBorne, Emerald, Gold, Rose or Violet, the same five as eLogbook and the superapp.',
+      'IMP: Switching document tabs no longer jumps: the page appears already fitted and in place, and fades in.',
+      'IMP: Turning on Manage mode no longer makes file names re-wrap; the tick boxes fade in, and names sit a little further right.',
+      'IMP: Settings drops the small hint lines, and the Recent/Favs tab is now just Recents so it no longer clips.',
+      'FIX: The Add button tooltip no longer covers Send / Receive Via WIFI.',
     ],
   },
 ]

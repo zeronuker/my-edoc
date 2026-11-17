@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { usePresence } from "./usePresence.js";
 import { IconX, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import PdfViewer from "./PdfViewer.jsx";
 import EmptyState from "./EmptyState.jsx";
@@ -67,6 +68,9 @@ export default function Pane({
   // Set by the touch that activates this pane, so PdfViewer's tap-to-turn-page
   // skips that same touch.
   const tapGuardRef = useRef(false);
+  // The loading cover stays mounted for a short fade, so the new document
+  // eases in rather than popping in over it.
+  const cover = usePresence(loading);
   return (
     <div
       className={`pane${split && isActive ? " is-active" : ""}`}
@@ -99,8 +103,8 @@ export default function Pane({
         presenting={presenting}
         tapGuardRef={tapGuardRef}
       />
-      {loading ? (
-        <div className="viewer-empty">
+      {cover.present ? (
+        <div className={`viewer-empty${cover.closing ? " is-closing" : ""}`}>
           <span className="viewer-loading">
             <span className="spinner" />
             Loading {selectedHandle?.name}…

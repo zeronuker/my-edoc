@@ -46,6 +46,10 @@ export function usePane({
   const [chosenViewMode, setViewMode] = useState("two-up");
   const viewMode = split ? "single" : chosenViewMode;
   const [loading, setLoading] = useState(false);
+  // The document is in but pdf.js is still laying it out (scroll mode, fit,
+  // saved page) and drawing its first page; the loading cover stays up until
+  // that is done, so the page appears already in place instead of jumping.
+  const [settling, setSettling] = useState(false);
   const [outline, setOutline] = useState(null);
   const [hasUnsavedAnnotations, setHasUnsavedAnnotations] = useState(false);
   // What confirmLeave needs to save this pane's document (not whichever pane
@@ -110,6 +114,11 @@ export function usePane({
       // a new document starts at 1 whatever the last one was on — so a file
       // opened from page 2 of another would keep showing (and saving) "2".
       setCurrentPage(viewerApi.pdfViewer.currentPageNumber);
+      // Lift the cover once the first page is drawn (or after 2s, so a page
+      // that never reports can't leave it up).
+      const done = () => setSettling(false);
+      eventBus.on("pagerendered", done, { once: true });
+      setTimeout(done, 2000);
     };
     eventBus.on("pagechanging", onPageChanging);
     eventBus.on("scalechanging", onScaleChanging);
@@ -177,6 +186,7 @@ export function usePane({
     setError(null);
     closeSidebarIfAutoHide();
     setLoading(true);
+    setSettling(true);
     // Two-page (or single-page on narrow screens) + fit-page is the
     // default on every open; manually switching view mode only sticks
     // for the file currently open.
@@ -214,6 +224,7 @@ export function usePane({
       setTabs((prev) => prev.filter((t) => t.key !== key));
       setActiveKey(null);
       setPdf(null);
+      setSettling(false);
       restoringRef.current = false;
     } finally {
       clearTimeout(timeoutId);
@@ -229,6 +240,7 @@ export function usePane({
     setActiveKey(null);
     setPdf(null);
     setLoading(false);
+    setSettling(false);
     setError(null);
   }
 
@@ -252,7 +264,7 @@ export function usePane({
     scale,
     viewMode,
     setViewMode,
-    loading,
+    loading: loading || settling,
     outline,
     hasUnsavedAnnotations,
     setHasUnsavedAnnotations,

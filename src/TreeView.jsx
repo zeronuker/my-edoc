@@ -171,7 +171,7 @@ function Node({
         style={{ "--level-color": fileLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
-        {selectBox}
+        <span className="tree-select-slot">{selectBox}</span>
         <FileIcon />
         <TreeLabel name={node.name} />
         {star && <IconStarFilled className="tree-star" size={12} style={{ color: star }} aria-label="Starred" />}
@@ -192,7 +192,7 @@ function Node({
         style={{ "--level-color": folderLevelColor(depth) }}
       >
         {depth > 0 && <TreeRail ancestorsLast={ancestorsLast} isLast={isLast} />}
-        {selectBox}
+        <span className="tree-select-slot">{selectBox}</span>
         <FolderIcon />
         <TreeLabel name={node.name} />
         {newChip}

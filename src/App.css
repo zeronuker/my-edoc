@@ -2545,11 +2545,12 @@ body:has(.modal-backdrop, .move-picker) {
   color: var(--cb-danger, #e5484d);
 }
 
-.tree-select-box {
+/* The tick box's slot is always there (empty outside Manage mode), so turning
+   Manage mode on only fades the box in and no name re-wraps. */
+.tree-select-slot {
   flex-shrink: 0;
   width: 18px;
   height: 18px;
-  margin: 0 2px 0 0;
 }
 
 .manage-bar {
@@ -3535,6 +3536,7 @@ html[data-kb] .modal-dialog .cf-l4 {
 @keyframes ed-pill-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%); } }
 
 @media (prefers-reduced-motion: no-preference) {
+  .viewer-empty.is-closing { animation: ed-fade-out var(--ed-dur, 180ms) ease forwards; pointer-events: none; }
   .page-pill { animation: ed-pill-in var(--ed-dur, 180ms) cubic-bezier(.4,0,.6,1) backwards; }
   .error-banner,
   .empty-illustration,
@@ -3839,9 +3841,8 @@ html[data-kb] .modal-dialog .cf-l4 {
 .add-fab.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 @keyframes ed-collapse-in  { from { grid-template-rows: 0fr; } to { grid-template-rows: 1fr; } }
 @keyframes ed-collapse-out { from { grid-template-rows: 1fr; } to { grid-template-rows: 0fr; } }
-/* The row's flex gap is 4px, so a zero-width box pulls itself back by that much. */
-@keyframes ed-tick-in  { from { width: 0; margin-left: -4px; margin-right: 0; opacity: 0; } }
-@keyframes ed-tick-out { to   { width: 0; margin-left: -4px; margin-right: 0; opacity: 0; } }
+@keyframes ed-tick-in  { from { opacity: 0; } }
+@keyframes ed-tick-out { to   { opacity: 0; } }
 
 /* Move/Copy picker and Rotate sheet, the Manage-mode bar and tick boxes, and the Sort
    menu open and close like everything else; speed follows --ed-dur (0 when animations are off). */
@@ -3879,4 +3880,50 @@ html[data-kb] .modal-dialog .cf-l4 {
 .result-names .copy-file-name {
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+/* Accent colours. Same five as eLogbook and the superapp (same hex values). The
+   ClaudeBorne gradient is the brand default and needs no block. A picked colour
+   replaces the brand mint (and the gradient and window-frame line that follow
+   it); light mode gets the deeper shade that holds contrast on white. */
+:root[data-accent="emerald"] { --cb-mint: #10d983; }
+:root[data-accent="gold"]    { --cb-mint: #eab308; }
+:root[data-accent="rose"]    { --cb-mint: #f43f5e; }
+:root[data-accent="violet"]  { --cb-mint: #a855f7; }
+:root[data-theme="light"][data-accent="emerald"] { --cb-mint: #007d48; }
+:root[data-theme="light"][data-accent="gold"]    { --cb-mint: #8c6a00; }
+:root[data-theme="light"][data-accent="rose"]    { --cb-mint: #e10027; }
+:root[data-theme="light"][data-accent="violet"]  { --cb-mint: #7e22ce; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme])[data-accent="emerald"] { --cb-mint: #007d48; }
+  :root:not([data-theme])[data-accent="gold"]    { --cb-mint: #8c6a00; }
+  :root:not([data-theme])[data-accent="rose"]    { --cb-mint: #e10027; }
+  :root:not([data-theme])[data-accent="violet"]  { --cb-mint: #7e22ce; }
+}
+:root[data-accent] { --cb-grad: var(--cb-mint); --cf-line: var(--cb-mint); }
+
+/* Settings → Theme → Accent: one round swatch per colour. */
+.ed-accent-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.ed-accent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.ed-accent span {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: box-shadow var(--ed-hover) ease;
+}
+.ed-accent[aria-pressed="true"] span {
+  border-color: var(--cb-ink);
+  box-shadow: 0 0 0 2px var(--swatch);
 }

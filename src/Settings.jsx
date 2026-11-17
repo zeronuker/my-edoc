@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CHANGELOG } from "./changelog";
 import Changelog, { currentVersion } from "@brand/Changelog";
-import SettingsWindow, { SettingsSection, SettingsRow, SettingsNote, Seg, Switch, Reveal } from "@brand/SettingsWindow";
+import SettingsWindow, { SettingsSection, SettingsRow, Seg, Switch, Reveal } from "@brand/SettingsWindow";
 import { ANIM_SPEED_MS } from "./useTransitionAnim.js";
 
 // Single source of truth: the app's displayed version is always the newest
@@ -11,6 +11,16 @@ const APP_VERSION = currentVersion(CHANGELOG);
 
 // The standard ClaudeBorne Settings window (brand-kit SettingsWindow): tabs on
 // the left, the chosen tab's settings on the right; full screen on a phone.
+// The same five accents (ids and colours) as eLogbook and the superapp; the
+// colours themselves live in App.css under :root[data-accent].
+const ACCENTS = [
+  { id: "gradient", label: "ClaudeBorne", color: "#3FE0C5", fill: "linear-gradient(135deg, #3FE0C5, #3B8DFF, #5B6BFF)" },
+  { id: "emerald", label: "Emerald", color: "#10d983" },
+  { id: "gold", label: "Gold", color: "#eab308" },
+  { id: "rose", label: "Rose", color: "#f43f5e" },
+  { id: "violet", label: "Violet", color: "#a855f7" },
+];
+
 const TABS = [
   { id: "general", label: "General", hint: "theme · motion · reading", icon: "general" },
   { id: "about", label: "About", hint: "update · changelog", icon: "about" },
@@ -50,10 +60,28 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
                 onChange={(v) => onChange({ theme: v })}
               />
             </SettingsRow>
+            <SettingsRow label="Accent" full>
+              <div className="ed-accent-row" role="group" aria-label="Accent colour">
+                {ACCENTS.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    className="ed-accent"
+                    style={{ "--swatch": a.color }}
+                    aria-label={a.label}
+                    aria-pressed={(settings.accent || "gradient") === a.id}
+                    data-tip={a.label}
+                    onClick={() => onChange({ accent: a.id })}
+                  >
+                    <span style={{ background: a.fill || a.color }} />
+                  </button>
+                ))}
+              </div>
+            </SettingsRow>
           </SettingsSection>
 
           <SettingsSection title="Animation">
-            <SettingsRow label="Animations" hint="Also off when your device has reduced motion turned on">
+            <SettingsRow label="Animations">
               <Switch label="Animations" on={animOn} onChange={(v) => onChange({ animEnabled: v })} />
             </SettingsRow>
             <Reveal open={animOn}>
@@ -84,7 +112,7 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
           </SettingsSection>
 
           <SettingsSection title="Opening">
-            <SettingsRow label="Resume last position" hint="Opens where you stopped reading">
+            <SettingsRow label="Resume last position">
               <Switch label="Resume last position" on={!!settings.resumePosition} onChange={(v) => onChange({ resumePosition: v })} />
             </SettingsRow>
             {/* Forced on phone regardless of this setting (see App.jsx
@@ -97,16 +125,12 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
           </SettingsSection>
 
           <SettingsSection title="Split view">
-            <SettingsRow label="Show two documents" hint="Side by side on wide screens (⋯ on a tab → Split view)">
+            <SettingsRow label="Show two documents">
               <Switch label="Show two documents" on={!!settings.splitView} onChange={(v) => onChange({ splitView: v })} />
             </SettingsRow>
-            <SettingsRow label="Colour-code panes" hint="Left pane amber, right pane pink. Off shows L or R on the tabs">
+            <SettingsRow label="Colour-code panes">
               <Switch label="Colour-code panes" on={settings.paneColours !== false} onChange={(v) => onChange({ paneColours: v })} />
             </SettingsRow>
-            <SettingsNote>
-              Each side shows one page at a time. Two documents use more memory — large scanned PDFs can make iPad
-              Safari close the app — so it starts off on touch devices.
-            </SettingsNote>
           </SettingsSection>
 
           <SettingsSection title="Screen">

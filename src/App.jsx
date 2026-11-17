@@ -133,6 +133,7 @@ const Settings = lazy(() => import("./Settings.jsx"));
 
 const DEFAULT_SETTINGS = {
   theme: "system",
+  accent: "gradient", // see ACCENTS in Settings.jsx
   resumePosition: true,
   keepAwake: false,
   readingTheme: "off",
@@ -427,6 +428,11 @@ function App() {
     if (settings.theme === "system") delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
+
+  useEffect(() => {
+    if (!settings.accent || settings.accent === "gradient") delete document.documentElement.dataset.accent;
+    else document.documentElement.dataset.accent = settings.accent;
+  }, [settings.accent]);
 
   // Sidebar / top bar open and close ("slide a cover"). On desktop the layout
   // changes in ONE step (the PDF area resizes once, so it never re-lays out
@@ -2215,7 +2221,7 @@ function App() {
                   onClick={() => setSidebarTab("recent")}
                 >
                   <IconClock size={14} />
-                  Recent/Favs
+                  Recents
                 </button>
               )}
               {tabAvailable.bookmarks && (
@@ -2399,7 +2405,7 @@ function App() {
                 aria-label="Add folder or files"
                 aria-haspopup="menu"
                 aria-expanded={fabMenuOpen}
-                data-tip="Add folder or files"
+                data-tip={fabMenuOpen ? undefined : "Add folder or files"}
               >
                 <IconPlus size={20} />
               </button>
