@@ -124,15 +124,6 @@ export default function Settings({ settings, onChange, onClose, update, isMobile
             )}
           </SettingsSection>
 
-          <SettingsSection title="Split view">
-            <SettingsRow label="Show two documents">
-              <Switch label="Show two documents" on={!!settings.splitView} onChange={(v) => onChange({ splitView: v })} />
-            </SettingsRow>
-            <SettingsRow label="Colour-code panes">
-              <Switch label="Colour-code panes" on={settings.paneColours !== false} onChange={(v) => onChange({ paneColours: v })} />
-            </SettingsRow>
-          </SettingsSection>
-
           <SettingsSection title="Screen">
             <SettingsRow label="Keep awake while reading">
               <Switch label="Keep awake while reading" on={!!settings.keepAwake} onChange={(v) => onChange({ keepAwake: v })} />

@@ -2,7 +2,7 @@ import { animDurationMs } from "./useTransitionAnim.js";
 
 // Soft light ripple from the touch/click point on these controls. Their
 // position/overflow are set in oxygen.css so the ripple stays inside.
-const RIPPLE_TARGETS = ".cb-btn, .sidebar-tab, .tree-file, .tree-folder-label, .doc-tab-name, .add-folder-fab";
+const RIPPLE_TARGETS = ".cb-btn, .mb-btn, .tab-split, .sidebar-tab, .tree-file, .tree-folder-label, .doc-tab-name, .add-folder-fab";
 
 export function installRipple() {
   document.addEventListener(

@@ -91,12 +91,39 @@
 /* ── 1. Document tabs: the underline glides to the active tab (see TabBar.jsx) ── */
 .tab-ind {
   position: absolute; left: 0; bottom: 0; height: 2px; z-index: 1; pointer-events: none;
-  background: #D85A30;
-  box-shadow: 0 -6px 18px color-mix(in srgb, #D85A30 50%, transparent);
+  background: var(--cb-mint);
+  box-shadow: 0 -6px 18px color-mix(in srgb, var(--cb-mint) 50%, transparent);
 }
 .app:not(.pane-colours) .doc-tab.active { box-shadow: none; } /* the glider draws this line instead */
 .app.pane-colours .tab-ind { display: none; }               /* split view keeps its per-pane colours */
-.doc-tab { transition: background-color var(--ed-hover) ease, color var(--ed-hover) ease; }
+.doc-tab { transition: background-color var(--ed-hover) ease, color var(--ed-hover) ease, box-shadow calc(var(--ed-hover) * 2.5) var(--oxy-ease); }
+
+/* Split toggle, tab menu and close buttons: spring press, lift where there is hover,
+   tap ripple on the split toggle; split-view panes ease between bright and dim */
+.tab-split,
+.doc-tab-more,
+.doc-tab-close {
+  transition:
+    background-color var(--ed-hover) ease,
+    color var(--ed-hover) ease,
+    transform calc(var(--ed-hover) * 3.5) var(--oxy-spring),
+    box-shadow calc(var(--ed-hover) * 2.5) var(--oxy-ease);
+}
+.tab-split { overflow: hidden; }
+.tab-split { transition-property: background-color, color, border-color, transform, box-shadow; }
+.tab-split.on { background: color-mix(in srgb, var(--cb-mint) 12%, var(--cb-surface-1)); box-shadow: 0 0 10px color-mix(in srgb, var(--cb-mint) 30%, transparent); }
+.tab-split svg { transition: transform calc(var(--oxy-d) * 2.5) var(--oxy-spring); }
+.tab-split.on svg { transform: scale(1.12); }
+.panes.is-split .pane::after { transition: border-color calc(var(--ed-hover) * 2.5) var(--oxy-ease); }
+.pane-header { transition: background-color calc(var(--ed-hover) * 2.5) var(--oxy-ease), color calc(var(--ed-hover) * 2.5) var(--oxy-ease); }
+@media (prefers-reduced-motion: no-preference) {
+  .tab-split:active:not(:disabled),
+  .doc-tab-more:active,
+  .doc-tab-close:active { transform: scale(.88); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .tab-split:hover:not(:disabled) svg { transform: scale(1.15); }
+}
 @media (prefers-reduced-motion: no-preference) {
   .tab-ind-go {
     transition: transform calc(var(--oxy-d) * 2.5) var(--oxy-spring), width calc(var(--oxy-d) * 2) var(--oxy-ease);
@@ -145,6 +172,7 @@
 .tree-file, .tree-folder-label { transition: background-color var(--ed-hover) ease, box-shadow calc(var(--ed-hover) * 2.5) var(--oxy-ease); }
 
 .cb-btn,
+.mb-btn,
 .sidebar-tab,
 .tree-file,
 .tree-folder-label,
@@ -167,6 +195,38 @@
   .manage-bar.is-closing { animation: ed-fade-out var(--oxy-d) ease forwards; }
   .ed-check:active { transform: scale(.88); }
   .ed-check[aria-checked="true"] svg { animation: oxy-tick calc(var(--oxy-d) * 2) var(--oxy-spring) backwards; }
+}
+
+/* Manage bar: glass, spring-press buttons, tool group and star popover pop in */
+@keyframes oxy-pop-in { from { opacity: 0; transform: scale(.85) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes oxy-pop-out { to { opacity: 0; transform: scale(.9) translateY(4px); } }
+.manage-bar {
+  background: color-mix(in srgb, var(--cb-surface-1) 84%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: 0 -8px 22px rgba(0, 0, 0, .16), 0 -1px 14px color-mix(in srgb, var(--cb-mint) 25%, transparent);
+}
+.mb-btn, .mb-link, .mb-clear, .mb-pill {
+  transition:
+    background-color var(--ed-hover) ease,
+    color var(--ed-hover) ease,
+    transform calc(var(--ed-hover) * 3.5) var(--oxy-spring),
+    box-shadow calc(var(--ed-hover) * 2.5) var(--oxy-ease);
+}
+.mb-star .star-palette { box-shadow: var(--oxy-hi), var(--oxy-sh2); transform-origin: bottom center; }
+@media (prefers-reduced-motion: no-preference) {
+  .mb-btn:active:not(:disabled),
+  .mb-link:active:not(:disabled),
+  .mb-clear:active { transform: scale(.92); }
+  .mb-group { animation: oxy-pop-in calc(var(--oxy-d) * 2) var(--oxy-spring) backwards; }
+  .mb-star .star-palette { animation: oxy-pop-in calc(var(--oxy-d) * 2) var(--oxy-spring) backwards; }
+  .mb-star .star-palette.is-closing { animation: oxy-pop-out var(--oxy-d) ease forwards; }
+  .mb-star .star-swatch { transition: transform calc(var(--ed-hover) * 3.5) var(--oxy-spring); }
+  .mb-star .star-swatch:active { transform: scale(.85); }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .mb-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--oxy-hi), var(--oxy-sh1); }
+  .mb-star .star-swatch:hover { transform: translateY(-2px) scale(1.12); }
 }
 
 /* ── 8. Progress: shimmer sweep while running, glow when full; storage bar grows in ── */

@@ -307,6 +307,10 @@ export const CHANGELOG = [
       'IMP: Turning on Manage mode no longer makes file names re-wrap; the tick boxes fade in at the right end of each row.',
       'IMP: Settings drops the small hint lines, and the Recent/Favs tab is now just Recents so it no longer clips.',
       'FIX: The Add button tooltip no longer covers Send / Receive Via WIFI.',
+      'IMP: Split view is now one button at the far left of the tab row. The Split view and Colour-code panes settings are gone: both panes always take your accent colour, the active one bold and bright and the other dimmer.',
+      'IMP: The open document tab follows your accent colour, and the tab menu is now a vertical three-dot button.',
+      'IMP: Manage mode has a new full-width bar at the bottom: a selected pill, grouped file tools, a star colour popover and a red Delete.',
+      'FIX: The title bar and splash screen keep the ClaudeBorne colours whatever accent you pick.',
     ],
   },
 ]

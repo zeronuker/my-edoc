@@ -140,10 +140,6 @@ const DEFAULT_SETTINGS = {
   readingBrightness: 100,
   readingContrast: 100,
   autoHideSidebar: false,
-  // Two documents loaded at once is the memory risk on an iPad (see usePane.js),
-  // so touch devices opt in; mouse-and-keyboard devices start with it on.
-  splitView: !window.matchMedia("(pointer: coarse)").matches,
-  paneColours: true, // amber / pink on the two panes of a split and their tabs, instead of L / R letters
   animEnabled: true,
   animStyle: "slide", // "slide" | "rise"
   animSpeed: "normal", // "normal" | "slow" | "slower"
@@ -766,21 +762,13 @@ function App() {
     return choice === "discard";
   }
 
-  // Split view is offered on wide screens when it's switched on in Settings,
-  // with a document open to split from. Shrinking the window (an iPad turned
-  // to portrait) or switching it off closes the second pane — its tab stays.
-  const splitDisabledReason = !settings.splitView
-    ? "Turned off in Settings → Reading"
-    : isNarrow
-      ? "Needs a wider screen"
-      : !pdf
-        ? "Open a document first"
-        : null;
-  const splitForbidden = !settings.splitView || isNarrow;
+  // Split view is offered on wide screens only (the tab row hides its button
+  // otherwise). Shrinking the window (an iPad turned to portrait) closes the
+  // second pane — its tab stays.
   useEffect(() => {
-    if (split && splitForbidden) closePane(activePane === "L" ? "R" : "L");
+    if (split && isNarrow) closePane(activePane === "L" ? "R" : "L");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [split, splitForbidden]);
+  }, [split, isNarrow]);
 
   // Splits the screen, the new pane opening the most recently used other tab
   // (or empty if there is none), or closes the pane that isn't the active one.
@@ -789,6 +777,7 @@ function App() {
       closePane(activePane === "L" ? "R" : "L");
       return;
     }
+    if (!pdf) return; // still loading: nothing to split from yet
     const otherTab =
       recentFiles
         .map((e) => tabs.find((t) => t.key === extrasKey(e.fileHandle)))
@@ -1942,10 +1931,15 @@ function App() {
   return (
     <div
       ref={appRef}
-      className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}${split && settings.paneColours ? " pane-colours" : ""}${dragActive ? " is-dragover" : ""}`}
+      className={`app${IS_MOBILE ? " is-phone" : ""}${presenting ? " is-presenting" : ""}${split ? " pane-colours" : ""}${dragActive ? " is-dragover" : ""}`}
       onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}>
       <Tooltip />
-      {showSplash && <SplashScreen onFinish={onSplashFinish} />}
+      {showSplash && (
+        // display: contents: only here so App.css can keep the splash brand-coloured under any accent
+        <div className="cb-splash" style={{ display: "contents" }}>
+          <SplashScreen onFinish={onSplashFinish} />
+        </div>
+      )}
       <UpdatePrompt ready={!showSplash} update={update} />
       {liveAlert && <LiveAlert key={liveAlert.id} text={liveAlert.text} onDone={() => setLiveAlert(null)} />}
       {settingsOpen && (
@@ -2453,7 +2447,7 @@ function App() {
               activeKey={activeKey}
               split={split}
               paneOf={(key) => (panes.L.activeKey === key ? "L" : panes.R.activeKey === key ? "R" : null)}
-              splitDisabledReason={splitDisabledReason}
+              canSplit={!isNarrow}
               onSelect={selectFile}
               onClose={closeTab}
               onActivatePane={setActivePane}
@@ -2522,6 +2516,7 @@ function App() {
           </button>
         </main>
       </div>
+      <div className="manage-slot" id="manage-slot" />
     </div>
   );
 }

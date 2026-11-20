@@ -2379,26 +2379,6 @@ body:has(.modal-backdrop, .move-picker) {
   flex-wrap: wrap;
 }
 
-.manage-bar-label {
-  margin: 2px 0 4px;
-  font-family: var(--cb-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: var(--cb-ink-dim);
-}
-
-.manage-bar-row.tool-row {
-  margin-bottom: 6px;
-}
-
-.manage-bar-row.tool-row > .cb-btn {
-  flex: 1 1 0;
-  flex-direction: column;
-  gap: 2px;
-  padding: 5px 2px;
-  font-size: 10px;
-}
-
 /* Rotate: a page grid under the tool buttons. Layout (head, foot, hint)
    comes from the Move picker, which this shares. */
 /* Pick pages (field, All, None, count), then turn them (Left, Right, 180). One wrapping row
@@ -2509,12 +2489,11 @@ body:has(.modal-backdrop, .move-picker) {
   margin-left: 2px;
 }
 
-/* Star colour picker, under the File tools buttons. */
+/* Star colour picker: a popover above the Star button in the Manage bar. */
 .star-palette {
   display: flex;
   justify-content: space-between;
   gap: 4px;
-  margin: 0 0 6px;
   padding: 4px;
   border: 1px solid var(--cb-line-2);
   border-radius: var(--cb-radius-sm);
@@ -2557,41 +2536,6 @@ body:has(.modal-backdrop, .move-picker) {
   position: absolute;
   top: 3px;
   right: 4px;
-}
-
-.manage-bar {
-  flex-shrink: 0;
-  padding: 8px 6px;
-  border-top: 1px solid var(--cb-line-2);
-  background: var(--cb-surface-2);
-}
-
-.manage-bar-count {
-  margin-bottom: 6px;
-  font-family: var(--cb-font-mono);
-  font-size: 11px;
-  color: var(--cb-ink-dim);
-}
-
-.manage-bar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.manage-bar-actions > .cb-btn,
-.manage-bar-row > .cb-btn {
-  flex: 1 1 40%;
-  padding-left: 4px;
-  padding-right: 4px;
-  white-space: nowrap;
-  letter-spacing: 0;
-}
-
-.manage-bar-row {
-  display: flex;
-  gap: 6px;
-  flex: 1 1 100%;
 }
 
 .rename-input {
@@ -2941,6 +2885,37 @@ html[data-kb] .modal-dialog .cf-l4 {
   font-size: 12px;
 }
 
+/* Split view toggle: pinned at the far left of the tab row. */
+.tab-split {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 8px 0 18px; /* centred under the toolbar's sidebar toggle */
+  padding: 0;
+  background: var(--cb-surface-1);
+  border: 1px solid var(--cb-line-2);
+  border-radius: var(--cb-radius-sm);
+  color: var(--cb-ink);
+  cursor: pointer;
+}
+
+.tab-split:hover:not(:disabled) {
+  border-color: var(--cb-mint);
+  color: var(--cb-mint);
+}
+
+.tab-split.on {
+  border-color: var(--cb-mint);
+  color: var(--cb-mint);
+}
+
 .doc-tab {
   display: flex;
   align-items: center;
@@ -2956,9 +2931,10 @@ html[data-kb] .modal-dialog .cf-l4 {
 }
 
 .doc-tab.active {
-  background: var(--cb-surface-2);
-  color: #F0997B;
-  box-shadow: inset 0 -2px 0 #D85A30;
+  background: color-mix(in srgb, var(--cb-mint) 12%, transparent);
+  color: var(--cb-mint);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--cb-mint);
 }
 
 .doc-tab button {
@@ -3073,15 +3049,6 @@ html[data-kb] .modal-dialog .cf-l4 {
   border-left: 2px solid var(--cb-line-2);
 }
 
-.panes.is-split .pane.is-active::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  border: 2px solid #D85A30;
-  pointer-events: none;
-}
-
 .pane-header {
   display: flex;
   align-items: center;
@@ -3094,10 +3061,6 @@ html[data-kb] .modal-dialog .cf-l4 {
   font-family: var(--cb-font-mono);
   font-size: 11px;
   color: var(--cb-ink-dim);
-}
-
-.pane.is-active .pane-header {
-  color: #F0997B;
 }
 
 .pane-header-name {
@@ -3127,27 +3090,11 @@ html[data-kb] .modal-dialog .cf-l4 {
   color: var(--cb-ink);
 }
 
-/* L / R on a tab: which pane is showing that file. */
-.doc-tab-pane {
-  margin-left: -2px;
-  padding: 0 4px;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  font-size: 10px;
-  opacity: 0.8;
-}
-
-/* Colour-coded panes (Settings → Reading → Split view): amber for the left pane
-   and its tab, pink for the right. Off, the active pane is outlined in coral
-   and the tabs carry an L or R. */
-.pane[data-pane="L"],
-.doc-tab[data-pane="L"] {
-  --pc: #F2B03A;
-}
-
-.pane[data-pane="R"],
-.doc-tab[data-pane="R"] {
-  --pc: #F06AAE;
+/* Split view: both panes and their tabs share the chosen accent. The active
+   pane and tab are bold and bright, the other dimmer. */
+.pane[data-pane],
+.doc-tab[data-pane] {
+  --pc: var(--cb-mint);
 }
 
 .app.pane-colours .panes.is-split .pane::after {
@@ -3174,15 +3121,19 @@ html[data-kb] .modal-dialog .cf-l4 {
 }
 
 .app.pane-colours .doc-tab[data-pane] {
-  color: color-mix(in srgb, var(--pc) 75%, var(--cb-ink-dim));
-  background: color-mix(in srgb, var(--pc) 8%, transparent);
-  box-shadow: inset 0 -2px 0 var(--pc);
+  color: color-mix(in srgb, var(--pc) 55%, var(--cb-ink-dim));
+  background: color-mix(in srgb, var(--pc) 6%, transparent);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--pc) 45%, transparent);
 }
 
 .app.pane-colours .doc-tab[data-pane].active {
   color: var(--pc);
-  background: color-mix(in srgb, var(--pc) 20%, transparent);
+  background: color-mix(in srgb, var(--pc) 22%, transparent);
   box-shadow: inset 0 -3px 0 var(--pc);
+}
+
+.app.pane-colours .doc-tab[data-pane]:not(.active)::before {
+  opacity: 0.6;
 }
 
 .app.pane-colours .doc-tab[data-pane]::before {
@@ -3197,10 +3148,6 @@ html[data-kb] .modal-dialog .cf-l4 {
 
 .app.pane-colours .doc-tab[data-pane] .doc-tab-name {
   padding-left: 6px;
-}
-
-.app.pane-colours .doc-tab-pane {
-  display: none;
 }
 
 /* Presentation mode: only the page remains, on black, with a faint exit
@@ -3933,3 +3880,86 @@ html[data-kb] .modal-dialog .cf-l4 {
   border-color: var(--cb-ink);
   box-shadow: 0 0 0 2px var(--swatch);
 }
+
+/* Manage bar: spans the whole app at the bottom (portalled into .manage-slot,
+   see TreeView.jsx), laid out as one wrapping row. */
+/* The title bar banner and the splash screen stay brand-coloured: they keep the
+   brand mint when Settings → Accent re-points --cb-mint for the rest of the app. */
+.cb-banner,
+.cb-splash { --cb-mint: #3FE0C5; }
+:root[data-theme="light"] .cb-banner,
+:root[data-theme="light"] .cb-splash { --cb-mint: #1CC2A3; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .cb-banner,
+  :root:not([data-theme]) .cb-splash { --cb-mint: #1CC2A3; }
+}
+
+/* Manage bar: full width at the bottom of the app (portalled into .manage-slot,
+   see TreeView.jsx and ManageBar.jsx). The popover must escape the grow wrapper. */
+.manage-slot { flex-shrink: 0; position: relative; z-index: 5; }
+.manage-slot .collapse-inner { overflow: visible; }
+.manage-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 14px;
+  border-top: 2px solid var(--cb-mint);
+  background: var(--cb-surface-1);
+  font-family: var(--cb-font-mono);
+  font-size: 11px;
+}
+.mb-sel { display: flex; align-items: center; gap: 6px; }
+.mb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--cb-mint) 14%, transparent);
+  color: var(--cb-mint);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.mb-pill.none { padding-right: 12px; background: transparent; color: var(--cb-ink-dim); font-weight: 400; }
+.mb-clear {
+  display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0;
+  border: none; border-radius: 50%;
+  background: color-mix(in srgb, var(--cb-mint) 20%, transparent);
+  color: inherit; cursor: pointer;
+}
+.mb-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 8px; border: none; border-radius: var(--cb-radius-sm);
+  background: none; color: var(--cb-ink-dim); font: inherit; cursor: pointer;
+}
+.mb-link:hover:not(:disabled) { background: var(--cb-surface-2); color: var(--cb-ink); }
+.mb-link:disabled { opacity: 0.35; cursor: default; }
+.mb-group {
+  display: flex; align-items: center; gap: 2px; padding: 2px;
+  border: 1px solid var(--cb-line-2); border-radius: 10px;
+}
+.mb-group.plain { border-color: transparent; }
+.mb-btn {
+  position: relative;
+  display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 58px; padding: 6px 10px;
+  border: none; border-radius: 8px;
+  background: none; color: var(--cb-ink-2);
+  font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+.mb-btn:hover:not(:disabled) { background: var(--cb-surface-2); color: var(--cb-ink); }
+.mb-btn.on { background: color-mix(in srgb, var(--cb-mint) 14%, transparent); color: var(--cb-mint); }
+.mb-btn:disabled { opacity: 0.35; cursor: default; }
+.mb-btn.danger { color: #ff7a8a; }
+.mb-btn.danger:hover:not(:disabled) { background: color-mix(in srgb, #ff7a8a 12%, transparent); color: #ff7a8a; }
+.mb-spacer { flex: 1 1 auto; }
+.mb-div { width: 1px; height: 28px; background: var(--cb-line-2); }
+.mb-star { position: relative; display: flex; }
+.mb-star .star-palette {
+  position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  margin: 0; padding: 6px 8px; gap: 6px;
+  background: var(--cb-surface-2); border-radius: 10px; z-index: 6;
+}
+.mb-star .star-swatch { flex: 0 0 36px; }

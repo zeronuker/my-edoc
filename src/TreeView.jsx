@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { dbGet, dbSet } from "./db.js";
 import { IconStarFilled } from "@tabler/icons-react";
 import { folderLevelColor, fileLevelColor, STAR_COLORS } from "./appHelpers.js";
@@ -368,7 +369,8 @@ export default function TreeView({
             )
         )}
       </div>
-      {managePresence.present && (
+      {managePresence.present &&
+        createPortal(
         <ManageBar
           closing={managePresence.closing}
           count={checkedKeys.size}
@@ -384,7 +386,8 @@ export default function TreeView({
           onCopy={() => onCopyNodes(ticked, () => setCheckedKeys(new Set()))}
           onMove={() => onMoveNodes(ticked, () => setCheckedKeys(new Set()))}
           onDelete={() => onDeleteNodes(ticked)}
-        />
+        />,
+        document.getElementById("manage-slot")
       )}
     </div>
   );

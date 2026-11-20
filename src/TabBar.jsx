@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { IconX, IconDots, IconInfoCircle, IconColumns2, IconPresentation } from "@tabler/icons-react";
+import { IconX, IconDotsVertical,IconInfoCircle, IconColumns2, IconPresentation } from "@tabler/icons-react";
 import { useDropdown } from "./useDropdown.js";
 import { animDurationMs } from "./useTransitionAnim.js";
 
@@ -11,11 +11,8 @@ import { animDurationMs } from "./useTransitionAnim.js";
 function TabMenu({
   name,
   pane,
-  split,
-  splitDisabledReason,
   onActivatePane,
   onShowInfo,
-  onToggleSplit,
   onStartPresentation,
 }) {
   const menu = useDropdown();
@@ -59,7 +56,7 @@ function TabMenu({
         aria-expanded={menu.open}
         onClick={toggle}
       >
-        <IconDots size={14} />
+        <IconDotsVertical size={14} />
       </button>
       {menu.open &&
         pos &&
@@ -71,13 +68,6 @@ function TabMenu({
           >
             <button onClick={run(onShowInfo)}>
               <IconInfoCircle size={16} /> Document properties
-            </button>
-            <button
-              disabled={!!splitDisabledReason && !split}
-              data-tip={!split ? (splitDisabledReason ?? undefined) : undefined}
-              onClick={run(onToggleSplit)}
-            >
-              <IconColumns2 size={16} /> {split ? "Close split view" : "Split view"}
             </button>
             <span className="dropdown-sep" />
             <button onClick={run(onStartPresentation)}>
@@ -100,7 +90,7 @@ export default function TabBar({
   activeKey,
   split,
   paneOf,
-  splitDisabledReason,
+  canSplit,
   onSelect,
   onClose,
   onActivatePane,
@@ -173,6 +163,17 @@ export default function TabBar({
           style={{ width: ind.width, transform: `translateX(${ind.left}px)` }}
         />
       )}
+      {canSplit && (
+        <button
+          className={`tab-split${split ? " on" : ""}`}
+          aria-label={split ? "Close split view" : "Split view"}
+          aria-pressed={split}
+          data-tip={split ? "Close split view" : "Split view"}
+          onClick={onToggleSplit}
+        >
+          <IconColumns2 size={16} />
+        </button>
+      )}
       {items.map(({ tab, ghost }) => {
         if (ghost) {
           return (
@@ -205,16 +206,12 @@ export default function TabBar({
             <button className="doc-tab-name" aria-current={active} onClick={() => onSelect(handle)}>
               {handle.name}
             </button>
-            {marked && <span className="doc-tab-pane">{pane}</span>}
             {pane && (
               <TabMenu
                 name={handle.name}
                 pane={pane}
-                split={split}
-                splitDisabledReason={splitDisabledReason}
                 onActivatePane={onActivatePane}
                 onShowInfo={onShowInfo}
-                onToggleSplit={onToggleSplit}
                 onStartPresentation={onStartPresentation}
               />
             )}
