@@ -3,6 +3,7 @@ import { RenderingCancelledException } from "pdfjs-dist";
 import { IconChecks, IconChevronLeft, IconRotate, IconRotateClockwise, IconSquareOff, IconX } from "@tabler/icons-react";
 import ChamferFrame from "@brand/ChamferFrame";
 import { loadDocument } from "./edoc.js";
+import { enqueue } from "./renderQueue.js";
 import { NO_AUTO, parsePageRange } from "./appHelpers.js";
 
 const THUMB = 96; // px: longest side of a page thumbnail
@@ -14,14 +15,6 @@ const CELL_MIN = 108;
 const PAD_X = 24; // the scroller's left + right padding
 const BUFFER_ROWS = 2;
 
-// One page at a time: rendering several big scanned pages at once is what
-// runs a small device out of memory.
-let renderQueue = Promise.resolve();
-const enqueue = (task) => {
-  const run = renderQueue.then(task);
-  renderQueue = run.catch(() => {});
-  return run;
-};
 
 // A page thumbnail that draws once it scrolls near view, turned by `rotation`
 // degrees on top of the page's own turn. The frame is square, and the page is

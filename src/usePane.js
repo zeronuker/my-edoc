@@ -7,6 +7,9 @@ import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import { openTab } from "./appHelpers.js";
 import { applyTurns } from "./pageTurns.js";
 
+// A big scanned file can take a while to open on a small device.
+const LOAD_TIMEOUT_MS = 60000;
+
 // One viewer's worth of document state: which tab it shows, the loaded PDF,
 // page/zoom/view mode, outline, unsaved-annotations flag, and the pdf.js
 // viewer wiring for it. Only the tab on show is ever loaded — the other tabs
@@ -189,6 +192,8 @@ export function usePane({
     setViewMode(isNarrow ? "single" : "two-up");
     restoringRef.current = true;
     let timeoutId;
+    let loading = null; // the load in flight, so a result nobody uses can still be freed
+    let applied = false;
     try {
       // A sidecar copy (see annotations.js) holds this file's saved
       // annotations when its mode is "sidecar" — load that instead of the
@@ -196,26 +201,29 @@ export function usePane({
       // touched in "writeback" mode.
       const file = (await loadAnnotatedCopy(extrasKey(fileHandle))) || (await fileHandle.getFile());
       const timeout = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), 15000);
+        timeoutId = setTimeout(() => reject(new Error("Timed out loading PDF")), LOAD_TIMEOUT_MS);
       });
       // The user may take as long as they like to answer a password prompt —
       // cancel the load timeout the instant one appears, or it would fire
       // while they are still typing.
-      const doc = await Promise.race([
-        loadDocument(file, { name: fileHandle.name, onPasswordPrompt: () => clearTimeout(timeoutId) }),
-        timeout,
-      ]);
-      // A newer load has since taken over — drop this stale result instead of
-      // overwriting the newer call's already-applied state.
+      loading = loadDocument(file, { name: fileHandle.name, onPasswordPrompt: () => clearTimeout(timeoutId) });
+      const doc = await Promise.race([loading, timeout]);
+      // A newer load has since taken over — drop this stale result (and free
+      // it) instead of overwriting the newer call's already-applied state.
       if (loadTokenRef.current !== token) return;
       const positions = await getPositions();
+      if (loadTokenRef.current !== token) return;
       pendingRestoreRef.current = positions[extrasKey(fileHandle)] || null;
       setPdf(doc);
+      applied = true;
       addToRecent(fileHandle);
     } catch (err) {
       if (loadTokenRef.current !== token) return;
-      console.error(err);
-      setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
+      // Cancelling the password question is the user's choice, not a failure.
+      if (!err.cancelled) {
+        console.error(err);
+        setError(`Couldn't open "${fileHandle.name}": ${err.message}`);
+      }
       // A file that won't open leaves no tab behind.
       setTabs((prev) => prev.filter((t) => t.key !== key));
       setActiveKey(null);
@@ -224,6 +232,9 @@ export function usePane({
       restoringRef.current = false;
     } finally {
       clearTimeout(timeoutId);
+      // Whatever was loaded but not put on screen (superseded, timed out, or
+      // finished after a failure) would otherwise stay in the worker's memory.
+      if (!applied) loading?.then((d) => d.destroy(), () => {});
       if (loadTokenRef.current === token) setLoading(false);
     }
   }

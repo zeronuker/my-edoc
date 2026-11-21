@@ -50,8 +50,11 @@ export async function sweepOrphanFolders(keepFolderIds, graceMs = 10 * 60 * 1000
   const orphans = [];
   for await (const [id, entry] of root.entries()) {
     if (entry.kind !== "directory" || keep.has(id)) continue;
-    let fresh = false;
+    // An empty one is skipped: it holds no space, and may be a copy that has
+    // only just begun (its first file not finished yet).
+    let fresh = true;
     for await (const [, file] of entry.entries()) {
+      fresh = false;
       if (file.kind === "file" && Date.now() - (await file.getFile()).lastModified < graceMs) {
         fresh = true;
         break;

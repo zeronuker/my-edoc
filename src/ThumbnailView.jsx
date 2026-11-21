@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RenderingCancelledException } from "pdfjs-dist";
+import { enqueue } from "./renderQueue.js";
 
 const THUMB_WIDTH = 100;
 
@@ -20,17 +21,25 @@ function Thumbnail({ pdf, pageNumber, isActive, onSelect }) {
     if (!el) return;
     let cancelled = false;
     let renderTask = null;
+    let nearView = false;
+    let queued = false;
+    // Drawn one at a time (see renderQueue.js), and only if still near the
+    // screen when its turn comes, so scrolling fast past hundreds of pages
+    // doesn't draw them all.
     const observer = new IntersectionObserver(
       (entries) => {
-        if (!entries[0].isIntersecting) return;
-        observer.disconnect();
-        renderThumb();
+        nearView = entries[0].isIntersecting;
+        if (!nearView || queued) return;
+        queued = true;
+        enqueue(renderThumb).catch(() => {});
       },
       { rootMargin: "200px" }
     );
     observer.observe(el);
 
     async function renderThumb() {
+      queued = false;
+      if (cancelled || !nearView) return;
       const page = await pdf.getPage(pageNumber);
       const scale = THUMB_WIDTH / page.getViewport({ scale: 1 }).width;
       const viewport = page.getViewport({ scale });

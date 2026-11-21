@@ -11,8 +11,16 @@ let workerSrcPromise;
 async function getWorkerSrc() {
   if (!workerSrcPromise) {
     workerSrcPromise = fetch("/pdf.worker.mjs")
-      .then((res) => res.blob())
-      .then((blob) => URL.createObjectURL(blob));
+      .then((res) => {
+        if (!res.ok) throw new Error(`The PDF engine failed to download (${res.status})`);
+        return res.blob();
+      })
+      .then((blob) => URL.createObjectURL(blob))
+      // A failed download is not kept: the next open tries again.
+      .catch((err) => {
+        workerSrcPromise = undefined;
+        throw err;
+      });
   }
   return workerSrcPromise;
 }
@@ -42,6 +50,7 @@ export async function loadDocument(fileOrArrayBuffer, { onPasswordPrompt, skipPa
       ? await fileOrArrayBuffer.arrayBuffer()
       : fileOrArrayBuffer;
   const loadingTask = pdfjsLib.getDocument({ data });
+  let cancelled = false;
   loadingTask.onPassword = async (updatePassword, reason) => {
     if (skipPassword) {
       loadingTask.destroy();
@@ -51,10 +60,15 @@ export async function loadDocument(fileOrArrayBuffer, { onPasswordPrompt, skipPa
     const wrong = reason === pdfjsLib.PasswordResponses.INCORRECT_PASSWORD;
     const password = passwordAsker ? await passwordAsker({ name, wrong }) : null;
     if (password == null) {
+      cancelled = true;
       loadingTask.destroy();
       return;
     }
     updatePassword(password);
   };
-  return loadingTask.promise;
+  // Cancelling the password question rejects like a failure; mark it so
+  // callers can tell it apart.
+  return loadingTask.promise.catch((err) => {
+    throw cancelled ? Object.assign(new Error("Password entry cancelled"), { cancelled: true }) : err;
+  });
 }
