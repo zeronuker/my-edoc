@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { loadDocument } from "./edoc.js";
 import { loadAnnotatedCopy } from "./annotations.js";
 import { extrasKey } from "./fileSystem.js";
-import { dbGet, dbSet } from "./db.js";
+import { getPositions, savePosition } from "./positions.js";
 import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
 import { openTab } from "./appHelpers.js";
 import { applyTurns } from "./pageTurns.js";
@@ -79,11 +79,7 @@ export function usePane({
   // page/scale and clobber the new file's saved position before restore runs.
   useEffect(() => {
     if (!selectedHandle || !pdf || restoringRef.current) return;
-    (async () => {
-      const all = (await dbGet("filePositions")) || {};
-      all[extrasKey(selectedHandle)] = { page: currentPage, scale, numPages };
-      await dbSet("filePositions", all);
-    })();
+    savePosition(extrasKey(selectedHandle), { page: currentPage, scale, numPages }).catch(console.error);
   }, [selectedHandle, pdf, currentPage, scale, numPages]);
 
   // Drive the pdf.js viewer from React state/events instead of rendering
@@ -212,7 +208,7 @@ export function usePane({
       // A newer load has since taken over — drop this stale result instead of
       // overwriting the newer call's already-applied state.
       if (loadTokenRef.current !== token) return;
-      const positions = (await dbGet("filePositions")) || {};
+      const positions = await getPositions();
       pendingRestoreRef.current = positions[extrasKey(fileHandle)] || null;
       setPdf(doc);
       addToRecent(fileHandle);

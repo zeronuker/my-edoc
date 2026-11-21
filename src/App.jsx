@@ -53,6 +53,7 @@ import { turnPages } from "./pageTurns.js";
 import { usePresence } from "./usePresence.js";
 import { flattenByKey, isInside, makeNodeKey, parseNodeKey, planMove } from "./treeOverlay.js";
 import { dbGet, dbSet } from "./db.js";
+import { getPositions, updatePositions } from "./positions.js";
 import {
   formatBytes,
   resultMessage,
@@ -1264,8 +1265,7 @@ function App() {
       dbSet("outlineExpanded", next);
       return next;
     });
-    const positions = (await dbGet("filePositions")) || {};
-    await dbSet("filePositions", omitKeys(positions, keys));
+    await updatePositions((all) => keys.forEach((k) => delete all[k]));
     setStars((prev) => {
       const next = omitKeys(prev, keys);
       dbSet("stars", next);
@@ -1338,7 +1338,7 @@ function App() {
     const files = rawNode.kind === "file" ? [rawNode] : flattenTreeFiles(rawNode);
     const cleanNames = files.map((f) => fileKeyFor(folder.tree.name, f.relativePath));
     const annotated = new Set(await listAnnotatedCopyNames());
-    const positions = (await dbGet("filePositions")) || {};
+    const positions = await getPositions();
     const annotatedCount = cleanNames.filter((n) => annotated.has(n)).length;
     const otherCount = cleanNames.filter(
       (n) => !annotated.has(n) && (bookmarks[n] || positions[n] || outlineExpanded[n])
@@ -1537,7 +1537,7 @@ function App() {
     // Bookmarks and annotations go along only if the user says so.
     const leaves = items.flatMap((i) => planFiles(i.plan));
     const annotated = new Set(await listAnnotatedCopyNames());
-    const positions = (await dbGet("filePositions")) || {};
+    const positions = await getPositions();
     let annotatedCount = 0;
     let otherCount = 0;
     for (const { srcKey: k } of leaves) {
@@ -1631,7 +1631,9 @@ function App() {
     if (withMarks) {
       setBookmarks((prev) => carry(prev, "bookmarks"));
       setOutlineExpanded((prev) => carry(prev, "outlineExpanded"));
-      await dbSet("filePositions", carry((await dbGet("filePositions")) || {}, "filePositions"));
+      await updatePositions((all) => {
+        for (const { from, to } of pairs) if (from && all[from] !== undefined) all[to] = all[from];
+      });
     }
     if (withNotes) {
       for (const { from, to } of pairs) {
