@@ -1086,19 +1086,27 @@ function App() {
     startAddFiles(picked);
   }
 
-  function startAddFiles(picked) {
+  // `tempFolderId`: the storage the picked files are held in (PDFs received
+  // over wifi, see beginReceive). It is deleted once they are added or the
+  // dialog is dismissed.
+  function startAddFiles(picked, tempFolderId = null) {
     const files = picked.filter((f) => f.name.toLowerCase().endsWith(".pdf"));
+    dropTempFiles(addFiles?.tempFolderId); // a dialog still open is replaced
     if (files.length === 0) {
+      dropTempFiles(tempFolderId);
       setError("No PDF files were selected.");
       return;
     }
-    setAddFiles({ files });
+    setAddFiles({ files, tempFolderId });
   }
 
-  // A folder arriving over wifi is saved to storage file by file as it comes
-  // in (see openLink), so a folder of any size never sits in memory.
-  function beginReceive(kind) {
-    if (kind !== "folder") return null;
+  function dropTempFiles(folderId) {
+    if (folderId) deleteLegacyFolderFiles(folderId);
+  }
+
+  // Anything arriving over wifi is saved to storage file by file as it comes
+  // in (see openLink), so a transfer of any size never sits in memory.
+  function beginReceive() {
     const folderId = crypto.randomUUID();
     return {
       folderId,
@@ -1123,13 +1131,15 @@ function App() {
         setError(`Couldn't add the folder: ${err.message}`)
       );
     } else if (addFilesTargets.length === 0) {
+      // Already in storage under store.folderId, so that becomes the folder
+      // itself; withPath makes a new File, which must keep its stored name.
       addFolderFromList(
-        files.map((f) => withPath(f, `Received/${f.name}`)),
-        undefined,
+        files.map((f) => Object.assign(withPath(f, `Received/${f.name}`), { storedAs: f.storedAs })),
+        store?.folderId,
         skipped
       ).catch((err) => setError(`Couldn't add the files: ${err.message}`));
     } else {
-      startAddFiles(files);
+      startAddFiles(files, store?.folderId);
       if (skipped.length > 0) showResult("received", "WIFI", files.length, skipped);
     }
   }
@@ -1140,6 +1150,7 @@ function App() {
   async function handleAddFilesConfirm(folderKey, destPath, choices) {
     const target = folders.find((f) => f.key === folderKey);
     if (!target?.tree) {
+      dropTempFiles(addFiles?.tempFolderId);
       setAddFiles(null);
       return;
     }
@@ -1226,6 +1237,7 @@ function App() {
       } finally {
         setCopyProgress(null);
         copyControllerRef.current = null;
+        dropTempFiles(addFiles.tempFolderId);
       }
 
       for (const path of discardNames) {
@@ -2013,7 +2025,10 @@ function App() {
           onConfirm={(...args) =>
             handleAddFilesConfirm(...args).catch((err) => setError(`Couldn't add the files: ${err.message}`))
           }
-          onClose={() => setAddFiles(null)}
+          onClose={() => {
+            dropTempFiles(addFiles?.tempFolderId);
+            setAddFiles(null);
+          }}
         />
       )}
       {wifiPresence.present && (
