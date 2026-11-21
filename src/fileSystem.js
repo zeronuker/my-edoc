@@ -45,9 +45,12 @@ export function extrasKey(handle) {
 
 // Wraps a single dropped File (from drag-and-drop) in the same handle shape
 // a copied file has, so selectFile() can treat it identically regardless of
-// how it was opened.
+// how it was opened. It has no folder, so what it is filed under (see
+// fileKeyFor) is its name plus size and date: two different files that share
+// a name must not share bookmarks, a saved page or an annotated copy.
 export function wrapDroppedFile(file) {
-  return permissiveHandle(file.name, { getFile: async () => file });
+  const fileKey = `dropped:${file.name}:${file.size}:${file.lastModified}`;
+  return permissiveHandle(file.name, { getFile: async () => file, fileKey });
 }
 
 function openFileInput(configure) {

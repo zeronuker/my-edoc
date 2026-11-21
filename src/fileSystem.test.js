@@ -146,7 +146,18 @@ test("a copied file's extras are keyed by folder name and path, a dropped file's
   })(tree);
   assert.deepEqual(keys.sort(), ["Lib:Sub/a.pdf", "Lib:a.pdf"]);
   assert.equal(extrasKey(reviveLegacyFileHandle("id", "a.pdf", "Sub/a.pdf", "Lib")), "Lib:Sub/a.pdf");
-  assert.equal(extrasKey(wrapDroppedFile({ name: "dropped.pdf" })), "dropped.pdf");
+  assert.equal(
+    extrasKey(wrapDroppedFile({ name: "dropped.pdf", size: 10, lastModified: 5 })),
+    "dropped:dropped.pdf:10:5"
+  );
+});
+
+test("two different dropped files with the same name are filed apart; the same file is not", () => {
+  const key = (f) => extrasKey(wrapDroppedFile(f));
+  const a = { name: "invoice.pdf", size: 100, lastModified: 1 };
+  assert.notEqual(key(a), key({ name: "invoice.pdf", size: 200, lastModified: 1 }));
+  assert.notEqual(key(a), key({ name: "invoice.pdf", size: 100, lastModified: 2 }));
+  assert.equal(key(a), key({ ...a }));
 });
 
 test("every stored file gets its own name, so paths like Reports/Q1.pdf and Reports__Q1.pdf never collide", () => {
