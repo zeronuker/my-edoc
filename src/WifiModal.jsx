@@ -1,18 +1,22 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import jsQR from "jsqr";
 import ChamferFrame from "@brand/ChamferFrame";
-import { makeCode, cleanCode, hostSession, joinSession, openLink } from "./transfer.js";
+import { makeCode, cleanCode, hostSession, joinSession, admit, openLink } from "./transfer.js";
 import { pickFolderLegacy, pickPdfFiles, scanReadable } from "./fileSystem.js";
 
 const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;
 const CONNECT_TIMEOUT_MS = 15000;
+const ALLOW_TIMEOUT_MS = 60000; // for the host's person to answer Allow / Deny
 
 function QrImage({ text }) {
-  const qr = qrcode(0, "M");
-  qr.addData(text);
-  qr.make();
-  return <img className="wifi-qr" src={qr.createDataURL(6, 8)} alt={`QR code for ${text}`} />;
+  const src = useMemo(() => {
+    const qr = qrcode(0, "M");
+    qr.addData(text);
+    qr.make();
+    return qr.createDataURL(6, 8);
+  }, [text]);
+  return <img className="wifi-qr" src={src} alt={`QR code for ${text}`} />;
 }
 
 // Camera → jsQR, a few looks a second, until it reads a valid code.
@@ -52,6 +56,8 @@ function QrScanner({ onCode, onFail }) {
       clearTimeout(timer);
       stream?.getTracks().forEach((t) => t.stop());
     };
+    // The camera starts once; the callbacks only set state and read refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return <video ref={video} className="wifi-scan" playsInline muted />;
 }
@@ -69,6 +75,7 @@ export default function WifiModal({ hidden, appError, onSent, onReceived, beginR
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [incoming, setIncoming] = useState(null); // a device that has connected to this code, waiting to be allowed
   const peer = useRef(null);
   const link = useRef(null);
   const timer = useRef(null);
@@ -94,12 +101,33 @@ export default function WifiModal({ hidden, appError, onSent, onReceived, beginR
     setScanning(false);
     setBusy(false);
     setStatus("");
+    setIncoming(null);
     setError(message);
     setStage("menu");
   }
 
+  // The code is the only thing a joining device needs, and it is read off a
+  // screen, so the host's person says yes before anything can be sent.
+  function askToAllow(conn) {
+    setIncoming(conn);
+    conn.on("close", () => setIncoming((current) => (current === conn ? null : current)));
+  }
+
+  function allow() {
+    const conn = incoming;
+    setIncoming(null);
+    admit(conn);
+    connected(conn);
+  }
+
+  function deny() {
+    incoming.close();
+    setIncoming(null);
+  }
+
   function connected(conn) {
     clearTimeout(timer.current);
+    setStatus("");
     conn.on("close", () => reset("The other device disconnected."));
     link.current = openLink(conn, {
       onReceived: (result) => {
@@ -121,7 +149,7 @@ export default function WifiModal({ hidden, appError, onSent, onReceived, beginR
     setError("");
     setStage("show");
     peer.current?.destroy();
-    peer.current = hostSession(next, connected, (err) => {
+    peer.current = hostSession(next, askToAllow, (err) => {
       // The pairing service is only needed to connect; once linked, its errors don't matter.
       if (link.current) return;
       if (err.type === "unavailable-id") startHost(); // someone else has that code; draw another
@@ -136,10 +164,21 @@ export default function WifiModal({ hidden, appError, onSent, onReceived, beginR
     setBusy(true);
     setScanning(false);
     peer.current?.destroy();
-    peer.current = joinSession(entered, connected, (err) => {
-      if (link.current) return;
-      reset(err.type === "peer-unavailable" ? "No device is showing that code." : `Couldn't connect: ${err.message}`);
-    });
+    peer.current = joinSession(
+      entered,
+      connected,
+      (err) => {
+        if (link.current) return;
+        if (err.type === "denied") reset(err.message);
+        else reset(err.type === "peer-unavailable" ? "No device is showing that code." : `Couldn't connect: ${err.message}`);
+      },
+      () => {
+        // Reached it; now it is up to the other device's person.
+        clearTimeout(timer.current);
+        setStatus("Waiting for the other device to allow it…");
+        timer.current = setTimeout(() => reset("The other device didn't allow the connection."), ALLOW_TIMEOUT_MS);
+      }
+    );
     timer.current = setTimeout(
       () => reset("Couldn't reach it over wifi. Both devices need to be on the same network."),
       CONNECT_TIMEOUT_MS
@@ -214,11 +253,25 @@ export default function WifiModal({ hidden, appError, onSent, onReceived, beginR
           </>
         )}
 
-        {stage === "show" && (
+        {stage === "show" && !incoming && (
           <>
             <div className="wifi-code">{code}</div>
             <QrImage text={code} />
             <div className="update-dialog-body">Waiting for the other device…</div>
+          </>
+        )}
+
+        {stage === "show" && incoming && (
+          <>
+            <div className="update-dialog-body">A device wants to connect. Allow it only if it is yours.</div>
+            <div className="update-dialog-actions">
+              <button className="cb-btn" onClick={deny}>
+                Deny
+              </button>
+              <button className="cb-btn update-dialog-now" onClick={allow}>
+                Allow
+              </button>
+            </div>
           </>
         )}
 

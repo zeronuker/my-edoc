@@ -87,25 +87,56 @@ export class FileAssembler {
 
 // ---- Pairing ----
 
-// Shows up as `code` for the other device to join. onConnection fires once
-// with the first device to connect; any later one is turned away.
+// Shows up as `code` for the other device to join. onConnection fires with
+// the first device to connect, and the host decides whether to let it in (see
+// admit); any second device is turned away while one is waiting or linked.
+// A device that drops before then frees the place for the next one.
 export function hostSession(code, onConnection, onError) {
   const peer = new Peer(ID_PREFIX + code, PEER_OPTIONS);
   let taken = false;
   peer.on("connection", (conn) => {
     if (taken) return conn.close();
     taken = true;
+    conn.on("close", () => {
+      taken = false;
+    });
     conn.on("open", () => onConnection(conn));
   });
   peer.on("error", onError);
   return peer;
 }
 
-export function joinSession(code, onConnection, onError) {
+// The host's "yes": until it is sent the joining device is not linked and
+// can't send anything.
+export function admit(conn) {
+  conn.send(JSON.stringify({ t: "ready" }));
+}
+
+// onOpen fires once the channel to the host is open, before the host has
+// answered; onConnection only after the host has let this device in.
+export function joinSession(code, onConnection, onError, onOpen) {
   const peer = new Peer(PEER_OPTIONS);
   peer.on("open", () => {
     const conn = peer.connect(ID_PREFIX + code, { serialization: "raw", reliable: true });
-    conn.on("open", () => onConnection(conn));
+    conn.on("open", () => {
+      onOpen?.();
+      let admitted = false;
+      const waitForHost = (data) => {
+        try {
+          if (typeof data !== "string" || JSON.parse(data).t !== "ready") return;
+        } catch {
+          return;
+        }
+        admitted = true;
+        conn.off("data", waitForHost);
+        onConnection(conn);
+      };
+      conn.on("data", waitForHost);
+      // Closed before being let in: the host said no.
+      conn.on("close", () => {
+        if (!admitted) onError(Object.assign(new Error("The other device didn't allow the connection."), { type: "denied" }));
+      });
+    });
     conn.on("error", onError);
   });
   peer.on("error", onError);
@@ -136,11 +167,19 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
   let saveError = null;
   let ack = null;
   let nack = null;
+  let rejected = false; // this transfer was refused: its remaining data is ignored
 
   function fail(err) {
     conn.send(JSON.stringify({ t: "fail", message: err.message }));
     onError?.(err);
   }
+
+  // A link that drops part-way leaves a half-received folder in storage.
+  conn.on("close", () => {
+    if (!assembler) return;
+    assembler = null;
+    saving.then(() => store?.discard()).catch(() => {});
+  });
 
   conn.on("data", (data) => {
     try {
@@ -149,6 +188,7 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
         if (msg.t === "ok") ack?.();
         else if (msg.t === "fail") nack?.(new Error(msg.message));
         else if (msg.t === "manifest") {
+          rejected = false;
           list = { kind: msg.kind, count: msg.count, files: [] };
           skipped = [];
         } else if (msg.t === "skipped") skipped.push(...msg.names);
@@ -169,6 +209,7 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
         }
         return;
       }
+      if (rejected) return;
       if (!assembler) throw new Error("Files arrived before their list");
       const done = assembler.push(data);
       if (!store) files.push(...done);
@@ -200,6 +241,18 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
           .catch((err) => onError?.(err));
       }
     } catch (err) {
+      // Tell the sender too, or it would wait for an answer that never comes.
+      if (!rejected) {
+        rejected = true;
+        if (assembler) saving.then(() => store?.discard()).catch(() => {});
+        assembler = null;
+        list = null;
+        try {
+          conn.send(JSON.stringify({ t: "fail", message: err.message }));
+        } catch {
+          // the link is already gone
+        }
+      }
       onError?.(err);
     }
   });
@@ -214,6 +267,11 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
       ack = resolve;
       nack = reject;
       conn.once("close", () => reject(new Error("Connection closed")));
+    });
+    // The other side refusing or failing ends the sending at once.
+    let failure = null;
+    acked.catch((err) => {
+      failure = err;
     });
     // The list goes in small pieces: a data channel refuses a message much
     // over 256 KB, and the list of a few thousand files is bigger than that.
@@ -248,6 +306,7 @@ export function openLink(conn, { onReceived, onReceiveProgress, onError, beginRe
       for (let at = 0; at < file.size; at += READ_BLOCK) {
         const block = await file.slice(at, at + READ_BLOCK).arrayBuffer();
         for (let i = 0; i < block.byteLength; i += CHUNK) {
+          if (failure) throw failure;
           while (conn.bufferSize > MAX_QUEUED) await new Promise((r) => setTimeout(r, 20));
           conn.send(block.slice(i, i + CHUNK));
         }
