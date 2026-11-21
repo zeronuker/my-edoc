@@ -4,6 +4,10 @@ import "pdfjs-dist/web/pdf_viewer.css";
 import { buildReadingFilter } from "./appHelpers.js";
 import { MIN_SCALE, MAX_SCALE } from "./viewerConstants.js";
 
+// How long a pinch has to pause before the pages are drawn sharp at the new
+// zoom (pdf.js's own default for pinch / ctrl+wheel zoom).
+const PINCH_REDRAW_DELAY_MS = 400;
+
 // Touch gestures: tap zones (single/two-up) to flip a page, horizontal
 // swipe (two-up only) to flip a spread, pinch (all modes) to zoom.
 // The two continuous modes get none of this — native scroll already does the
@@ -37,7 +41,16 @@ function attachTouchGestures(el, pdfViewer, viewMode, annotationTool, tapGuardRe
     if (pointers.size === 2 && pinchStartDist) {
       const [a, b] = [...pointers.values()];
       const ratio = dist(a, b) / pinchStartDist;
-      pdfViewer.currentScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchStartScale * ratio));
+      const target = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchStartScale * ratio));
+      // Pages are stretched at once (cheap) and only drawn sharp again once
+      // the pinch pauses: setting currentScale re-drew every visible page on
+      // every finger movement, which is what made pinching stutter. The zoom
+      // stays centred between the fingers.
+      pdfViewer.updateScale({
+        drawingDelay: PINCH_REDRAW_DELAY_MS,
+        scaleFactor: target / pdfViewer.currentScale,
+        origin: [(a.x + b.x) / 2, (a.y + b.y) / 2],
+      });
     }
   }
 

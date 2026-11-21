@@ -7,6 +7,9 @@ import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./viewerConstants.js";
 import { openTab } from "./appHelpers.js";
 import { applyTurns } from "./pageTurns.js";
 
+// How often the app's zoom figure follows a zoom in progress (see onScaleChanging).
+const SCALE_UPDATE_MS = 100;
+
 // A big scanned file can take a while to open on a small device.
 const LOAD_TIMEOUT_MS = 60000;
 
@@ -91,7 +94,19 @@ export function usePane({
     if (!viewerApi) return;
     const { eventBus } = viewerApi;
     const onPageChanging = (e) => setCurrentPage(e.pageNumber);
-    const onScaleChanging = (e) => setScale(e.scale);
+    // A pinch reports the scale on every finger movement, and each update
+    // redraws the whole app; the zoom figure only needs the latest value a few
+    // times a second (the last one always lands).
+    let latestScale = 1;
+    let scaleTimer = null;
+    const onScaleChanging = (e) => {
+      latestScale = e.scale;
+      if (scaleTimer !== null) return;
+      scaleTimer = setTimeout(() => {
+        scaleTimer = null;
+        setScale(latestScale);
+      }, SCALE_UPDATE_MS);
+    };
     const onPagesInit = () => {
       // pdf.js resets scrollMode/spreadMode to its own defaults (continuous,
       // no spread) on every setDocument call, regardless of what they were
@@ -123,6 +138,7 @@ export function usePane({
     eventBus.on("scalechanging", onScaleChanging);
     eventBus.on("pagesinit", onPagesInit);
     return () => {
+      clearTimeout(scaleTimer);
       eventBus.off("pagechanging", onPageChanging);
       eventBus.off("scalechanging", onScaleChanging);
       eventBus.off("pagesinit", onPagesInit);
