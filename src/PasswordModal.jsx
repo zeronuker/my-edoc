@@ -12,7 +12,7 @@ export default function PasswordModal({ request, onSubmit, onCancel, closing }) 
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} />
-      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true">
         <div className="update-dialog-header">
           <div>
             <div className="update-dialog-title">PASSWORD NEEDED</div>

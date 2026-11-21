@@ -8,7 +8,7 @@ export default function ToolModal({ title, subtitle, children, canSave = true, b
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={busy ? undefined : onClose} />
-      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true">
         <div className="update-dialog-header">
           <div>
             <div className="update-dialog-title">{title}</div>

@@ -289,8 +289,8 @@ html[data-anim="off"] .copy-progress-bar-fill::after { animation: none; }
   .sidebar-backdrop.open { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
   .sidebar { box-shadow: 12px 0 36px rgba(0, 0, 0, .35); }
   @media (prefers-reduced-motion: no-preference) {
-    .sidebar.open { transition: transform calc(var(--oxy-d) * 2.5) var(--oxy-spring); }
-    .sidebar:not(.open) { transition: transform calc(var(--oxy-d) * 1.5) var(--oxy-ease); }
+    .sidebar.open { transition: transform calc(var(--oxy-d) * 2.5) var(--oxy-spring), visibility 0s; }
+    .sidebar:not(.open) { transition: transform calc(var(--oxy-d) * 1.5) var(--oxy-ease), visibility 0s linear calc(var(--oxy-d) * 1.5); }
   }
 }
 

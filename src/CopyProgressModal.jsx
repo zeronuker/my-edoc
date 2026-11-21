@@ -13,7 +13,7 @@ export default function CopyProgressModal({ title, folderName, files, doneCount,
   return (
     <>
       <div className="modal-backdrop" />
-      <ChamferFrame className="modal-dialog copy-progress-dialog">
+      <ChamferFrame className="modal-dialog copy-progress-dialog" role="dialog" aria-modal="true">
         <div className="update-dialog-header">
           <span className={`copy-progress-icon${doneCount === files.length ? " done" : ""}`} />
           <div>

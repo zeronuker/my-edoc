@@ -15,7 +15,7 @@ export default function RenameModal({ request, onConfirm, onClose, closing }) {
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
-      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog mode-picker-dialog${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true">
         <div className="update-dialog-header">
           <div>
             <div className="update-dialog-title">RENAME</div>

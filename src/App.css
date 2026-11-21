@@ -408,11 +408,17 @@ body:has(.modal-backdrop, .move-picker) {
     max-width: 320px;
     z-index: 50;
     transform: translateX(-100%);
-    transition: transform var(--ed-dur, 200ms) ease;
+    /* Closed, it is off-screen but its shadow would still reach the page and
+       its buttons would still take keyboard focus: hide it once it has slid
+       out (the same way the toolbar drawer does). */
+    visibility: hidden;
+    transition: transform var(--ed-dur, 200ms) ease, visibility 0s linear var(--ed-dur, 200ms);
   }
 
   .sidebar.open {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform var(--ed-dur, 200ms) ease, visibility 0s;
   }
 }
 

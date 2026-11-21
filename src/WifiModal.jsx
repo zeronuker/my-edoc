@@ -185,7 +185,7 @@ export default function WifiModal({ hidden, appError, onSent, onReceived, beginR
   return (
     <>
       <div className={`modal-backdrop${closing ? " is-closing" : ""}`} onClick={onClose} />
-      <ChamferFrame className={`modal-dialog add-files-dialog${closing ? " is-closing" : ""}`}>
+      <ChamferFrame className={`modal-dialog add-files-dialog${closing ? " is-closing" : ""}`} role="dialog" aria-modal="true">
         <div className="update-dialog-header">
           <span className="update-dialog-icon">⇅</span>
           <div>
