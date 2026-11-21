@@ -8,7 +8,7 @@
 // follows) need no help and never trigger this.
 const MIN_KEYBOARD_PX = 150
 
-export function keyboardUp() {
+function keyboardUp() {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
   return !!vv && vv.scale <= 1.01 && vv.height < window.innerHeight - MIN_KEYBOARD_PX
 }

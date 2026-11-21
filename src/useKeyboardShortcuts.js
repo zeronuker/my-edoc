@@ -44,8 +44,13 @@ export function useKeyboardShortcuts(viewerApi, { presenting, onExitPresentation
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        document.getElementById("doc-search-input")?.focus();
+        // With no search box on screen (no document open) the browser's own
+        // find is left alone.
+        const box = document.getElementById("doc-search-input");
+        if (box) {
+          e.preventDefault();
+          box.focus();
+        }
         return;
       }
       if (presenting && e.key === "Escape") {

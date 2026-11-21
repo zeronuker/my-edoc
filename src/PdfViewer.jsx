@@ -1,30 +1,8 @@
 import { useEffect, useRef } from "react";
-import {
-  EventBus,
-  PDFLinkService,
-  PDFFindController,
-  PDFViewer,
-  ScrollMode,
-  SpreadMode,
-} from "pdfjs-dist/web/pdf_viewer.mjs";
+import { EventBus, PDFLinkService, PDFFindController, PDFViewer } from "pdfjs-dist/web/pdf_viewer.mjs";
 import "pdfjs-dist/web/pdf_viewer.css";
 import { buildReadingFilter } from "./appHelpers.js";
-
-export const SCROLL_MODE_BY_VIEW = {
-  single: ScrollMode.PAGE,
-  continuous: ScrollMode.VERTICAL,
-  "two-up": ScrollMode.PAGE,
-  "two-up-continuous": ScrollMode.VERTICAL,
-};
-export const SPREAD_MODE_BY_VIEW = {
-  single: SpreadMode.NONE,
-  continuous: SpreadMode.NONE,
-  "two-up": SpreadMode.ODD,
-  "two-up-continuous": SpreadMode.ODD,
-};
-
-export const MIN_SCALE = 0.25;
-export const MAX_SCALE = 5;
+import { MIN_SCALE, MAX_SCALE } from "./viewerConstants.js";
 
 // Touch gestures: tap zones (single/two-up) to flip a page, horizontal
 // swipe (two-up only) to flip a spread, pinch (all modes) to zoom.

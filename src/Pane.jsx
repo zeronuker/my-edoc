@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { usePresence } from "./usePresence.js";
 import { IconX, IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import PdfViewer from "./PdfViewer.jsx";
@@ -7,6 +7,15 @@ import { NO_AUTO } from "./appHelpers.js";
 
 // Prev/next + page counter, floating over the bottom of its pane.
 function PagePill({ pdfViewer, currentPage, numPages }) {
+  // What is typed in the box until Enter or leaving it: going to the page on
+  // every digit ("125" visiting 1, 12, 125) also stopped the box being emptied.
+  const [draft, setDraft] = useState(null);
+  const cancelled = useRef(false); // Escape: leave without going to the typed page
+  function commit() {
+    const n = Number(draft);
+    if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
+    setDraft(null);
+  }
   return (
     <div className="page-pill">
       <button aria-label="Previous page" disabled={currentPage <= 1} onClick={() => pdfViewer?.previousPage()}>
@@ -17,13 +26,22 @@ function PagePill({ pdfViewer, currentPage, numPages }) {
           type="text"
           inputMode="numeric"
           {...NO_AUTO}
-          value={currentPage}
+          value={draft ?? currentPage}
           aria-label="Current page"
-          onChange={(e) => {
-            const n = Number(e.target.value.replace(/\D/g, ""));
-            if (pdfViewer && n >= 1 && n <= numPages) pdfViewer.currentPageNumber = n;
+          onFocus={(e) => {
+            cancelled.current = false;
+            e.target.select();
+          }}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
+          onBlur={() => {
+            if (!cancelled.current && draft !== null) commit();
+            cancelled.current = false;
           }}
           onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              cancelled.current = true;
+              setDraft(null);
+            }
             if (e.key === "Enter" || e.key === "Escape") e.target.blur();
           }}
         />

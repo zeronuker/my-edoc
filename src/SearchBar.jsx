@@ -74,7 +74,9 @@ export default function SearchBar({ eventBus }) {
       eventBus.dispatch("findbarclose", { source: "edoc" });
       return;
     }
-    dispatchFind("");
+    // Wait for a pause in typing: every key would otherwise search the whole file.
+    const timer = setTimeout(() => dispatchFind(""), 250);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, eventBus]);
 

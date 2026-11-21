@@ -8,6 +8,9 @@ export function useWakeLock(enabled) {
     if (!enabled) return;
     let lock = null;
     const acquire = async () => {
+      // Already held (a quick hide and show must not take a second one that
+      // nothing would ever release).
+      if (lock && !lock.released) return;
       try {
         lock = await navigator.wakeLock?.request("screen");
       } catch {

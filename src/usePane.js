@@ -3,7 +3,7 @@ import { loadDocument } from "./edoc.js";
 import { loadAnnotatedCopy } from "./annotations.js";
 import { extrasKey } from "./fileSystem.js";
 import { getPositions, savePosition } from "./positions.js";
-import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./PdfViewer.jsx";
+import { SCROLL_MODE_BY_VIEW, SPREAD_MODE_BY_VIEW } from "./viewerConstants.js";
 import { openTab } from "./appHelpers.js";
 import { applyTurns } from "./pageTurns.js";
 

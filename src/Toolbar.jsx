@@ -23,7 +23,7 @@ import {
 } from "@tabler/icons-react";
 import SettingsIcon from "@brand/SettingsIcon";
 import SearchBar from "./SearchBar.jsx";
-import { MIN_SCALE, MAX_SCALE } from "./PdfViewer.jsx";
+import { MIN_SCALE, MAX_SCALE } from "./viewerConstants.js";
 import Slider from "./Slider.jsx";
 import { NO_AUTO } from "./appHelpers.js";
 
