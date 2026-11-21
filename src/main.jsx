@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import ErrorBoundary from './ErrorBoundary.jsx'
 import './oxygen.css' // after App so it loads after App.css
 import { installKeyboardArea } from './keyboardArea'
 import { installRipple } from './ripple.js'
@@ -10,7 +11,9 @@ installRipple()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )
 

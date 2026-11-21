@@ -254,6 +254,11 @@ function App() {
   // with default state, racing ahead of (and clobbering) the load below.
   const initializedRef = useRef(false);
   const tabsRestoredRef = useRef(false);
+  // See writeFolderList: set once the saved folder list has been read; saved
+  // folders that couldn't be rebuilt; the one-per-session backup of the list.
+  const folderListReady = useRef(false);
+  const skippedFolderRecords = useRef([]);
+  const folderListBackup = useRef(null);
 
   const {
     tabs,
@@ -322,17 +327,33 @@ function App() {
       // The file copies live in OPFS already, so they're ready to browse
       // immediately.
       const records = (await dbGet("legacyFolders")) || [];
-      const loaded = records.map((record) => {
-        const tree = reviveLegacyManifest(record.id, record.manifest);
-        return {
-          key: crypto.randomUUID(),
-          dirHandle: tree.handle,
-          tree,
-          connectedAt: record.connectedAt,
-          folderId: record.id,
-          sizeBytes: record.sizeBytes ?? 0,
-        };
-      });
+      // The list is only ever written back once it has been read in full (see
+      // writeFolderList), so a failed read can't be overwritten with less.
+      folderListReady.current = true;
+      // One damaged record must not take the others down with it. It is left
+      // as it is in storage (and its files kept) rather than dropped.
+      const loaded = [];
+      const skipped = [];
+      for (const record of records) {
+        try {
+          const tree = reviveLegacyManifest(record.id, record.manifest);
+          loaded.push({
+            key: crypto.randomUUID(),
+            dirHandle: tree.handle,
+            tree,
+            connectedAt: record.connectedAt,
+            folderId: record.id,
+            sizeBytes: record.sizeBytes ?? 0,
+          });
+        } catch (err) {
+          console.error("Couldn't load a saved folder", err);
+          skipped.push(record);
+        }
+      }
+      skippedFolderRecords.current = skipped;
+      if (skipped.length > 0) {
+        setError(`${skipped.length} saved folder${skipped.length === 1 ? "" : "s"} couldn't be loaded. ${skipped.length === 1 ? "It was" : "They were"} left untouched.`);
+      }
 
       if (cancelled) return;
       setFolders(loaded);
@@ -348,7 +369,7 @@ function App() {
         });
       });
       // Free any copy a killed app left half-written (see sweepOrphanFolders).
-      sweepOrphanFolders(loaded.map((f) => f.folderId))
+      sweepOrphanFolders([...loaded.map((f) => f.folderId), ...skipped.map((r) => r.id)])
         .then((n) => n > 0 && refreshStorageEstimate())
         .catch(() => {});
 
@@ -645,14 +666,28 @@ function App() {
   async function commitFolders(next) {
     foldersRef.current = next;
     setFolders(next);
-    await dbSet("legacyFolders", folderListRecords(next));
+    await writeFolderList(next);
+  }
+
+  // Writes the folder list to storage. Refuses until the saved list has been
+  // read at launch. Keeps (untouched) any saved folder that couldn't be
+  // loaded, and copies the list as it was at launch to a backup key before
+  // the first change of the session.
+  function writeFolderList(next) {
+    if (!folderListReady.current) {
+      return Promise.reject(new Error("your saved folders haven't loaded, so nothing was changed. Reload the app"));
+    }
+    folderListBackup.current ??= dbGet("legacyFolders").then((before) => before && dbSet("legacyFoldersBackup", before));
+    return folderListBackup.current.then(() =>
+      dbSet("legacyFolders", [...folderListRecords(next), ...skippedFolderRecords.current])
+    );
   }
 
   // Saves the lightweight folder list only — each folder's manifest (its
   // shape), not file bytes. Never call this expecting it to write any file
   // content; that only happens in writeLegacyFiles.
   function saveFolderList(next) {
-    dbSet("legacyFolders", folderListRecords(next));
+    writeFolderList(next).catch((err) => setError(`Couldn't save your folders: ${err.message}`));
   }
 
   // De-dupes by filename (same key filePositions uses) and caps at 10, most
